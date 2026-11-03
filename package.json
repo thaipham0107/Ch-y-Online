@@ -1,0 +1,15 @@
+{
+  "name": "chay-online",
+  "version": "1.0.0",
+  "description": "Chạy Online - game chạy bộ nhiều người chơi, kết nối Strava, sức mạnh = số km",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "demo": "STRAVA_MOCK=1 node server.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  }
+}
