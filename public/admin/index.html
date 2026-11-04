@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Quản trị · Chạy Online</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div id="login" class="loginwrap" hidden>
+  <form id="f" class="card login">
+    <h1>🏃 Chạy Online · Quản trị</h1>
+    <input id="u" placeholder="Tài khoản" autocomplete="username" required>
+    <input id="p" type="password" placeholder="Mật khẩu" autocomplete="current-password" required>
+    <div id="lerr" class="err" hidden></div>
+    <button class="btn pri">Đăng nhập</button>
+  </form>
+</div>
+<div id="app" hidden>
+  <header class="top">
+    <b class="brand">🏃 Quản trị</b>
+    <nav id="nav">
+      <a href="#/overview" data-r="overview">Tổng quan</a><a href="#/users" data-r="users">Người chơi</a><a href="#/guests" data-r="guests">Khách</a>
+      <a href="#/tournaments" data-r="tournaments">Giải đấu</a><a href="#/activity" data-r="activity">Hoạt động</a><a href="#/audit" data-r="audit">Nhật ký</a>
+    </nav>
+    <button id="out" class="btn">Đăng xuất</button>
+  </header>
+  <main id="main"></main>
+</div>
+<div id="dlg" class="dlg" hidden><div class="card"><div id="dbody"></div></div></div>
+<div id="toast" class="toast"></div>
+<script src="admin.js"></script>
+</body>
+</html>

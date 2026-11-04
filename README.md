@@ -55,3 +55,9 @@ Hình học và độ cao của 10 bản đồ nằm trong `public/courses/` (`<
 - Lưu ý điều khoản: OpenStreetMap hạn chế tải hàng loạt và Esri có điều khoản riêng về lưu/phân phối ảnh. Bản chạy thật nên dùng nhà cung cấp có giấy phép (đổi `TILES_ROAD`/`TILES_SAT`).
 - Giải đấu bản đồ 3D chọn được **Cảnh 3D / Bản đồ 2D / Vệ tinh**; mọi người chơi trong giải dùng chung kiểu hiển thị.
 - Giao diện đã kiểm tra ở PC 1440×900, tablet 820×1180 và 1180×820, điện thoại 390×844 và 844×390 (HUD gọn, vùng chạm lớn, safe-area, FOV camera tự nới khi màn dọc).
+
+## Trang quản trị (`/admin/`)
+- Đăng nhập bằng tài khoản trong `admin.config.json` (đã `.gitignore`, **không commit**): `{"username":"...","password":"..."}` (xem `admin.config.example.json`); hoặc biến môi trường `ADMIN_USER`, `ADMIN_PASS`. Không cấu hình thì cổng quản trị tắt. Phiên 12 giờ, cookie `httpOnly`/`SameSite=Strict`, sai 6 lần khóa 10 phút theo IP. Nên chạy sau HTTPS.
+- **Tổng quan**: đang truy cập, DAU/WAU/MAU, lượt truy cập và thiết bị duy nhất theo ngày, thời gian sử dụng (TB, trung vị, tổng giờ), giờ cao điểm, thiết bị, bản đồ phổ biến, km trong game/ngoài đời, giải đấu, xu lưu hành.
+- **Người chơi**: tìm, sắp xếp, chi tiết từng người (lịch sử ngày, chuyến chạy, phiên truy cập, hoạt động, giải/huy chương, vật phẩm); cộng/trừ xu, đổi tên, đặt lại mật khẩu, khóa/mở khóa, xóa. **Khách**, **Giải đấu** (xóa), **Hoạt động** (luồng sự kiện), **Nhật ký** (mọi thao tác quản trị).
+- Theo dõi truy cập: `public/js/track.js` gửi mở trang + nhịp 30 giây (chỉ tính lúc tab hiện) theo mã thiết bị ngẫu nhiên; IP lưu dạng băm có muối ngẫu nhiên (đổi mỗi lần khởi động), dữ liệu giữ 400 ngày. Nên nêu việc này trong chính sách quyền riêng tư của bạn.

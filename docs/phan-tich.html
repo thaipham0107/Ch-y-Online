@@ -215,6 +215,11 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 </div>
 <p class="note">Đã kiểm tra ở PC 1440×900, tablet 820×1180 và 1180×820, điện thoại 390×844 và 844×390, không tràn ngang. Chưa thử trên thiết bị thật; Service Worker giữ cache giữa các lần vào chưa được kiểm tra.</p>
 
+<h2 id="quan-tri">Cổng quản trị</h2>
+<div class="grid"><div class="box"><h4>Chức năng</h4><ul><li>Dashboard: đang truy cập, DAU/WAU/MAU, lượt truy cập, thời gian sử dụng, giờ cao điểm, thiết bị, bản đồ phổ biến, km, giải đấu.</li><li>Quản lý người chơi: chi tiết lịch sử, chuyến chạy, phiên truy cập; cộng/trừ xu, đổi tên, đặt lại mật khẩu, khóa, xóa.</li><li>Khách, giải đấu, luồng hoạt động, nhật ký thao tác quản trị.</li></ul></div>
+<div class="box"><h4>Bảo mật</h4><ul><li>Tài khoản quản trị nằm trong <code>admin.config.json</code> (không commit), mật khẩu lưu dạng băm scrypt.</li><li>Sai 6 lần khóa 10 phút; phiên 12 giờ; mọi thao tác ghi nhật ký.</li><li>IP lưu dạng băm; cần nêu việc theo dõi trong chính sách quyền riêng tư.</li></ul></div></div>
+<div class="shots"><figure><img src="img/admin-overview.jpg" alt="Dashboard quản trị" width="1400" height="1143"><figcaption><b>Tổng quan.</b> Số liệu thử nghiệm.</figcaption></figure><figure><img src="img/admin-user.jpg" alt="Chi tiết người chơi" width="1400" height="1000"><figcaption><b>Chi tiết người chơi.</b></figcaption></figure><figure><img src="img/admin-mobile.jpg" alt="Quản trị trên điện thoại" width="390" height="844"><figcaption><b>Điện thoại.</b></figcaption></figure></div>
+
 <h2 id="du-lieu">Dữ liệu và API</h2>
 <div class="tbl"><table>
 <thead><tr><th>Bảng SQLite</th><th>Nội dung</th></tr></thead><tbody>

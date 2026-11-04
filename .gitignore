@@ -5,3 +5,4 @@ strava.config.json
 .claude/
 tools/.cache/
 gpx/*.gpx
+admin.config.json

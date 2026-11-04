@@ -150,7 +150,8 @@ function parseCookies(h = '') {
 }
 function userFromCookie(header) {
   const c = parseCookies(header); const s = c.sid && q.sess.get(c.sid);
-  return { cookies: c, user: s ? q.userById.get(s.user_id) : null };
+  const u = s ? q.userById.get(s.user_id) : null;
+  return { cookies: c, user: u && !u.banned ? u : null };
 }
 app.use((req, res, next) => { const r = userFromCookie(req.headers.cookie); req.cookies = r.cookies; req.user = r.user; next(); });
 const need = (req, res, next) => (req.user ? next() : res.status(401).json({ error: 'Chưa đăng nhập' }));
@@ -230,15 +231,16 @@ app.post('/api/register', (req, res) => {
   if (q.userByName.get(username)) return res.status(409).json({ error: 'Tên đăng nhập đã có người dùng' });
   const salt = crypto.randomBytes(16).toString('hex');
   const r = q.insUser.run(username, cleanName(req.body.name) || username, salt, hashPw(pw, salt), Date.now());
-  startSession(res, Number(r.lastInsertRowid));
+  startSession(res, Number(r.lastInsertRowid)); admin.logEv('register', Number(r.lastInsertRowid), null, null);
   res.json({ me: publicMe(q.userById.get(Number(r.lastInsertRowid))) });
 });
 app.post('/api/login', (req, res) => {
   if (limited(req)) return res.status(429).json({ error: 'Thử lại sau vài phút' });
   const u = q.userByName.get(String(req.body.username || '').toLowerCase().trim()), pw = String(req.body.password || '');
   const ok = u && crypto.timingSafeEqual(Buffer.from(hashPw(pw, u.salt), 'hex'), Buffer.from(u.hash, 'hex'));
-  if (!ok) return res.status(401).json({ error: 'Sai tên đăng nhập hoặc mật khẩu' });
-  startSession(res, u.id); res.json({ me: publicMe(u) });
+  if (!ok) { admin.logEv('login_fail', null, null, { u: String(req.body.username || '').slice(0, 20) }); return res.status(401).json({ error: 'Sai tên đăng nhập hoặc mật khẩu' }); }
+  if (u.banned) { admin.logEv('login_banned', u.id, null, null); return res.status(403).json({ error: 'Tài khoản đã bị khóa' + (u.ban_reason ? ': ' + u.ban_reason : '') }); }
+  admin.logEv('login', u.id, null, null); startSession(res, u.id); res.json({ me: publicMe(u) });
 });
 app.post('/api/logout', (req, res) => { if (req.cookies.sid) q.delSess.run(req.cookies.sid); res.clearCookie('sid'); res.json({ ok: true }); });
 
@@ -353,6 +355,7 @@ app.post('/api/run/start', need, (req, res) => {
   const gps = String(req.body.map).startsWith('gps');
   if (!m && !gps) return res.status(400).json({ error: 'Bản đồ không tồn tại' });
   const r = q.insRun.run(req.user.id, String(req.body.map).slice(0, 40), dist, req.body.mode === 'auto' ? 'auto' : 'manual', Date.now(), Date.now(), 'u' + req.user.id, null, null, null);
+  admin.logEv('run_start', req.user.id, null, { map: String(req.body.map).slice(0, 40), mode: req.body.mode === 'auto' ? 'auto' : 'manual' });
   res.json({ runId: Number(r.lastInsertRowid) });
 });
 app.post('/api/run/flush', need, (req, res) => {
@@ -373,7 +376,7 @@ app.post('/api/shop/buy', need, (req, res) => {
   const owned = ownedSet(u), key = it.cat + ':' + it.id;
   if (it.price > 0 && !owned.has(key)) {
     if (u.coins < it.price) return res.status(400).json({ error: 'Không đủ xu' });
-    owned.add(key); q.setShop.run(u.coins - it.price, JSON.stringify([...owned]), u.equip, u.id);
+    owned.add(key); q.setShop.run(u.coins - it.price, JSON.stringify([...owned]), u.equip, u.id); admin.logEv('shop_buy', u.id, null, { item: key, price: it.price });
   }
   res.json({ me: publicMe(u) });
 });
@@ -592,6 +595,7 @@ app.post('/api/tournaments', need, (req, res) => {
   q.tIns.run(code, req.user.id, title, cleanText(b.descr, 300), visibility, start, end, live, kind, mapId, route ? JSON.stringify(route) : null, JSON.stringify(cats),
     Math.round(clamp(+b.attempts || 0, 0, 20)), JSON.stringify(cleanMedals(b.medals)), crypto.randomInt(1, 2 ** 31 - 1), now);
   db.prepare('UPDATE tournaments SET view=? WHERE code=?').run(kind === 'sim' && ['3d', 'road', 'sat'].includes(b.view) ? b.view : '3d', code);
+  admin.logEv('tour_create', req.user.id, null, { code, title });
   res.json({ code, url: `${BASE_URL}/?t=${code}` });
 });
 app.get('/api/tournaments/public', (req, res) => {
@@ -612,7 +616,7 @@ app.get('/api/tournaments/:code', (req, res) => {
 app.post('/api/tournaments/:code/join', needWho, (req, res) => {
   const t = q.tGet.get(String(req.params.code).toUpperCase()); if (!t) return res.status(404).json({ error: 'Không tìm thấy giải đấu' });
   if (Date.now() > t.end_at) return res.status(400).json({ error: 'Giải đã kết thúc' });
-  q.pIns.run(t.code, req.who.key, req.who.name, req.who.guest, Date.now());
+  q.pIns.run(t.code, req.who.key, req.who.name, req.who.guest, Date.now()); admin.logEv('tour_join', req.user ? req.user.id : null, null, { code: t.code, guest: req.who.guest });
   res.json({ tournament: tView(t, req.who) });
 });
 app.post('/api/tournaments/:code/start', needWho, (req, res) => {
@@ -652,6 +656,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 1024 });
 const rooms = new Map();
 let nextPid = 1;
+const admin = require('./admin')(app, { db, express, dayOf, hashPw, publicTotals: totalsFor, MAPS, online: () => ({ running: [...rooms.values()].reduce((a, r) => a + r.size, 0) }) });
 const send = (ws, o) => { if (ws.readyState === 1) ws.send(JSON.stringify(o)); };
 function bcast(room, o, except) { const s = JSON.stringify(o); for (const p of room) if (p !== except && p.ws.readyState === 1) p.ws.send(s); }
 function cleanEquip(e) { const out = {}; for (const cat of Object.keys(SHOP_DEFAULT)) { const it = Shared.shopItem(cat, e && e[cat]); out[cat] = it ? it.id : SHOP_DEFAULT[cat]; } return out; }
