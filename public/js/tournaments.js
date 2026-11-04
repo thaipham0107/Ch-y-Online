@@ -42,6 +42,7 @@ export function createTournamentUI(ctx) {
     stop(); ctx.show('tour'); code = String(code).trim().toUpperCase().replace(/^.*[?&]t=/, '').slice(0, 6);
     let t; try { t = (await api(`/api/tournaments/${code}`)).tournament; } catch (e) { toast(e.message); return list(); }
     detail = t; offset = t.serverNow - Date.now(); render(opt);
+    if (t.kind === 'sim' && t.view !== '3d' && t.state !== 'final') { const m = S.MAPS.find((x) => x.id === t.map); if (m && ctx.prefetch) ctx.prefetch(m, t.view, (d, n, f, fin) => { const el = document.getElementById('t-prefetch'); if (el) el.textContent = fin ? '✓ Ảnh bản đồ đã sẵn sàng trên thiết bị.' : `Đang tải ảnh bản đồ ${d}/${n}…`; }); }
     refreshTimer = setInterval(async () => { try { const n = (await api(`/api/tournaments/${code}`)).tournament; if (n.state !== detail.state || n.participants !== detail.participants || JSON.stringify(n.standings) !== JSON.stringify(detail.standings)) { detail = n; offset = n.serverNow - Date.now(); render(opt); } } catch { /* mạng lỗi tạm thời */ } }, 15000);
   }
   function render(opt = {}) {
@@ -57,7 +58,7 @@ export function createTournamentUI(ctx) {
       <div class="tdet">
         <div class="box"><div class="row">${pill(t.state)}<span class="hint">${t.visibility === 'private' ? '🔒 Riêng tư: chỉ người có link mới vào được' : '🌐 Công khai'}</span></div>
           <p class="sub">${esc(t.descr || '')}</p>
-          <div class="kv2"><div>Tổ chức<b>${esc(t.owner)}</b></div><div>Bản đồ<b>${esc(courseName(t))}</b></div><div>Bắt đầu<b>${fmtDT(t.startAt)}</b></div><div>Kết thúc<b>${fmtDT(t.endAt)}</b></div><div>Người chơi<b>${t.participants}</b></div>${t.liveAt ? `<div>Giờ G (cùng xuất phát)<b>${fmtDT(t.liveAt)}</b></div>` : ''}</div>
+          <div class="kv2"><div>Tổ chức<b>${esc(t.owner)}</b></div><div>Bản đồ<b>${esc(courseName(t))}</b></div>${t.kind === 'sim' ? `<div>Hiển thị<b>${{ '3d': 'Cảnh 3D', road: 'Bản đồ 2D', sat: 'Vệ tinh' }[t.view] || 'Cảnh 3D'}</b></div>` : `<div>Hiển thị<b>${t.route && t.route.style === 'sat' ? 'Vệ tinh' : 'Bản đồ 2D'}</b></div>`}<div>Bắt đầu<b>${fmtDT(t.startAt)}</b></div><div>Kết thúc<b>${fmtDT(t.endAt)}</b></div><div>Người chơi<b>${t.participants}</b></div>${t.liveAt ? `<div>Giờ G (cùng xuất phát)<b>${fmtDT(t.liveAt)}</b></div>` : ''}</div>
           <div class="fld"><label class="lbl">Link mời</label><div class="row"><input id="t-link" value="${link}" readonly><button class="ghost" data-act="copy">Sao chép</button></div>
             ${t.visibility === 'private' ? '<div class="hint">Giải riêng tư không hiện trong danh sách; chỉ người nhận được link này mới vào được.</div>' : ''}</div></div>
         <div class="box"><h3>Huy chương</h3><div class="medals">${['gold', 'silver', 'bronze', 'finisher'].map((k) => `<div class="mcell">${medalSvg(t.medals[k], 70)}<span>${MEDAL_NAMES[k]}</span></div>`).join('')}</div>
@@ -67,7 +68,7 @@ export function createTournamentUI(ctx) {
         ${!mine.joined && t.state !== 'final' && t.state !== 'closing' ? '<button class="primary" data-act="join">Tham gia giải</button>' : ''}
         <div class="row" style="flex-wrap:wrap;gap:8px">${start}</div>
         <div class="seg mode" id="t-mode"><button data-m="manual" class="${ctx.getMode() === 'manual' ? 'on' : ''}">Thủ công</button><button data-m="auto" class="${ctx.getMode() === 'auto' ? 'on' : ''}">Tự động</button></div>
-        <div class="hint">Giải áp dụng chung cho cả thủ công và tự động; bạn đổi giữa hai kiểu bất cứ lúc nào khi đang chạy. Mọi người dùng chung một bộ chướng ngại và vật phẩm.${t.kind === 'gps' ? ' Tuyến GPS do người tổ chức đặt, bạn không cần cấp quyền vị trí.' : ''}</div></div>
+        <div class="hint" id="t-prefetch"></div><div class="hint">Giải áp dụng chung cho cả thủ công và tự động; bạn đổi giữa hai kiểu bất cứ lúc nào khi đang chạy. Mọi người dùng chung một bộ chướng ngại và vật phẩm.${t.kind === 'gps' ? ' Tuyến GPS do người tổ chức đặt, bạn không cần cấp quyền vị trí.' : ''}</div></div>
       <div class="box"><div class="seg" id="t-cats">${t.cats.map((c) => `<button data-cat="${c.id}" class="${c.id === cat ? 'on' : ''}">${c.km} km</button>`).join('')}</div>
         <h3>${t.state === 'final' ? 'Tổng kết' : 'Bảng xếp hạng'} · ${t.cats.find((c) => c.id === cat).km} km</h3>
         ${t.state === 'final' && st.length ? podium(t, st) : ''}
@@ -91,7 +92,7 @@ export function createTournamentUI(ctx) {
   let draft = null;
   function create(step = 1) {
     stop(); ctx.show('tour');
-    if (!draft) { const now = Date.now(); draft = { title: '', descr: '', visibility: 'public', startAt: now + 5 * 60e3, endAt: now + 7 * 864e5, live: false, liveAt: now + 3600e3, kind: 'sim', map: S.MAPS[0].id, cats: [{ km: 5 }], attempts: 3, medals: JSON.parse(JSON.stringify(MEDAL_DEF)), route: null, editing: 'gold' }; }
+    if (!draft) { const now = Date.now(); draft = { title: '', descr: '', visibility: 'public', startAt: now + 5 * 60e3, endAt: now + 7 * 864e5, live: false, liveAt: now + 3600e3, kind: 'sim', view: '3d', map: S.MAPS[0].id, cats: [{ km: 5 }], attempts: 3, medals: JSON.parse(JSON.stringify(MEDAL_DEF)), route: null, editing: 'gold' }; }
     const steps = ['Thông tin', 'Thể thức', 'Huy chương', 'Xuất bản'], d = draft;
     const head = `<div class="steps">${steps.map((n, i) => `<span class="${i + 1 === step ? 'on' : i + 1 < step ? 'done' : ''}">${i + 1}. ${n}</span>`).join('')}</div>`;
     let body = '';
@@ -101,7 +102,8 @@ export function createTournamentUI(ctx) {
       <label class="lbl">Bắt đầu</label><input id="d-start" type="datetime-local" value="${toLocalInput(d.startAt)}"><label class="lbl">Kết thúc (tối đa 31 ngày)</label><input id="d-end" type="datetime-local" value="${toLocalInput(d.endAt)}">
       <label class="chk"><input type="checkbox" id="d-live" ${d.live ? 'checked' : ''}> Có giờ G (mọi người xuất phát cùng lúc và thấy nhau)</label><input id="d-liveat" type="datetime-local" value="${toLocalInput(d.liveAt)}" ${d.live ? '' : 'hidden'}></div>`;
     else if (step === 2) body = `<div class="seg" id="d-kind"><button data-k="sim" class="${d.kind === 'sim' ? 'on' : ''}">Giả lập 3D</button><button data-k="gps" class="${d.kind === 'gps' ? 'on' : ''}">GPS (tuyến thật)</button></div>
-      <div id="d-course">${d.kind === 'sim' ? `<div class="mapsel">${S.MAPS.map((m) => `<button data-map="${m.id}" class="${m.id === d.map ? 'on' : ''}">${esc(m.name)}<small>${m.km} km · ${'★'.repeat(m.diff)}</small></button>`).join('')}</div>` : '<div id="d-gps"></div>'}</div>
+      <div id="d-course">${d.kind === 'sim' ? `<div class="mapsel">${S.MAPS.map((m) => `<button data-map="${m.id}" class="${m.id === d.map ? 'on' : ''}">${esc(m.name)}<small>${m.km} km · ${'★'.repeat(m.diff)}</small></button>`).join('')}</div>
+        <label class="lbl">Hiển thị khi chạy (mọi người thấy giống nhau)</label><div class="seg" id="d-view">${[['3d', 'Cảnh 3D'], ['road', 'Bản đồ 2D'], ['sat', 'Vệ tinh']].map(([k, n]) => `<button data-v="${k}" class="${d.view === k ? 'on' : ''}">${n}</button>`).join('')}</div>` : '<div id="d-gps"></div>'}</div>
       <label class="lbl">Cự ly (tối đa 4, mỗi cự ly một bảng xếp hạng)</label><div id="d-cats">${d.cats.map((c, i) => `<div class="row"><input type="number" class="catkm" data-i="${i}" min="0.3" step="0.1" value="${c.km}"> km ${d.cats.length > 1 ? `<button class="ghost" data-act="delcat" data-i="${i}">Xóa</button>` : ''}</div>`).join('')}</div>
       ${d.cats.length < 4 ? '<button class="ghost" data-act="addcat">＋ Thêm cự ly</button>' : ''}
       <label class="lbl">Số lượt chạy mỗi người / cự ly</label><select id="d-att">${[1, 2, 3, 5, 10, 0].map((n) => `<option value="${n}" ${d.attempts === n ? 'selected' : ''}>${n ? n + ' lượt' : 'Không giới hạn'}</option>`).join('')}</select>`;
@@ -129,7 +131,7 @@ export function createTournamentUI(ctx) {
     } return null;
   }
   async function publish() {
-    const d = draft, b = { title: d.title, descr: d.descr, visibility: d.visibility, startAt: d.startAt, endAt: d.endAt, liveAt: d.live ? d.liveAt : null, kind: d.kind, map: d.map, route: d.route, cats: d.cats, attempts: d.attempts, medals: d.medals };
+    const d = draft, b = { title: d.title, descr: d.descr, visibility: d.visibility, startAt: d.startAt, endAt: d.endAt, liveAt: d.live ? d.liveAt : null, kind: d.kind, view: d.view, map: d.map, route: d.route, cats: d.cats, attempts: d.attempts, medals: d.medals };
     try { const r = await api('/api/tournaments', b); draft = null; document.getElementById('pub-res').innerHTML = `<div class="ok">🎉 Đã tạo giải! Gửi link này cho mọi người:<div class="row"><input id="t-link" value="${r.url}" readonly><button class="ghost" data-act="copy">Sao chép</button></div><button class="primary" data-open-code="${r.code}">Mở trang giải</button></div>`; document.querySelector('.navrow').hidden = true; }
     catch (e) { toast(e.message, 3500); }
   }
@@ -146,6 +148,7 @@ export function createTournamentUI(ctx) {
     const mode = e.target.closest('#t-mode button'); if (mode) { ctx.setMode(mode.dataset.m); document.querySelectorAll('#t-mode button').forEach((b) => b.classList.toggle('on', b === mode)); return; }
     // tạo giải
     if (e.target.closest('#d-vis button')) { const d = draft; readStep(1); d.visibility = e.target.dataset.v; return create(1); }
+    if (e.target.closest('#d-view button')) { readStep(2); draft.view = e.target.dataset.v; return create(2); }
     if (e.target.closest('#d-kind button')) { readStep(2); draft.kind = e.target.dataset.k; if (draft.kind === 'sim') draft.cats = draft.cats.map((c) => ({ km: Math.min(c.km, S.MAPS.find((m) => m.id === draft.map).km) })); return create(2); }
     const mp = e.target.closest('[data-map]'); if (mp) { readStep(2); draft.map = mp.dataset.map; draft.cats = draft.cats.map((c) => ({ km: Math.min(c.km, S.MAPS.find((m) => m.id === draft.map).km) })); return create(2); }
     const ed = e.target.closest('[data-edit]'); if (ed) { draft.editing = ed.dataset.edit; return create(3); }

@@ -107,7 +107,7 @@ function renderSetup() {
 }
 $('#mapgrid').onclick = (e) => { const b = e.target.closest('.mcard'); if (!b) return; sel.map = MAPS.find((m) => m.id === b.dataset.id); renderMaps(); renderSetup(); };
 $('#s-dist').onclick = (e) => { const d = e.target.dataset.d; if (d) { sel.dist = +d * 1000; renderSetup(); } };
-$('#s-view').onclick = (e) => { const v = e.target.dataset.v; if (v) { sel.view = v; renderSetup(); } };
+$('#s-view').onclick = (e) => { const v = e.target.dataset.v; if (!v) return; sel.view = v; renderSetup(); if (v !== '3d') { const m = sel.map, el = $('#s-prefetch'); el.textContent = 'Đang chuẩn bị ảnh bản đồ…'; prefetchMap(m, v, (d, n, f, fin) => { if (sel.map === m && sel.view === v) el.textContent = fin ? '✓ Ảnh bản đồ đã sẵn sàng trên thiết bị (chỉ tải lại khi đổi phiên bản).' : `Đang tải ảnh bản đồ ${d}/${n}…`; }).then(() => { if (sel.map === m && sel.view === v && !el.textContent.startsWith('Đang tải')) el.textContent = '✓ Ảnh bản đồ đã sẵn sàng trên thiết bị.'; }); } else $('#s-prefetch').textContent = ''; };
 $('#s-mode').onclick = (e) => { const m = e.target.dataset.m; if (m) { sel.mode = m; renderSetup(); } };
 $('#kind-tabs').onclick = (e) => {
   const k = e.target.dataset.k; if (!k) return; sel.kind = k;
@@ -148,11 +148,32 @@ async function launchTour(t, catId, mode) {
   const cat = t.cats.find((c) => c.id === catId), info = await store.startTourRun(t.code, catId, mode);
   const course = info.kind === 'sim' ? MAPS.find((m) => m.id === info.map) : gpsCourse(info.route, 't' + t.code);
   tours.cancelReady(); tours.stop();
-  await launch({ course, dist: info.dist, mode, seed: info.seed, room: 't:' + t.code, tour: { code: t.code, title: t.title, cat: catId, km: cat.km } });
+  await launch({ course, dist: info.dist, mode, seed: info.seed, room: 't:' + t.code, tour: { code: t.code, title: t.title, cat: catId, km: cat.km }, view: info.kind === 'sim' ? (info.view || '3d') : '3d' });
   api(`/api/tournaments/${t.code}/go`, { runId: store.runId }).catch(() => {});      // bắt đầu tính giờ
 }
+async function ensureRoute(course) { if (course.real && !course.route) { try { const r = await fetch(`/courses/${course.id}.json`); if (r.ok) course.route = await r.json(); } catch { /* dựng theo hồ sơ độ cao */ } } return course.route; }
+// Tải trước ảnh bản đồ của một tuyến (z18, dải rộng ±1 ô quanh đường): server lưu một lần, trình duyệt giữ lại, chỉ tải lại khi đổi phiên bản
+const prefetching = new Set();
+function tilesOf(route, style) {
+  const z = 18, n = 2 ** z, set = new Map(), tpl = cfg.tiles[style];
+  for (let i = 0; i < route.pts.length; i += 3) {
+    const [lat, lon] = route.pts[i], x = Math.floor((lon + 180) / 360 * n), r = lat * Math.PI / 180, y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n);
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) set.set((x + dx) + ',' + (y + dy), tpl.replace('{z}', z).replace('{x}', x + dx).replace('{y}', y + dy));
+  }
+  return [...set.values()];
+}
+async function prefetchMap(map, style, onProgress) {
+  const key = `tiles:${map.id}:${style}:${cfg.tiles.version}`, tag = key;
+  try { if (localStorage.getItem(key) || prefetching.has(tag)) return; } catch { /* không có localStorage */ }
+  const route = await ensureRoute(map); if (!route || !cfg.tiles[style]) return;
+  const urls = tilesOf(route, style); prefetching.add(tag); let done = 0, fail = 0, i = 0;
+  const worker = async () => { while (i < urls.length) { const u = urls[i++]; try { const r = await fetch(u); if (!r.ok) fail++; else await r.blob(); } catch { fail++; } done++; onProgress && onProgress(done, urls.length, fail); } };
+  await Promise.all(Array.from({ length: 6 }, worker)); prefetching.delete(tag);
+  if (fail < urls.length * 0.05) { try { localStorage.setItem(key, '1'); } catch { /* bỏ qua */ } }
+  onProgress && onProgress(done, urls.length, fail, true);
+}
 async function launch({ course, dist, mode, seed, room, tour, view = '3d' }) {
-  if (course.real && !course.route) { try { const r = await fetch(`/courses/${course.id}.json`); if (r.ok) course.route = await r.json(); } catch { /* dựng theo hồ sơ độ cao */ } }
+  await ensureRoute(course);
   const g = ensureGame(); sel.mode = mode; sessionCoins = 0; coinBase = store.profile().coins || 0; cur = { course, dist, mode, seed, room, tour };
   show('game');
   g.load(course, dist, mode, store.profile(), seed, view);
@@ -314,7 +335,8 @@ async function profilePanel() {
 (async function boot() {
   try { cfg = await api('/api/config'); } catch { /* giữ mặc định */ }
   try { const r = await fetch('/courses/meta.json'); if (r.ok) S.applyMeta(await r.json()); } catch { /* dùng số liệu mặc định */ }
-  tours = createTournamentUI({ store, cfg, toast, show, toLobby: () => enterLobby(), launchTour, getMode, setMode, fmt: { time: fmtTime } });
+  tours = createTournamentUI({ store, cfg, toast, show, toLobby: () => enterLobby(), launchTour, getMode, setMode, prefetch: (m, st, cb) => prefetchMap(m, st, cb), fmt: { time: fmtTime } });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   document.querySelectorAll('[data-open]').forEach(() => {});
   const qs = new URLSearchParams(location.search);
   const msgs = { nostrava: 'Server chưa cấu hình Strava.', denied: 'Bạn đã từ chối quyền Strava.', scope: 'Cần cho phép xem hoạt động để tính km.', state: 'Phiên hết hạn, thử lại nhé.', strava: 'Kết nối Strava thất bại.', rate: 'Strava đang giới hạn số lần gọi, thử lại sau ít phút.' };

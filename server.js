@@ -45,7 +45,7 @@ function addCol(table, col, def) { if (!db.prepare(`PRAGMA table_info(${table})`
 addCol('users', 'coins', 'INTEGER DEFAULT 0'); addCol('users', 'coin_rem', 'REAL DEFAULT 0'); addCol('users', 'owned', "TEXT DEFAULT '[]'");
 addCol('users', 'equip', "TEXT DEFAULT '{}'"); addCol('users', 'imported', 'INTEGER DEFAULT 0');
 addCol('daily', 'imp', 'REAL DEFAULT 0'); addCol('real_daily', 'paid', 'REAL DEFAULT 0');
-addCol('runs', 'go', 'INTEGER DEFAULT 0'); addCol('runs', 'pkey', 'TEXT'); addCol('runs', 'tid', 'TEXT'); addCol('runs', 'cat', 'TEXT'); addCol('runs', 'seed', 'INTEGER');
+addCol('tournaments', 'view', "TEXT DEFAULT '3d'"); addCol('runs', 'go', 'INTEGER DEFAULT 0'); addCol('runs', 'pkey', 'TEXT'); addCol('runs', 'tid', 'TEXT'); addCol('runs', 'cat', 'TEXT'); addCol('runs', 'seed', 'INTEGER');
 
 const q = {
   userByName: db.prepare('SELECT * FROM users WHERE username=?'),
@@ -172,12 +172,53 @@ function limited(req, key = 'auth', max = 10, win = 600e3) {
   const k = key + req.ip, now = Date.now(); const a = (rate.get(k) || []).filter((t) => now - t < win); a.push(now); rate.set(k, a); return a.length > max;
 }
 
-const TILES = {
+// ---------- Kho ảnh bản đồ ----------
+// Ảnh bản đồ/vệ tinh là dữ liệu cố định: server tải từ nguồn một lần, lưu vào DATA_DIR/tiles rồi phát cho mọi client
+// (kèm Cache-Control immutable). Đổi TILES_VERSION khi muốn client và kho tải lại; TILE_CACHE=0 để tắt lưu trên server.
+const TILE_VER = String(process.env.TILES_VERSION || '1').replace(/[^\w.-]/g, '').slice(0, 20) || '1';
+const TILE_UP = {
   road: process.env.TILES_ROAD || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-  sat: process.env.TILES_SAT || 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  sat: process.env.TILES_SAT || 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+};
+const TILES = {
+  road: `/tiles/road/{z}/{x}/{y}?v=${TILE_VER}`, sat: `/tiles/sat/{z}/{x}/{y}?v=${TILE_VER}`, version: TILE_VER,
   attrRoad: process.env.TILES_ROAD_ATTR || '© OpenStreetMap contributors',
   attrSat: process.env.TILES_SAT_ATTR || 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics'
 };
+const TILE_DIR = path.join(DATA_DIR, 'tiles'), TILE_STORE = process.env.TILE_CACHE !== '0', TILE_CAP = (+process.env.TILE_CACHE_MB || 3000) * 1048576;
+let tileBytes = 0;
+(function scan(d) { try { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) scan(f); else tileBytes += fs.statSync(f).size; } } catch { /* chưa có kho */ } })(TILE_DIR);
+const tileInflight = new Map(); let tileActive = 0; const tileWait = [];
+const tileSlot = () => new Promise((res) => { const go = () => { tileActive++; res(); }; if (tileActive < 6) go(); else tileWait.push(go); });
+const tileFree = () => { tileActive--; const n = tileWait.shift(); if (n) n(); };
+const TILE_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }, TILE_MIME = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' };
+async function fetchTile(style, z, x, y) {
+  const url = TILE_UP[style].replace('{z}', z).replace('{x}', x).replace('{y}', y);
+  await tileSlot();
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': UA_TILE }, signal: AbortSignal.timeout(20000) });
+    const type = (r.headers.get('content-type') || '').split(';')[0], ext = TILE_EXT[type];
+    if (!r.ok || !ext) throw new Error('tile ' + r.status);
+    const buf = Buffer.from(await r.arrayBuffer()); if (buf.length > 2e6) throw new Error('tile quá lớn');
+    if (TILE_STORE && tileBytes + buf.length < TILE_CAP) {
+      const dir = path.join(TILE_DIR, style, String(z), String(x)); fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, `${y}.${ext}`), buf); tileBytes += buf.length;
+    }
+    return { buf, ext };
+  } finally { tileFree(); }
+}
+const UA_TILE = `ChayOnline/1.0 (${BASE_URL})`;
+app.get('/tiles/:style/:z/:x/:y', async (req, res) => {
+  const style = req.params.style, z = +req.params.z, x = +req.params.x, y = +String(req.params.y).replace(/\.\w+$/, '');
+  if (!TILE_UP[style] || !Number.isInteger(z) || z < 3 || z > 19 || !Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= 2 ** z || y >= 2 ** z) return res.status(400).end();
+  if (limited(req, 'tile', 6000, 60e3)) return res.status(429).end();
+  const send = (buf, ext) => { res.set({ 'Content-Type': TILE_MIME[ext], 'Cache-Control': 'public, max-age=31536000, immutable' }); res.end(buf); };
+  for (const ext of Object.keys(TILE_MIME)) { const f = path.join(TILE_DIR, style, String(z), String(x), `${y}.${ext}`); if (fs.existsSync(f)) { res.set({ 'Content-Type': TILE_MIME[ext], 'Cache-Control': 'public, max-age=31536000, immutable' }); return res.sendFile(f); } }
+  const key = `${style}/${z}/${x}/${y}`;
+  try { let p = tileInflight.get(key); if (!p) { p = fetchTile(style, z, x, y).finally(() => tileInflight.delete(key)); tileInflight.set(key, p); } const t = await p; send(t.buf, t.ext); }
+  catch { res.status(502).end(); }
+});
+app.get('/api/tiles/stats', (req, res) => res.json({ version: TILE_VER, store: TILE_STORE, mb: Math.round(tileBytes / 1048576), capMb: Math.round(TILE_CAP / 1048576) }));
 app.get('/api/config', (req, res) => res.json({ strava: strava.configured(), mock: strava.MOCK, rules: RULES, tiles: TILES }));
 app.get('/api/me', (req, res) => { if (req.user) autoSync(req.user); res.json({ me: req.user ? publicMe(req.user) : null }); });
 
@@ -519,7 +560,7 @@ function tView(t, w, withStand = true) {
   const owner = q.userById.get(t.owner);
   const v = { code: t.code, title: t.title, descr: t.descr, visibility: t.visibility, startAt: t.start_at, endAt: t.end_at, liveAt: t.live_at, kind: t.kind, map: t.map,
     route: t.kind === 'gps' ? jparse(t.route, null) : null, cats, attempts: t.attempts, medals: jparse(t.medals, {}), state: tState(t, now), serverNow: now,
-    owner: owner ? owner.name : '—', ownerMe: !!(w && w.user && w.user.id === t.owner), participants: q.pCount.get(t.code).n };
+    view: t.view || '3d', owner: owner ? owner.name : '—', ownerMe: !!(w && w.user && w.user.id === t.owner), participants: q.pCount.get(t.code).n };
   if (withStand) { const st = standings(t); v.standings = {}; for (const c of cats) v.standings[c.id] = st[c.id].slice(0, 50).map((r) => ({ ...r, me: !!(w && r.pkey === w.key), pkey: undefined })); }
   if (w) {
     v.mine = { joined: !!q.pGet.get(t.code, w.key), attempts: {}, awards: q.aList.all(t.code).filter((a) => a.pkey === w.key).map((a) => ({ cat: a.cat, kind: a.kind, rank: a.rank, timeS: a.time_s })) };
@@ -550,6 +591,7 @@ app.post('/api/tournaments', need, (req, res) => {
   const code = newCode();
   q.tIns.run(code, req.user.id, title, cleanText(b.descr, 300), visibility, start, end, live, kind, mapId, route ? JSON.stringify(route) : null, JSON.stringify(cats),
     Math.round(clamp(+b.attempts || 0, 0, 20)), JSON.stringify(cleanMedals(b.medals)), crypto.randomInt(1, 2 ** 31 - 1), now);
+  db.prepare('UPDATE tournaments SET view=? WHERE code=?').run(kind === 'sim' && ['3d', 'road', 'sat'].includes(b.view) ? b.view : '3d', code);
   res.json({ code, url: `${BASE_URL}/?t=${code}` });
 });
 app.get('/api/tournaments/public', (req, res) => {
@@ -584,7 +626,7 @@ app.post('/api/tournaments/:code/start', needWho, (req, res) => {
   const used = q.runCount.get(t.code, req.who.key, cat.id).n;
   if (t.attempts > 0 && used >= t.attempts) return res.status(403).json({ error: `Bạn đã dùng hết ${t.attempts} lượt chạy cự ly này` });
   const r = q.insRun.run(req.who.user ? req.who.user.id : 0, t.kind === 'sim' ? t.map : 'gps:' + t.code, Math.round(cat.km * 1000), req.body.mode === 'auto' ? 'auto' : 'manual', Date.now(), Date.now(), req.who.key, t.code, cat.id, t.seed);
-  res.json({ runId: Number(r.lastInsertRowid), seed: t.seed, dist: Math.round(cat.km * 1000), kind: t.kind, map: t.map, route: t.kind === 'gps' ? jparse(t.route, null) : null, attemptsLeft: t.attempts ? t.attempts - used - 1 : null });
+  res.json({ runId: Number(r.lastInsertRowid), seed: t.seed, dist: Math.round(cat.km * 1000), kind: t.kind, map: t.map, view: t.view || '3d', route: t.kind === 'gps' ? jparse(t.route, null) : null, attemptsLeft: t.attempts ? t.attempts - used - 1 : null });
 });
 app.post('/api/tournaments/:code/go', needWho, (req, res) => {   // đồng hồ giải bắt đầu khi cảnh đã nạp xong, công bằng giữa máy nhanh/chậm
   const run = q.getRun.get(+req.body.runId || 0);

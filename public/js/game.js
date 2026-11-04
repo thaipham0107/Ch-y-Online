@@ -134,7 +134,7 @@ export class Game {
     this.loop = this.loop.bind(this); this.ticker = setInterval(() => this.logic(), 100);
     this.bindPointer();
   }
-  resize() { const w = innerWidth, h = innerHeight; this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
+  resize() { const w = innerWidth, h = innerHeight; this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.fov = h > w ? Math.min(78, 48 * Math.pow(h / w, 0.55)) : 48; this.camera.updateProjectionMatrix(); }
   get overview() { return this.camD > 60; }
   bindPointer() {
     const el = this.canvas, pts = new Map(); let pinch = 0, drag = null, swipe = null;

@@ -49,3 +49,9 @@ Hình học và độ cao của 10 bản đồ nằm trong `public/courses/` (`<
 
 ## Vệ tinh cho 10 bản đồ
 Ở màn chọn bản đồ, mục **Hiển thị**: Cảnh 3D / Bản đồ 2D / Vệ tinh. Ảnh bản đồ trải dưới đường chạy (mặt phẳng); độ dốc và thể lực vẫn theo độ cao thật. Cần mạng; nguồn ảnh đổi bằng `TILES_ROAD`, `TILES_SAT`.
+
+## Kho ảnh bản đồ trên server & giao diện đa thiết bị
+- Ảnh nền 2D/vệ tinh đi qua `GET /tiles/<road|sat>/<z>/<x>/<y>?v=<phiên bản>`: server tải từ nguồn một lần, lưu vào `data/tiles`, các lần sau trả từ đĩa với `Cache-Control: immutable` (1 năm). Trình duyệt tải ở lần đầu (Service Worker `public/sw.js` giữ cache theo phiên bản) và chỉ tải lại khi đổi `TILES_VERSION`. Màn chọn bản đồ/giải đấu có nút tải trước ảnh dọc tuyến. Biến: `TILES_VERSION`, `TILE_CACHE=0` (tắt lưu), `TILE_CACHE_MB` (mặc định 3000). Xem dung lượng: `/api/tiles/stats`.
+- Lưu ý điều khoản: OpenStreetMap hạn chế tải hàng loạt và Esri có điều khoản riêng về lưu/phân phối ảnh. Bản chạy thật nên dùng nhà cung cấp có giấy phép (đổi `TILES_ROAD`/`TILES_SAT`).
+- Giải đấu bản đồ 3D chọn được **Cảnh 3D / Bản đồ 2D / Vệ tinh**; mọi người chơi trong giải dùng chung kiểu hiển thị.
+- Giao diện đã kiểm tra ở PC 1440×900, tablet 820×1180 và 1180×820, điện thoại 390×844 và 844×390 (HUD gọn, vùng chạm lớn, safe-area, FOV camera tự nới khi màn dọc).
