@@ -78,8 +78,29 @@ if (-not $cf) {
 }
 
 # 5. Dừng bản đang chạy (nếu có) rồi khởi động lại
+function PortOwner($p) {
+  try { $c = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction Stop | Select-Object -First 1; if ($c) { return Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue } } catch { }
+  return $null
+}
+function IsOurGame($p) { try { $h = Invoke-RestMethod -Uri "http://127.0.0.1:$p/healthz" -TimeoutSec 2; return [bool]$h.ok } catch { return $false } }
 StopPidFile 'game'; StopPidFile 'tunnel'
 Start-Sleep -Milliseconds 500
+$owner = PortOwner $port
+if ($owner) {
+  if ((IsOurGame $port) -and $owner.ProcessName -eq 'node') {
+    Info "Phát hiện bản Chạy Online cũ đang chiếm cổng $port (PID $($owner.Id)), đang tắt để chạy lại..."
+    Stop-Process -Id $owner.Id -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+  } elseif ($token) {
+    Fail "Cổng $port đang bị '$($owner.ProcessName)' (PID $($owner.Id)) dùng, mà tên miền cố định Cloudflare của bạn trỏ về cổng này.`nHãy tắt chương trình đó (hoặc đổi cổng trong Public Hostname của Cloudflare rồi sửa PORT trong .env)."
+  } else {
+    $new = 0
+    for ($q = [int]$port + 1; $q -le [int]$port + 30; $q++) { if (-not (PortOwner $q)) { $new = $q; break } }
+    if ($new -eq 0) { Fail "Cổng $port đang bị '$($owner.ProcessName)' (PID $($owner.Id)) dùng và không tìm được cổng trống gần đó." }
+    Write-Host "Cổng $port đang bị '$($owner.ProcessName)' (PID $($owner.Id)) dùng, chuyển sang cổng $new." -ForegroundColor Yellow
+    $port = "$new"; $env:PORT = $port
+  }
+}
 Info 'Đang khởi động game...'
 $gameOut = Join-Path $logs 'game.log'; $gameErr = Join-Path $logs 'game.err.log'
 $game = Start-Process -FilePath $node -ArgumentList @('--env-file-if-exists=.env', 'server.js') -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput $gameOut -RedirectStandardError $gameErr -PassThru
@@ -90,7 +111,7 @@ for ($i = 0; $i -lt 30; $i++) {
   if ($game.HasExited) { break }
   try { $h = Invoke-RestMethod -Uri "http://127.0.0.1:$port/healthz" -TimeoutSec 2; if ($h.ok) { $up = $true; break } } catch { }
 }
-if (-not $up) { $tail = ''; if (Test-Path $gameErr) { $tail = (Get-Content $gameErr -Tail 8) -join "`n" }; Fail "Game không khởi động được (cổng $port có thể đang bận).`n$tail`nXem logs\game.err.log" }
+if (-not $up) { $tail = ''; if (Test-Path $gameErr) { $tail = (Get-Content $gameErr -Tail 8) -join "`n" }; $o = PortOwner $port; $who = ''; if ($o) { $who = "`nCổng $port đang bị '$($o.ProcessName)' (PID $($o.Id)) dùng." }; Fail "Game không khởi động được.$who`n$tail`nXem logs\game.err.log" }
 Info "Game đã chạy tại http://localhost:$port"
 
 # 6. Đường hầm Cloudflare
