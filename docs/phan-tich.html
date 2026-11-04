@@ -202,6 +202,19 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <div class="box"><h4>Giới hạn</h4><ul><li>Ảnh vệ tinh là mặt phẳng, nên đường không nhô cao theo địa hình; độ dốc chỉ hiện ở biểu đồ và tính vào thể lực.</li><li>Độ nét phụ thuộc vùng: thành phố nét hơn, vùng núi (Hải Vân, Hạ Long) hơi mờ vì ảnh nguồn thấp hơn.</li><li>Cần mạng để tải ảnh. Giải đấu trên bản đồ có sẵn hiện vẫn chạy cảnh 3D; chưa cho người tổ chức chọn vệ tinh.</li><li>Ảnh Esri và OpenStreetMap công cộng có giới hạn sử dụng; triển khai thật nên đổi nhà cung cấp có khóa API.</li></ul></div>
 </div>
 
+<h2 id="da-thiet-bi">Hiển thị trong giải đấu, kho ảnh và đa thiết bị</h2>
+<div class="grid">
+<div class="box"><h4>Giải đấu chọn kiểu hiển thị</h4><ul><li>Giải bản đồ 3D: người tổ chức chọn <b>Cảnh 3D / Bản đồ 2D / Vệ tinh</b> ở bước 2; mọi người chơi dùng chung.</li><li>Trang giải hiện "Hiển thị" và tiến độ tải ảnh trước.</li></ul></div>
+<div class="box"><h4>Kho ảnh trên server</h4><ul><li>Server tải mỗi ô ảnh từ nguồn một lần, lưu vào <code>data/tiles</code>, các lần sau trả từ đĩa (<code>immutable</code>, 1 năm).</li><li>Trình duyệt tải ở lần vào đầu, Service Worker giữ lại; chỉ tải lại khi đổi <code>TILES_VERSION</code>.</li><li><b>Lưu ý điều khoản:</b> OpenStreetMap hạn chế tải hàng loạt, Esri có điều khoản về lưu/phân phối ảnh. Bản chạy thật nên dùng nhà cung cấp có giấy phép.</li></ul></div>
+</div>
+<div class="shots">
+<figure><img src="img/tour-view.jpg" alt="Trang giải đấu hiện kiểu hiển thị vệ tinh" width="1100" height="760"><figcaption><b>Trang giải, PC.</b> Hiển thị: Vệ tinh, kèm tiến độ tải ảnh.</figcaption></figure>
+<figure><img src="img/resp-tabP-lobby.jpg" alt="Sảnh trên tablet dọc" width="820" height="1180"><figcaption><b>Tablet dọc 820×1180.</b> Lưới bản đồ 3 cột.</figcaption></figure>
+<figure><img src="img/resp-mobP-game.jpg" alt="Màn chạy trên điện thoại dọc" width="390" height="844"><figcaption><b>Điện thoại dọc 390×844.</b> Bảng thông tin dưới chip online, hàng vật phẩm không đè nút BƯỚC.</figcaption></figure>
+<figure><img src="img/resp-mobL-game.jpg" alt="Màn chạy trên điện thoại ngang" width="844" height="390"><figcaption><b>Điện thoại ngang 844×390.</b> HUD gọn.</figcaption></figure>
+</div>
+<p class="note">Đã kiểm tra ở PC 1440×900, tablet 820×1180 và 1180×820, điện thoại 390×844 và 844×390, không tràn ngang. Chưa thử trên thiết bị thật; Service Worker giữ cache giữa các lần vào chưa được kiểm tra.</p>
+
 <h2 id="du-lieu">Dữ liệu và API</h2>
 <div class="tbl"><table>
 <thead><tr><th>Bảng SQLite</th><th>Nội dung</th></tr></thead><tbody>
