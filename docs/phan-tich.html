@@ -53,7 +53,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <tr><td>Cảnh 3D, 10 bản đồ Việt Nam, độ khó theo độ dốc</td><td><span class="tag ok">Đã làm</span></td><td>Đường chạy là hình học thật từ OpenStreetMap, độ cao SRTM 30 m; cảnh low-poly đặt theo bên vách, vực, biển và tọa độ điểm mốc</td></tr>
 <tr><td>Đường 4 làn, vật phẩm và chướng ngại rơi ngẫu nhiên ở các làn</td><td><span class="tag ok">Đã làm</span></td><td>Đổi làn bằng ←/→, vuốt ngang hoặc nút ◀ ▶</td></tr>
 <tr><td>Camera zoom in / zoom out xoay 360°</td><td><span class="tag ok">Đã làm</span></td><td>Cuộn hoặc chụm để zoom, kéo để xoay khi zoom xa</td></tr>
-<tr><td>Bước, thể lực, vật phẩm, chó đuổi, chế độ tự động</td><td><span class="tag ok">Đã làm</span></td><td>Space = bước, J = nhảy</td></tr>
+<tr><td>Bước, thể lực, vật phẩm, chó đuổi, chế độ tự động</td><td><span class="tag ok">Đã làm</span></td><td>Máy tính: Space hoặc nhấp chuột = bước, J hoặc ↑ = nhảy. Điện thoại/tablet: chạm màn hình = bước, nút NHẢY</td></tr>
 <tr><td>Xu, cửa hàng (mũ, giày, phụ kiện, đồng hồ, hào quang)</td><td><span class="tag ok">Đã làm</span></td><td>Trang bị hiện trên nhân vật cho mọi người thấy</td></tr>
 <tr><td>Tài khoản (SQLite) và chế độ khách (lưu trên máy), gộp dữ liệu khách</td><td><span class="tag ok">Đã làm</span></td><td>Gộp một lần cho mỗi tài khoản, có giới hạn hợp lý</td></tr>
 <tr><td>Lịch sử, xếp hạng có cột Game / Ngoài đời / Tổng</td><td><span class="tag ok">Đã làm</span></td><td>Strava là tùy chọn; thử với dữ liệu Strava giả lập</td></tr>
@@ -68,7 +68,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <div class="tbl"><table>
 <thead><tr><th>Chủ đề</th><th>Quyết định</th></tr></thead><tbody>
 <tr><td>Strava</td><td>Chỉ là tùy chọn. Có dữ liệu Strava trong ngày thì lịch sử và xếp hạng có thêm cột km chạy ngoài đời và cột tổng (game + ngoài đời). Không kết nối thì km ngoài đời bằng 0. Mục tiêu là khuyến khích chạy ngoài đời.</td></tr>
-<tr><td>Bước và nhảy</td><td>1 bước = 1 lần Space = 2 m. Nhảy là phím J.</td></tr>
+<tr><td>Bước và nhảy</td><td>1 bước = 2 m. Máy tính: Space hoặc nhấp chuột; điện thoại/tablet: chạm màn hình (không cần bàn phím). Nhảy: phím J hoặc ↑, hoặc nút NHẢY trên trang.</td></tr>
 <tr><td>Chế độ tự động</td><td>1 bước/giây, tự nhảy qua chướng ngại. Chó đuổi: vẫn giữ tốc độ tự động, chỉ dùng tia sét mới tăng tốc để thoát.</td></tr>
 <tr><td>Giải đấu</td><td>Áp dụng chung cho bấm tay và tự động, không phân biệt. Trong một giải người chơi đổi qua lại giữa hai kiểu bất cứ lúc nào. Có hai chế độ: công khai (ai cũng thấy) và riêng tư (chỉ người có link).</td></tr>
 <tr><td>GPS</td><td>Chỉ chạy ảo dọc tuyến. Vị trí thật chỉ dùng để lấy điểm xuất phát.</td></tr>
@@ -86,7 +86,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <figure><img src="img/mobile.jpg" alt="Giao diện điện thoại ngang" width="1688" height="780"><figcaption><b>Điện thoại ngang.</b> Các nút thu gọn: đổi làn ◀ ▶, nhảy, bước, túi đồ 5 ô.</figcaption></figure>
 </div>
 <div class="grid" style="margin-top:18px">
-<div class="box"><h4>Điều khiển</h4><ul><li><b>Space</b> bước · <b>J</b> nhảy · <b>← →</b> đổi làn · <b>1–5</b> dùng vật phẩm</li><li><b>A</b> bật/tắt tự động · <b>+ −</b> hoặc cuộn: zoom · <b>T</b> đổi góc / về góc chạy</li><li>Điện thoại: nút Bước, Nhảy, ◀ ▶, vuốt ngang để đổi làn, chụm để zoom</li></ul></div>
+<div class="box"><h4>Điều khiển</h4><ul><li><b>Máy tính:</b> <b>Space</b> hoặc nhấp chuột = bước · <b>J</b> hoặc <b>↑</b> (hoặc nút NHẢY) = nhảy · <b>← →</b> đổi làn · <b>1–5</b> dùng vật phẩm. Kéo chuột để xoay camera không tính là bước.</li><li><b>A</b> bật/tắt tự động · <b>+ −</b> hoặc cuộn: zoom · <b>T</b> đổi góc / về góc chạy</li><li><b>Điện thoại/tablet (không dùng bàn phím):</b> chạm màn hình = bước · nút NHẢY = nhảy · nút ◀ ▶ hoặc vuốt ngang đổi làn · chụm để zoom. Chạm nhanh mới tính là bước; vuốt, kéo, chụm thì không.</li></ul></div>
 <div class="box"><h4>Hai góc nhìn</h4><ul><li><b>Zoom in:</b> tập trung vào đường chạy, camera cao nghiêng bám theo hướng đường.</li><li><b>Zoom out:</b> toàn cảnh, tự do xoay 360° và đổi độ nghiêng.</li><li>Zoom xa tới mức nào cũng không mất thông tin: tên và km vẫn hiện trên đầu người chơi.</li></ul></div>
 </div>
 
