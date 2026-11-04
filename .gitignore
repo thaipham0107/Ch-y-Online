@@ -10,3 +10,4 @@ release/
 dist/
 .wrangler/
 .dev.vars
+logs/

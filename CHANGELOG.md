@@ -1,5 +1,6 @@
 # Changelog
 ## 1.1.0
+- Chạy dịch vụ nền trên máy cá nhân (Windows/Linux/macOS) + Cloudflare Tunnel, `npm run doctor`, lấy IP thật qua CF-Connecting-IP, `npm run demo` chạy được trên Windows.
 - Bản Cloudflare Workers + Durable Object (SQLite, WebSocket) không dùng container: `wrangler.jsonc`, `worker/`, `scripts/build-assets.mjs`.
 - Tách lõi dùng chung `core.js` (Node và Worker), `node-tiles.js`, `lite-express.js`; thêm `tools/smoke.mjs`.
 ## 1.0.0

@@ -5,14 +5,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node --env-file-if-exists=.env server.js",
-    "demo": "STRAVA_MOCK=1 node server.js",
+    "demo": "node tools/demo.mjs",
     "check:strava": "node tools/check-strava.mjs",
     "courses:build": "node tools/build-courses.mjs",
     "courses:gpx": "node tools/import-gpx.mjs",
     "build:worker": "node scripts/build-assets.mjs",
     "dev:worker": "wrangler dev",
     "deploy:worker": "wrangler deploy",
-    "smoke": "node tools/smoke.mjs"
+    "smoke": "node tools/smoke.mjs",
+    "doctor": "node tools/doctor.mjs"
   },
   "engines": {
     "node": ">=22.5"

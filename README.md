@@ -64,4 +64,5 @@ Hình học và độ cao của 10 bản đồ nằm trong `public/courses/` (`<
 
 ## Triển khai
 - **Cloudflare Workers (không container)**: `npm run deploy:worker` (xem `DEPLOY.md`, mục A). Kiểm thử tại chỗ: `npm run dev:worker`, rồi `node tools/smoke.mjs http://localhost:8787 <admin> <mật khẩu>`.
+- **Máy cá nhân + Cloudflare Tunnel, chạy dịch vụ nền, không Docker** (`DEPLOY.md`, mục C): `npm run doctor`, rồi `deploy/windows|linux|macos/install-service.*`.
 - Node/Docker: `npm start` hoặc `docker compose up -d` (mục B). Hai bản dùng chung `core.js`.

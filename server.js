@@ -22,6 +22,12 @@ try { meta = JSON.parse(fs.readFileSync(path.join(__dirname, 'public/courses/met
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+// Khi chạy sau Cloudflare Tunnel (cloudflared kết nối từ loopback), lấy IP thật của người chơi từ CF-Connecting-IP
+app.use((req, res, next) => {
+  const c = req.headers['cf-connecting-ip'], a = req.socket.remoteAddress || '';
+  if (c && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(a)) Object.defineProperty(req, 'ip', { value: String(c), configurable: true });
+  next();
+});
 app.use(express.json({ limit: '300kb' }));
 app.use('/maps.js', (req, res) => res.sendFile(path.join(__dirname, 'maps.js')));
 app.use('/vendor', express.static(path.join(__dirname, 'node_modules/three/build')));

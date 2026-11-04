@@ -1,6 +1,53 @@
 # Triển khai Chạy Online
 
-Có hai cách: **A. Cloudflare Workers (không container, khuyên dùng)** và B. máy chủ Node/Docker.
+Có ba cách: **C. chạy trên máy cá nhân + Cloudflare Tunnel (không Docker, để thử nghiệm)**, **A. Cloudflare Workers (không container)** và **B. VPS Node/Docker**. Cả ba dùng chung mã nguồn và `core.js`.
+
+## C. Máy cá nhân + Cloudflare Tunnel, chạy như dịch vụ nền (không Docker)
+Game chạy trên máy của bạn bằng Node; **cloudflared** mở một đường hầm ra ngoài tới Cloudflare nên **không phải mở cổng router**, IP nhà không lộ, có HTTPS miễn phí. Dữ liệu nằm ở thư mục `data/` trên máy bạn.
+
+### 1. Chuẩn bị
+- Cài **Node 22.5 trở lên** (nodejs.org, bản LTS) và **cloudflared** (developers.cloudflare.com → Cloudflare One → Connections → Downloads).
+- Lấy mã nguồn (giải nén gói hoặc `git clone`), rồi trong thư mục dự án:
+  ```bash
+  npm install --omit=dev
+  copy .env.example .env        # macOS/Linux: cp .env.example .env
+  ```
+- Mở `.env`, đặt `ADMIN_USER`, `ADMIN_PASS` (mật khẩu dài, vì `/admin/` sẽ ra Internet). Các dòng khác để mặc định.
+- Kiểm tra: `npm run doctor`, rồi chạy thử `npm start` và mở http://localhost:3000.
+
+### 2. Đưa ra Internet
+**Cách nhanh để thử (không cần tên miền hay tài khoản):**
+```bash
+cloudflared tunnel --url http://localhost:3000
+```
+Lệnh in địa chỉ dạng `https://xxxx.trycloudflare.com`: gửi địa chỉ này cho bạn bè. Địa chỉ **đổi mỗi lần chạy lại** và Cloudflare không đảm bảo hoạt động; chưa dùng được Strava (cần tên miền cố định).
+
+**Cách ổn định (cần một tên miền đã thêm vào Cloudflare):**
+1. dash.cloudflare.com → Zero Trust → Networks → Tunnels → Create a tunnel → Cloudflared, đặt tên, **sao chép token**.
+2. Tab Public Hostname: Hostname `chay.ten-mien-cua-ban.com`, Service `HTTP` → `localhost:3000`.
+3. Cài cloudflared thành dịch vụ (Windows: PowerShell chạy bằng Administrator; macOS/Linux: thêm `sudo`):
+   ```bash
+   cloudflared service install <TOKEN>
+   ```
+4. Trong `.env` đặt `BASE_URL=https://chay.ten-mien-cua-ban.com`, rồi khởi động lại game (bước 3).
+
+### 3. Chạy game như dịch vụ nền (tự bật cùng máy, tự khởi động lại khi lỗi)
+- **Windows** (PowerShell, Run as Administrator, trong thư mục dự án):
+  `powershell -ExecutionPolicy Bypass -File deploy\windows\install-service.ps1`
+  (tạo tác vụ `ChayOnline` chạy khi khởi động; nhật ký ở `logs\service.log`; gỡ bằng `deploy\windows\uninstall-service.ps1`).
+- **Linux**: `sudo bash deploy/linux/install-service.sh` (dịch vụ systemd `chay-online`, xem nhật ký `journalctl -u chay-online -f`).
+- **macOS**: `bash deploy/macos/install-service.sh` (LaunchAgent, chạy khi bạn đăng nhập).
+- Kiểm tra: `curl http://localhost:3000/healthz`, rồi mở địa chỉ công khai từ điện thoại (tắt Wi‑Fi, dùng 4G) để thử đúng như người ngoài.
+
+### 4. Nên làm
+- **Bảo vệ `/admin/`**: Zero Trust → Access → Applications → Add → Self-hosted, đường dẫn `chay.ten-mien-cua-ban.com/admin*`, chỉ cho email của bạn.
+- Đặt máy **không tự ngủ** khi cắm điện; máy tắt hoặc mất mạng thì game ngừng.
+- **Sao lưu** thư mục `data/` (dừng game rồi chép `chay.db*`).
+- Trang quản trị chỉ là mật khẩu; đừng dùng chung mật khẩu với nơi khác. Xem thêm "Lưu ý chung" bên dưới.
+- Lưu lượng ảnh bản đồ cũng đi qua đường hầm. Với thử nghiệm nhỏ thì ổn; điều khoản của Cloudflare về nội dung không phải HTML có thể thay đổi, bạn nên đọc điều khoản hiện hành trước khi mở cho đông người.
+- Khi chuyển sang VPS: chép thư mục `data/` sang máy mới là xong.
+
+
 
 ## A. Cloudflare Workers + Durable Object (không container)
 Kiến trúc: file tĩnh (`public/`) do Cloudflare phục vụ; `/api`, `/auth`, `/ws` chạy trong một **Durable Object** có SQLite riêng (lưu tài khoản, lịch sử, giải đấu, thống kê); `/tiles` là Worker lưu ảnh bản đồ một lần (R2 nếu bật, nếu không thì cache biên). Không cần server, Docker hay CSDL ngoài.
