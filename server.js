@@ -220,6 +220,7 @@ app.get('/tiles/:style/:z/:x/:y', async (req, res) => {
   catch { res.status(502).end(); }
 });
 app.get('/api/tiles/stats', (req, res) => res.json({ version: TILE_VER, store: TILE_STORE, mb: Math.round(tileBytes / 1048576), capMb: Math.round(TILE_CAP / 1048576) }));
+app.get('/healthz', (req, res) => { try { db.prepare('SELECT 1').get(); res.json({ ok: true, version: require('./package.json').version }); } catch { res.status(500).json({ ok: false }); } });
 app.get('/api/config', (req, res) => res.json({ strava: strava.configured(), mock: strava.MOCK, rules: RULES, tiles: TILES }));
 app.get('/api/me', (req, res) => { if (req.user) autoSync(req.user); res.json({ me: req.user ? publicMe(req.user) : null }); });
 

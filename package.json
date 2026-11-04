@@ -11,7 +11,7 @@
     "courses:gpx": "node tools/import-gpx.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5"
   },
   "dependencies": {
     "express": "^4.19.2",

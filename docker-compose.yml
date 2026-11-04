@@ -1,0 +1,7 @@
+services:
+  chay:
+    build: .
+    restart: unless-stopped
+    ports: ["3000:3000"]
+    env_file: [.env]          # BASE_URL, ADMIN_USER, ADMIN_PASS, STRAVA_*...
+    volumes: ["./data:/app/data"]
