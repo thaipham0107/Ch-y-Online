@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { buildWorld, textSprite } from './world.js';
 import { buildGpsWorld } from './gpsworld.js';
+import { sfx } from './sound.js';
 const S = window.Shared, R = S.RULES, LX = S.LANES.X;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const C = (h) => new THREE.Color(h);
@@ -55,12 +56,22 @@ export function makeRunner(info, me) {
   for (const z of [-0.2, 0.2]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), new THREE.MeshBasicMaterial({ color: '#222' })); e.position.set(0.48, 1.8, z); body.add(e); }
   const hp = new THREE.Group(); hp.position.y = 1.82; body.add(hp); addHat(hp, eq.hat);
   addAcc(body, g, eq.acc);
-  const arms = [-1, 1].map((sd) => { const a = new THREE.Mesh(limbGeo, skin); a.position.set(0, 0.85, sd * 0.7); body.add(a); return a; });
-  const wc = itemColor('watch', eq.watch);
-  if (wc) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.26), eq.watch === 'watch_smart' ? new THREE.MeshBasicMaterial({ color: wc }) : L(wc)); w.position.set(0, -0.1, 0); arms[1].add(w); }
-  const shoeCol = itemColor('shoes', eq.shoes) || '#3a2d26';
-  const feet = [-1, 1].map((sd) => { const f = new THREE.Mesh(footGeo, L(shoeCol)); f.position.set(0, 0.12, sd * 0.28); g.add(f);
-    if (eq.shoes === 'shoe_wing') { const w = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.04, 0.3), L('#fff')); w.position.set(-0.18, 0.12, sd * 0.2); w.rotation.z = 0.5; f.add(w); } return f; });
+  // thân nâng lên (BASE) để lộ đôi chân; tay và chân có khớp hông/vai + gối/khuỷu để bước tự nhiên
+  const BASE = 0.42, skinMat = skin, cyl = (r, h) => new THREE.CylinderGeometry(r, r * 0.9, h, 8).translate(0, -h / 2, 0);
+  const wc = itemColor('watch', eq.watch), shoeCol = itemColor('shoes', eq.shoes) || '#3a2d26';
+  const limb = (len1, len2, r, endGeo, endMat, y, z) => {
+    const hip = new THREE.Group(); hip.position.set(0, y, z); body.add(hip);
+    hip.add(new THREE.Mesh(cyl(r, len1), skinMat));
+    const knee = new THREE.Group(); knee.position.y = -len1; hip.add(knee);
+    knee.add(new THREE.Mesh(cyl(r * 0.92, len2), skinMat));
+    const end = new THREE.Mesh(endGeo, endMat); end.position.y = -len2; knee.add(end);
+    return { hip, knee, end };
+  };
+  const arms = [-1, 1].map((sd) => limb(0.28, 0.26, 0.085, limbGeo.clone().scale(0.8, 0.8, 0.8), skinMat, 1.0, sd * 0.68));
+  if (wc) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.26), eq.watch === 'watch_smart' ? new THREE.MeshBasicMaterial({ color: wc }) : L(wc)); w.position.set(0, 0.1, 0); arms[1].knee.add(w); }
+  const legs = [-1, 1].map((sd) => limb(0.22, 0.22, 0.1, footGeo.clone().scale(1.15, 0.7, 0.9), L(shoeCol), 0.2, sd * 0.26));
+  const feet = legs.map((lg, k) => { lg.end.position.x = 0.08;
+    if (eq.shoes === 'shoe_wing') { const w = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.04, 0.3), L('#fff')); w.position.set(-0.22, 0.05, 0); w.rotation.z = 0.5; lg.end.add(w); } return lg.end; });
   // hào quang: theo hạng, hoặc loại đã mua
   const auraCol = eq.aura !== 'aura_tier' ? itemColor('aura', eq.aura) : null, ringCol = me && !auraCol ? '#ffe9a0' : (auraCol || T.color);
   const halo = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: ringCol, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -71,19 +82,26 @@ export function makeRunner(info, me) {
   let arrow = null;
   if (me) { arrow = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.55, 3).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: '#ffd23a' })); arrow.position.y = 3.3; g.add(arrow); }
   g.scale.setScalar(me ? 1.25 : 1.1);
-  return { group: g, body, arms, feet, halo, arrow, sparks, rainbow: eq.aura === 'aura_rainbow', phase: 0,
+  return { group: g, body, arms, legs, feet, halo, arrow, sparks, rainbow: eq.aura === 'aura_rainbow', phase: 0,
+    sp: 0,
     animate(dt, speed, jumpH, t) {
-      this.phase += dt * (3 + speed * 1.6);
-      const sw = speed > 0.3 ? Math.sin(this.phase) : 0, amp = clamp(speed / 4, 0, 1);
-      this.feet[0].position.x = sw * 0.4 * amp; this.feet[1].position.x = -sw * 0.4 * amp;
-      this.feet[0].position.y = 0.12 + Math.max(0, Math.cos(this.phase)) * 0.18 * amp + jumpH; this.feet[1].position.y = 0.12 + Math.max(0, -Math.cos(this.phase)) * 0.18 * amp + jumpH;
-      this.arms[0].position.x = -sw * 0.35 * amp; this.arms[1].position.x = sw * 0.35 * amp;
-      this.body.position.y = jumpH + Math.abs(Math.sin(this.phase)) * 0.12 * amp; this.body.rotation.z = -0.1 * amp;
+      this.sp += (speed - this.sp) * Math.min(1, dt * 10);
+      const mv = clamp((this.sp - 0.4) / 1.2, 0, 1), amp = mv * clamp(0.6 + this.sp / 10, 0.6, 1), air = clamp(jumpH / 1.1, 0, 1), g1 = 1 - air;
+      if (mv > 0) this.phase += dt * (6 + this.sp * 0.9);            // nhịp chân theo tốc độ thật
+      const p = this.phase, A = 0.8 * amp, sn = Math.sin(p), K = 1.15;
+      const hipA = A * sn * g1 + air * 0.75, hipB = -A * sn * g1 - air * 0.25;
+      const kneeA = -(K * Math.max(0, Math.cos(p)) * amp * g1 + air * 1.0), kneeB = -(K * Math.max(0, -Math.cos(p)) * amp * g1 + air * 0.7);
+      this.legs[0].hip.rotation.z = hipA; this.legs[0].knee.rotation.z = kneeA; this.legs[1].hip.rotation.z = hipB; this.legs[1].knee.rotation.z = kneeB;
+      const sw = 0.95 * amp * g1;
+      this.arms[0].hip.rotation.z = -sn * sw + air * 2.3; this.arms[1].hip.rotation.z = sn * sw + air * 2.3;
+      const el = 0.3 + 0.8 * amp; this.arms[0].knee.rotation.z = el * g1 + air * 0.3; this.arms[1].knee.rotation.z = el * g1 + air * 0.3;
+      this.body.position.y = BASE + jumpH - 0.12 * (1 - Math.abs(Math.cos(p))) * amp * g1;
+      this.body.rotation.z = -0.14 * amp - 0.1 * air; this.body.rotation.x = sn * 0.07 * amp * g1;
       const cape = this.group.userData.cape; if (cape) cape.rotation.z = 0.12 + 0.25 * amp + Math.sin(t * 8) * 0.05 * amp;
       this.halo.material.opacity = 0.6 + Math.sin(t * 3 + this.phase * 0.1) * 0.2; this.halo.scale.setScalar(1 + Math.sin(t * 2.4) * 0.05);
       if (this.rainbow) this.halo.material.color.setHSL((t * 0.3) % 1, 0.9, 0.6);
       this.sparks.forEach((m, i) => { const a = t * 1.6 + i * 6.28 / this.sparks.length; m.position.set(Math.cos(a) * 1.25, 0.4 + ((t * 0.8 + i * 0.37) % 1) * 2.2, Math.sin(a) * 1.25); if (this.rainbow) m.material.color.setHSL((t * 0.3 + i / 7) % 1, 0.9, 0.6); });
-      if (this.arrow) this.arrow.position.y = 3.3 + Math.sin(t * 4) * 0.18 + jumpH;
+      if (this.arrow) this.arrow.position.y = 3.6 + Math.sin(t * 4) * 0.18 + jumpH;
     } };
 }
 
@@ -107,14 +125,42 @@ const OBST = { hanoi: ['cone', 'crate', 'puddle', 'log'], saigon: ['cone', 'crat
   trangan: ['buffalo', 'rock', 'puddle'], mocchau: ['rock', 'puddle', 'buffalo', 'log'], haivan: ['rock', 'rock', 'puddle', 'cone'], prenn: ['rock', 'log', 'puddle'],
   oquyho: ['rock', 'puddle', 'buffalo'], mapileng: ['rock', 'rock', 'cone'], gps: ['cone', 'crate', 'puddle', 'rock', 'log'] };
 const OBST_H = { rock: 1.0, puddle: 0.1, cone: 1.0, crate: 1.1, log: 0.8, buffalo: 1.4 }, OBST_W = { puddle: 2, log: 2 };
-function dogMesh() {
+export function dogMesh() {
   const g = new THREE.Group(), M = (c) => new THREE.MeshLambertMaterial({ color: c });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 0.7), M('#b9824a')); body.position.y = 0.7; g.add(body);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.6, 0.6), M('#c99057')); head.position.set(0.95, 1.0, 0); g.add(head);
-  for (const z of [-0.22, 0.22]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.3, 0.14), M('#6b3f1d')); e.position.set(0.9, 1.4, z); g.add(e); }
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.14, 0.14), M('#b9824a')); tail.position.set(-1.0, 1.0, 0); tail.rotation.z = 0.6; g.add(tail);
-  const legs = []; for (const x of [-0.5, 0.5]) for (const z of [-0.25, 0.25]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.5, 0.18), M('#a06a38')); l.position.set(x, 0.25, z); g.add(l); legs.push(l); }
-  g.scale.setScalar(1.3); g.userData.legs = legs; return g;
+  const fur = M('#d08f4f'), dark = M('#8b5a2b'), light = M('#f6e6c8'), pink = M('#e8788a'), ink = new THREE.MeshBasicMaterial({ color: '#1b1210' });
+  const S = (r, sx, sy, sz, mat, x, y, z, parent) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10).scale(sx, sy, sz), mat); m.position.set(x, y, z); parent.add(m); return m; };
+  const rig = new THREE.Group(); g.add(rig);                                    // thân + đầu nhún theo nhịp phi
+  S(0.5, 1.5, 0.92, 0.88, fur, 0, 0.98, 0, rig);                                // thân
+  S(0.4, 0.95, 1, 0.86, light, 0.58, 0.88, 0, rig);                             // ngực trắng
+  S(0.44, 1, 1, 0.95, fur, -0.55, 1.0, 0, rig);                                 // mông
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.06, 6, 16), M('#d93a3a')); collar.rotation.y = Math.PI / 2; collar.position.set(0.82, 1.2, 0); collar.rotation.z = -0.5; rig.add(collar);
+  const head = new THREE.Group(); head.position.set(0.98, 1.38, 0); rig.add(head);
+  S(0.4, 1.05, 1, 0.95, fur, 0, 0, 0, head);                                    // sọ
+  S(0.22, 1.5, 0.85, 1, light, 0.38, -0.12, 0, head);                           // mõm
+  S(0.085, 1, 0.8, 1.1, ink, 0.66, -0.02, 0, head);                             // mũi
+  for (const z of [-0.18, 0.18]) {
+    S(0.075, 1, 1.2, 1, ink, 0.3, 0.1, z, head); S(0.025, 1, 1, 1, new THREE.MeshBasicMaterial({ color: '#fff' }), 0.36, 0.15, z + (z > 0 ? -0.02 : 0.02), head);   // mắt + ánh
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.06), dark); brow.position.set(0.28, 0.24, z); brow.rotation.x = z > 0 ? 0.45 : -0.45; head.add(brow);   // chân mày dữ nhưng dễ thương
+    const ear = S(0.17, 0.55, 1.25, 0.45, dark, -0.1, 0.32, z * 1.65, head); ear.rotation.x = z > 0 ? 0.5 : -0.5; ear.rotation.z = 0.25;                                       // tai cụp
+  }
+  const jaw = new THREE.Group(); jaw.position.set(0.22, -0.2, 0); head.add(jaw);
+  const jm = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.07, 0.22), light); jm.position.x = 0.18; jaw.add(jm);
+  const tongue = S(0.1, 1.6, 0.35, 0.8, pink, 0.3, -0.05, 0, jaw);
+  const tail = new THREE.Group(); tail.position.set(-0.98, 1.15, 0); rig.add(tail);
+  const tm = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.8, 8).translate(0, 0.4, 0), fur); tm.rotation.z = 0.9; tail.add(tm);
+  const legs = [[0.62, -1], [0.62, 1], [-0.6, -1], [-0.6, 1]].map(([x, sd]) => {
+    const pv = new THREE.Group(); pv.position.set(x, 0.72, sd * 0.27); g.add(pv);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.085, 0.5, 8).translate(0, -0.25, 0), fur); pv.add(leg);
+    S(0.14, 1.3, 0.7, 1, light, 0.05, -0.52, 0, pv); return pv; });
+  g.scale.setScalar(1.35); g.userData = { rig, head, jaw, tongue, tail, legs }; return g;
+}
+export function dogAnimate(g, t, run) {
+  const u = g.userData, w = t * 17, sn = Math.sin(w);
+  u.legs[0].rotation.z = sn * 0.95 * run; u.legs[1].rotation.z = Math.sin(w + 0.5) * 0.95 * run;       // chân trước
+  u.legs[2].rotation.z = Math.sin(w + 2.3) * 0.95 * run; u.legs[3].rotation.z = Math.sin(w + 2.8) * 0.95 * run;   // chân sau
+  u.rig.position.y = Math.abs(Math.sin(w + 0.6)) * 0.2 * run; u.rig.rotation.z = Math.sin(w + 1.2) * 0.08 * run;
+  u.head.rotation.z = -0.08 + Math.sin(w + 0.4) * 0.1 * run; u.jaw.rotation.z = -(0.18 + 0.2 * (0.5 + 0.5 * Math.sin(t * 15))) * run;
+  u.tongue.position.y = -0.05 - Math.abs(Math.sin(t * 15)) * 0.05; u.tail.rotation.y = Math.sin(t * 24) * 0.7;
 }
 
 // ---------- Game ----------
@@ -128,7 +174,7 @@ export class Game {
     const sun = new THREE.DirectionalLight('#fff1d2', 1.1); sun.position.set(40, 80, 30); this.scene.add(sun);
     // camera: zoom in = bám đường chạy; zoom out = toàn cảnh, kéo để xoay 360°
     this.camD = 34; this.focusPitch = 0.8; this.pitchCur = 0.8; this.pitchO = 1.0; this.yaw = 0; this.yawCur = 0; this.camHead = 0;
-    this.running = false; this.dyn = new THREE.Group(); this.scene.add(this.dyn);
+    this.hold = new Set(); this.running = false; this.dyn = new THREE.Group(); this.scene.add(this.dyn);
     this.others = new Map(); this.floaters = []; this.t = 0; this.last = 0; this.hudT = 0;
     this.resize(); addEventListener('resize', () => this.resize());
     this.loop = this.loop.bind(this); this.ticker = setInterval(() => this.logic(), 100);
@@ -137,12 +183,15 @@ export class Game {
   resize() { const w = innerWidth, h = innerHeight; this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.fov = h > w ? Math.min(78, 48 * Math.pow(h / w, 0.55)) : 48; this.camera.updateProjectionMatrix(); }
   get overview() { return this.camD > 60; }
   bindPointer() {
-    const el = this.canvas, pts = new Map(); let pinch = 0, drag = null, swipe = null, tap = null;
+    const el = this.canvas, pts = new Map(); let pinch = 0, drag = null, swipe = null, tap = null, holdT = 0;
     el.addEventListener('pointerdown', (e) => { el.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY]; swipe = [e.clientX, e.clientY, performance.now()];
-      tap = pts.size === 1 && (e.pointerType !== 'mouse' || e.button === 0) ? { x: e.clientX, y: e.clientY, t: performance.now(), ok: true } : null; if (pts.size > 1 && tap) tap.ok = false; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
+      tap = pts.size === 1 && (e.pointerType !== 'mouse' || e.button === 0) ? { x: e.clientX, y: e.clientY, t: performance.now(), ok: true, held: false } : null; if (pts.size > 1 && tap) tap.ok = false;
+      clearTimeout(holdT); if (tap) { const mine = tap; holdT = setTimeout(() => { if (tap === mine && mine.ok && this.running) { mine.held = true; this.setHold('ptr', true); } }, 220); }   /* giữ yên 0,22 giây = chạy liên tục */
+      if (pts.size > 1) this.setHold('ptr', false);
+      if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
     el.addEventListener('pointermove', (e) => {
       if (!pts.has(e.pointerId)) return; const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
-      if (tap && (pts.size > 1 || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10)) tap.ok = false;   // kéo/chụm thì không tính là chạm
+      if (tap && (pts.size > 1 || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10)) { tap.ok = false; if (tap.held) { tap.held = false; this.setHold('ptr', false); } }   // kéo/chụm thì không tính là chạm
       if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) this.camD = clamp(this.camD * pinch / d, 14, 180); pinch = d; return; }
       if (this.overview) this.orbit(e.clientX - prev[0], e.clientY - prev[1]);
     });
@@ -152,7 +201,8 @@ export class Game {
         if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5 && performance.now() - swipe[2] < 600) this.moveLane(dx > 0 ? 1 : -1);
       }
       // chạm nhanh hoặc nhấp chuột (không kéo) = 1 bước; vuốt ngang/kéo xoay/chụm zoom không tính
-      if (tap && tap.ok && e.type === 'pointerup' && pts.size === 1 && performance.now() - tap.t < 400 && this.running) this.step();
+      clearTimeout(holdT); this.setHold('ptr', false);
+      if (tap && tap.ok && !tap.held && e.type === 'pointerup' && pts.size === 1 && performance.now() - tap.t < 400 && this.running) this.step();
       tap = null;
       pts.delete(e.pointerId); pinch = 0; swipe = null;
     };
@@ -197,7 +247,7 @@ export class Game {
     }
     this.items.sort((a, b) => a.s - b.s);
     this.dogEvents = []; for (let s = 260 + rng() * 300; s < this.total - 120; s += 420 + rng() * 600) this.dogEvents.push(s);
-    this.dogIdx = 0; this.dog = null;
+    this.dogIdx = 0; this.dog = null; this.hold.clear();
     this.me = makeRunner({ id: 0, name: profile.name, km: profile.totals.totalKm, tier: profile.tier, equip: profile.equip }, true); this.scene.add(this.me.group);
     this.running = true; this.last = performance.now(); this.camHead = this.world.posAt(0).h; this.camD = 34; this.yaw = this.yawCur = 0; this.pitchO = 1.0; this.pitchCur = this.focusPitch; this.hud(true);
     cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.loop);
@@ -219,18 +269,21 @@ export class Game {
     const g = S.gradeAt(this.map, st.target); st.grade = g;
     const cost = R.STAM_PER_STEP * S.slopeMult(g) * (st.boltT > 0 ? R.BOLT_COST_MULT : 1);
     let stride = st.boltT > 0 ? R.BOLT_STRIDE : R.STRIDE; if (st.slowT > 0) stride *= R.BITE_STRIDE_MULT;
-    st.stam -= cost; st.target += stride; st.steps++; st.meters += stride; this.unsent.steps++; this.unsent.meters += stride;
-    if (st.stam <= 0) { st.stam = 0; st.exhausted = true; this.say('😮‍💨 Hết thể lực! Dùng đồ ăn hoặc chờ hồi sức', 2200); }
+    st.stam -= cost; st.target += stride; st.steps++; st.meters += stride; this.unsent.steps++; this.unsent.meters += stride; sfx.step(st.boltT > 0);
+    if (st.stam <= 0) { st.stam = 0; st.exhausted = true; sfx.tired(); this.say('😮‍💨 Hết thể lực! Dùng đồ ăn hoặc chờ hồi sức', 2200); }
     return true;
   }
-  jump() { const st = this.st; if (!this.running || st.finished || st.jumpT > 0 || st.jumpCd > 0) return; st.jumpT = 0.7; st.jumpCd = 0.15; }
+  jump() { const st = this.st; if (!this.running || st.finished || st.jumpT > 0 || st.jumpCd > 0) return; st.jumpT = 0.7; st.jumpCd = 0.15; sfx.jump(); }
   moveLane(d) { const st = this.st; if (!this.running || st.finished) return; st.lane = clamp(st.lane + d, 0, S.LANES.COUNT - 1); }
   setMode(m) { this.mode = m; this.st.auto = 0; }
+  // giữ nút/phím/màn hình = chạy liên tục ở tốc độ tối đa (4 bước/giây)
+  setHold(key, on) { if (on) this.hold.add(key); else this.hold.delete(key); }
+  releaseHold() { this.hold.clear(); }
   useItem(i) {
     const slot = this.inv[i]; if (!slot || !this.running || this.st.finished) return;
     const it = S.ITEMS[slot.k], st = this.st;
-    if (slot.k === 'bolt') { st.boltT = Math.min(st.boltT + R.BOLT_SECS, R.BOLT_SECS * 2); st.boltsUsed++; this.unsent.boltsUsed++; this.float('⚡ Tăng tốc!', '#ffe27a'); }
-    else { st.stam = Math.min(R.STAM_MAX, st.stam + it.stam); if (it.cure) st.slowT = 0; this.float(`${it.icon} +${it.stam} thể lực`, '#9ef0b0'); if (st.exhausted && st.stam >= R.STAM_RESUME) st.exhausted = false; }
+    if (slot.k === 'bolt') { st.boltT = Math.min(st.boltT + R.BOLT_SECS, R.BOLT_SECS * 2); st.boltsUsed++; this.unsent.boltsUsed++; this.float('⚡ Tăng tốc!', '#ffe27a'); sfx.bolt(); }
+    else { sfx.eat(); st.stam = Math.min(R.STAM_MAX, st.stam + it.stam); if (it.cure) st.slowT = 0; this.float(`${it.icon} +${it.stam} thể lực`, '#9ef0b0'); if (st.exhausted && st.stam >= R.STAM_RESUME) st.exhausted = false; }
     if (--slot.n <= 0) this.inv.splice(i, 1);
     this.hooks.onInventory && this.hooks.onInventory(this.inv);
   }
@@ -252,43 +305,45 @@ export class Game {
     if (st.jumpCd > 0) st.jumpCd -= dt;
     st.lat += (LX[st.lane] - st.lat) * Math.min(1, dt * 10);
     if (this.t - st.lastStep > 1.2 || st.exhausted) { st.stam = Math.min(R.STAM_MAX, st.stam + R.IDLE_REGEN * dt); if (st.exhausted && st.stam >= R.STAM_RESUME) st.exhausted = false; }
+    if (this.hold.size && this.mode !== 'auto' && !st.exhausted && this.t - st.lastStep >= 1 / R.MAX_STEPS_PER_SEC - 0.002) this.step();
     if (this.mode === 'auto' && !st.exhausted) { st.auto += dt; while (st.auto >= 1 / R.AUTO_STEPS_PER_SEC) { st.auto -= 1 / R.AUTO_STEPS_PER_SEC; st.stepTimes = []; this.step(); } }
-    const prev = st.s; st.s += (st.target - st.s) * Math.min(1, dt * 8); if (st.target - st.s < 0.01) st.s = st.target;
+    const prev = st.s, gap = st.target - st.s; st.s += Math.min(gap, clamp(gap * 4.5, 0, 16) * dt); if (st.target - st.s < 0.01) st.s = st.target;   // đuổi theo mục tiêu êm hơn, không giật từng cục
     st.speed += ((st.s - prev) / Math.max(dt, 1e-3) - st.speed) * Math.min(1, dt * 6);
-    if (st.jumpT > 0) st.jumpT = Math.max(0, st.jumpT - dt);
+    if (st.jumpT > 0) { st.jumpT = Math.max(0, st.jumpT - dt); if (st.jumpT === 0) sfx.land(); }
     // tự động: nhảy qua chướng ngại nằm trong làn của mình
     const nextObs = this.obst.find((o) => !o.done && o.s >= prev - 0.5 && o.lanes.includes(st.lane));
     if (this.mode === 'auto' && nextObs && nextObs.s - st.s < 2.8 && nextObs.s - st.s > 0 && st.jumpT <= 0) st.jumpT = 0.7;
     for (const o of this.obst) if (!o.done && prev < o.s && st.s >= o.s) {
       o.done = true; if (!o.lanes.includes(st.lane)) continue;           // né sang làn khác: không va
       if (st.jumpT > 0.08) { st.jumps++; this.unsent.jumps++; this.float('Nhảy qua! 🦘', '#ffe27a'); }
-      else { st.stam = Math.max(0, st.stam - R.HIT_STAM); st.slowT = Math.max(st.slowT, R.HIT_SLOW_SECS); st.shake = 0.3; this.float('Vấp rồi! -10', '#ff9d8a'); if (st.stam <= 0) st.exhausted = true; }
+      else { st.stam = Math.max(0, st.stam - R.HIT_STAM); st.slowT = Math.max(st.slowT, R.HIT_SLOW_SECS); st.shake = 0.3; this.float('Vấp rồi! -10', '#ff9d8a'); sfx.hit(); if (st.stam <= 0) st.exhausted = true; }
     }
     for (const it of this.items) {
       if (it.taken || it.lane !== st.lane || !(prev < it.s + 1.2 && st.s >= it.s - 1.2)) continue;
-      if (it.key === 'coin') { it.taken = true; this.dyn.remove(it.sp); st.items.coin = (st.items.coin || 0) + 1; this.unsent.items.coin = (this.unsent.items.coin || 0) + 1; this.hooks.onCoin && this.hooks.onCoin(1); continue; }
+      if (it.key === 'coin') { it.taken = true; this.dyn.remove(it.sp); st.items.coin = (st.items.coin || 0) + 1; this.unsent.items.coin = (this.unsent.items.coin || 0) + 1; this.hooks.onCoin && this.hooks.onCoin(1); sfx.coin(); continue; }
       const slot = this.inv.find((x) => x.k === it.key && x.n < R.INV_STACK) || (this.inv.length < R.INV_SLOTS ? (this.inv.push({ k: it.key, n: 0 }), this.inv[this.inv.length - 1]) : null);
       if (!slot) continue;
       slot.n++; it.taken = true; this.dyn.remove(it.sp); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1;
-      this.float(`${S.ITEMS[it.key].icon} ${S.ITEMS[it.key].name}`, '#fff'); this.hooks.onInventory && this.hooks.onInventory(this.inv);
+      sfx.pickup(); this.float(`${S.ITEMS[it.key].icon} ${S.ITEMS[it.key].name}`, '#fff'); this.hooks.onInventory && this.hooks.onInventory(this.inv);
     }
     this.dogLogic(dt);
-    if (st.target >= this.total && st.s >= this.total - 0.05) { st.finished = true; st.s = st.target = this.total; this.hooks.onFinish && this.hooks.onFinish(this.summary()); }
+    if (st.target >= this.total && st.s >= this.total - 0.05) { st.finished = true; st.s = st.target = this.total; sfx.finish(); this.hold.clear(); this.hooks.onFinish && this.hooks.onFinish(this.summary()); }
   }
   dogLogic(dt) {
     const st = this.st;
     if (!this.dog && this.dogIdx < this.dogEvents.length && st.s >= this.dogEvents[this.dogIdx]) {
       this.dogIdx++; const m = dogMesh(); this.dyn.add(m); m.visible = false;
-      this.dog = { phase: 'warn', t: R.DOG_WARN_SECS, s: 0, lat: st.lat, m }; this.say('🐕 Gâu gâu! Chó đuổi — dùng ⚡ hoặc chạy nhanh hơn!', 2600); this.float('Gâu! 🐕', '#ffb27a');
+      this.dog = { phase: 'warn', t: R.DOG_WARN_SECS, s: 0, lat: st.lat, m }; sfx.warn(); sfx.bark(); this.say('🐕 Gâu gâu! Chó đuổi — dùng ⚡ hoặc chạy nhanh hơn!', 2600); this.float('Gâu! 🐕', '#ffb27a');
     }
     const d = this.dog; if (!d) return; d.t -= dt;
-    if (d.phase === 'warn' && d.t <= 0) { d.phase = 'chase'; d.t = R.DOG_SECS; d.s = st.s - R.DOG_START_GAP; d.m.visible = true; }
+    if (d.phase === 'warn' && d.t <= 0) { d.phase = 'chase'; d.t = R.DOG_SECS; d.s = st.s - R.DOG_START_GAP; d.m.visible = true; d.bark = 1.6; sfx.bark(); }
     else if (d.phase === 'chase') {
       d.s += R.DOG_SPEED * dt; d.lat += (st.lat - d.lat) * Math.min(1, dt * 3);
-      if (st.s - d.s <= 0.9) { st.stam = Math.max(0, st.stam - R.BITE_STAM); st.slowT = R.BITE_SLOW_SECS; st.bites++; this.unsent.bites++; st.shake = 0.5; this.float(`Bị cắn! -${R.BITE_STAM}`, '#ff7a6a'); if (st.stam <= 0) st.exhausted = true; d.phase = 'leave'; d.t = 2; }
+      if ((d.bark -= dt) <= 0) { d.bark = 1.8; sfx.bark(); }
+      if (st.s - d.s <= 0.9) { st.stam = Math.max(0, st.stam - R.BITE_STAM); st.slowT = R.BITE_SLOW_SECS; st.bites++; this.unsent.bites++; st.shake = 0.5; this.float(`Bị cắn! -${R.BITE_STAM}`, '#ff7a6a'); sfx.bite(); if (st.stam <= 0) st.exhausted = true; d.phase = 'leave'; d.t = 2; }
       else if (d.t <= 0) { d.phase = 'leave'; d.t = 2; this.float('Thoát chó rồi 😅', '#9ef0b0'); }
     } else if (d.phase === 'leave') { d.lat += (d.lat < 0 ? -1 : 1) * 6 * dt; d.s += 2 * dt; if (d.t <= 0) { this.dyn.remove(d.m); this.dog = null; return; } }
-    if (d.m.visible) { const P = this.world.posAt(d.s), [x, z] = this.world.off(P, d.lat); d.m.position.set(x, P.y + Math.abs(Math.sin(this.t * 14)) * 0.25, z); d.m.rotation.y = -P.h - (d.phase === 'leave' ? 1.2 : 0); }
+    if (d.m.visible) { const P = this.world.posAt(d.s), [x, z] = this.world.off(P, d.lat); d.m.position.set(x, P.y, z); d.m.rotation.y = -P.h - (d.phase === 'leave' ? 1.2 : 0); }
   }
   summary() { const st = this.st; return { time: st.time, steps: st.steps, meters: st.meters, jumps: st.jumps, bites: st.bites, items: { ...st.items }, map: this.map, dist: this.total }; }
   takeDelta() { const d = this.unsent; this.unsent = { steps: 0, meters: 0, jumps: 0, bites: 0, boltsUsed: 0, secs: 0, items: {} }; d.secs = Math.round(d.secs); return d; }
@@ -322,7 +377,7 @@ export class Game {
     for (const f of this.floaters) { f.t -= dt; f.sp.position.y = f.y + (1.3 - f.t) * 1.6; f.sp.material.opacity = clamp(f.t, 0, 1); }
     this.floaters = this.floaters.filter((f) => { if (f.t <= 0) this.scene.remove(f.sp); return f.t > 0; });
     for (const it of this.items) if (!it.taken) it.sp.position.y = it.y + Math.sin(t * 3 + it.s) * 0.2;
-    if (this.dog && this.dog.m.visible) for (const [i, l] of this.dog.m.userData.legs.entries()) l.rotation.z = Math.sin(t * 16 + i * 1.6) * 0.5;
+    if (this.dog && this.dog.m.visible) dogAnimate(this.dog.m, t, this.dog.phase === 'leave' ? 0.55 : 1);
     if (st.shake > 0) st.shake -= dt;
     // camera: zoom in -> bám đường (hướng theo đường); zoom out -> toàn cảnh, xoay tự do quanh người chơi
     const ov = this.overview, look = w.posAt(st.s + (ov ? 0 : 6));

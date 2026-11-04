@@ -1,5 +1,6 @@
 import { Store, api, dayOf } from './store.js';
 import { Game } from './game.js';
+import { sfx } from './sound.js';
 import { gpsCourse } from './gpsworld.js';
 import { GpsPicker } from './gpspicker.js';
 import { createTournamentUI } from './tournaments.js';
@@ -224,7 +225,7 @@ const modalOpen = () => !$('#modal').hidden;
 addEventListener('keydown', (e) => {
   if (!game || !game.running || $('#hud').hidden || typing()) return;
   if (modalOpen()) { if (e.key === 'Escape') closeModal(); return; }
-  if (e.code === 'Space') { e.preventDefault(); game.step(); }
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) { game.step(); game.setHold('key', true); } }
   else if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowUp') { if (e.key === 'ArrowUp') e.preventDefault(); game.jump(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); game.moveLane(-1); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); game.moveLane(1); }
@@ -233,10 +234,16 @@ addEventListener('keydown', (e) => {
   else if (e.key === '+' || e.key === '=') game.zoom(-1);
   else if (e.key === '-') game.zoom(1);
   else if (e.key === 't' || e.key === 'T') game.tilt();
+  else if (e.key === 'm' || e.key === 'M') toggleSound();
 });
 function toggleAuto() { game.setMode(game.mode === 'auto' ? 'manual' : 'auto'); sel.mode = game.mode; toast(game.mode === 'auto' ? '▶ Chạy tự động (1 bước/giây)' : '✋ Chạy thủ công', 1200); }
 $('#h-auto').onchange = () => toggleAuto();
-$('#b-step').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.step(); });
+const stepBtn = $('#b-step');
+stepBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); stepBtn.setPointerCapture(e.pointerId); if (game) { game.step(); game.setHold('btn', true); } });   // giữ nút = chạy liên tục tốc độ tối đa
+for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) stepBtn.addEventListener(ev, () => game && game.setHold('btn', false));
+addEventListener('keyup', (e) => { if (e.code === 'Space' && game) game.setHold('key', false); });
+addEventListener('blur', () => game && game.releaseHold());
+document.addEventListener('visibilitychange', () => { if (document.hidden && game) game.releaseHold(); });
 $('#b-jump').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.jump(); });
 $('#b-left').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.moveLane(-1); });
 $('#b-right').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.moveLane(1); });
@@ -355,3 +362,10 @@ window.__app = { store, get game() { return game; }, sel, get tours() { return t
 
 // nhãn nút theo thiết bị
 { const s = $('#b-step small'), j = $('#b-jump small'); if (TOUCH) { s.textContent = 'hoặc chạm màn hình'; j.textContent = ''; } else { s.textContent = 'Space / click'; j.textContent = 'J / ↑'; } }
+
+// âm thanh
+const soundIcon = () => { $('#b-sound').textContent = sfx.muted ? '🔇' : '🔊'; };
+function toggleSound() { sfx.toggle(); soundIcon(); toast(sfx.muted ? 'Đã tắt âm thanh' : 'Đã bật âm thanh', 1200); }
+$('#b-sound').onclick = toggleSound; soundIcon();
+// tiếng bấm nút ngoài sảnh
+document.addEventListener('click', (e) => { if (e.target.closest('button') && !e.target.closest('#hud')) sfx.click(); });

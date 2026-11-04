@@ -1,5 +1,6 @@
 # Changelog
 ## 1.1.0
+- Nhân vật có chân/tay khớp hông-gối-vai-khuỷu, bước chạy tự nhiên (không còn như nhảy); chó vẽ lại và có hoạt họa phi; âm thanh tổng hợp (bước, nhảy, xu, vật phẩm, chó sủa, cắn, về đích...) với nút bật/tắt; giữ Space/chuột/chạm/nút BƯỚC để chạy tốc độ tối đa; chuyển động mượt hơn.
 - Chạy dịch vụ nền trên máy cá nhân (Windows/Linux/macOS) + Cloudflare Tunnel, `npm run doctor`, lấy IP thật qua CF-Connecting-IP, `npm run demo` chạy được trên Windows.
 - Bản Cloudflare Workers + Durable Object (SQLite, WebSocket) không dùng container: `wrangler.jsonc`, `worker/`, `scripts/build-assets.mjs`.
 - Tách lõi dùng chung `core.js` (Node và Worker), `node-tiles.js`, `lite-express.js`; thêm `tools/smoke.mjs`.
