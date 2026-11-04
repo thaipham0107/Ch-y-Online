@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const CONFIG_FILE = path.join(__dirname, 'strava.config.json');
+const CONFIG_FILE = path.join(typeof __dirname === 'string' ? __dirname : '.', 'strava.config.json');
 function readFile() { try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch { return {}; } }
 const FILE = readFile();
 const pick = (env, key, def = '') => String(process.env[env] || FILE[key] || def).trim();

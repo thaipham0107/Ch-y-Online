@@ -1,0 +1,23 @@
+{
+  // Chạy Online trên Cloudflare Workers (không dùng container): file tĩnh + Worker + Durable Object (SQLite + WebSocket).
+  "name": "chay-online",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "build": { "command": "node scripts/build-assets.mjs" },
+  "assets": {
+    "directory": "./dist/assets",
+    "run_worker_first": ["/api/*", "/auth/*", "/ws", "/tiles/*", "/healthz"]
+  },
+  "durable_objects": { "bindings": [{ "name": "HUB", "class_name": "Hub" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Hub"] }],
+  "vars": {
+    // Đổi thành địa chỉ thật của bạn (dùng cho đăng nhập Strava và cookie an toàn)
+    "BASE_URL": "https://chay-online.example.workers.dev",
+    "TILES_VERSION": "1",
+    // Vùng đặt dữ liệu: apac gần Việt Nam nhất. Bỏ dòng này nếu muốn Cloudflare tự chọn.
+    "HUB_LOCATION": "apac"
+  }
+  // Tùy chọn: lưu ảnh bản đồ vĩnh viễn bằng R2 (tạo bucket: npx wrangler r2 bucket create chay-tiles), rồi bỏ chú thích:
+  // "r2_buckets": [{ "binding": "TILES", "bucket_name": "chay-tiles" }]
+}

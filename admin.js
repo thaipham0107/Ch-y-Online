@@ -5,20 +5,20 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-function loadConfig() {
+function loadConfig(env) {
   let f = {};
-  try { f = JSON.parse(fs.readFileSync(path.join(__dirname, 'admin.config.json'), 'utf8')); } catch { /* chưa có file */ }
-  const username = String(process.env.ADMIN_USER || f.username || '').trim();
-  const cfg = { username, salt: f.salt, hash: f.hash, password: process.env.ADMIN_PASS || f.password };
+  try { f = JSON.parse(fs.readFileSync(path.join(typeof __dirname === 'string' ? __dirname : '.', 'admin.config.json'), 'utf8')); } catch { /* chưa có file */ }
+  const username = String(env.ADMIN_USER || f.username || '').trim();
+  const cfg = { username, salt: f.salt, hash: f.hash, password: env.ADMIN_PASS || f.password };
   if (!username || !(cfg.password || (cfg.salt && cfg.hash))) return null;
   if (cfg.password) { cfg.salt = crypto.randomBytes(16).toString('hex'); cfg.hash = crypto.scryptSync(String(cfg.password), cfg.salt, 32).toString('hex'); delete cfg.password; }
   return cfg;
 }
 
 module.exports = function mountAdmin(app, ctx) {
-  const { db, express, dayOf, hashPw, publicTotals, MAPS, online } = ctx;
+  const { db, dayOf, hashPw, publicTotals, MAPS, online, env = process.env } = ctx;
   const VN_S = 7 * 3600;
-  const cfg = loadConfig();
+  const cfg = loadConfig(env);
 
   db.exec(`
   CREATE TABLE IF NOT EXISTS vsessions(
@@ -77,7 +77,7 @@ module.exports = function mountAdmin(app, ctx) {
 
   if (!cfg) {
     app.use('/api/admin', (req, res) => res.status(503).json({ error: 'Chưa cấu hình tài khoản quản trị (admin.config.json)' }));
-    return { logEv, enabled: false };
+    return { logEv, cleanup() {}, enabled: false };
   }
 
   // ---------- đăng nhập quản trị ----------
@@ -222,13 +222,12 @@ module.exports = function mountAdmin(app, ctx) {
     const u = one('SELECT id,username FROM users WHERE id=?', +req.params.id); if (!u) return res.status(404).json({ error: 'Không có người chơi' });
     if (String(req.query.confirm) !== u.username) return res.status(400).json({ error: 'Cần xác nhận bằng tên đăng nhập' });
     const key = 'u' + u.id;
-    db.exec('BEGIN');
-    try {
+    try { db.tx(() => {
       for (const sql of ['DELETE FROM sessions WHERE user_id=?', 'DELETE FROM daily WHERE user_id=?', 'DELETE FROM real_daily WHERE user_id=?', 'DELETE FROM runs WHERE user_id=?', 'DELETE FROM users WHERE id=?']) db.prepare(sql).run(u.id);
       for (const sql of ['DELETE FROM participants WHERE pkey=?', 'DELETE FROM results WHERE pkey=?', 'DELETE FROM awards WHERE pkey=?']) db.prepare(sql).run(key);
       db.prepare('UPDATE vsessions SET user_id=NULL WHERE user_id=?').run(u.id);
-      db.exec('COMMIT');
-    } catch (e) { db.exec('ROLLBACK'); return res.status(500).json({ error: 'Không xóa được: ' + e.message }); }
+      });
+    } catch (e) { return res.status(500).json({ error: 'Không xóa được: ' + e.message }); }
     alog('delete_user', u.username, null); res.json({ ok: true });
   });
 
@@ -266,12 +265,14 @@ module.exports = function mountAdmin(app, ctx) {
   });
   app.get('/api/admin/audit', guard, (req, res) => res.json({ log: all('SELECT ts,admin,action,target,data FROM admin_log ORDER BY id DESC LIMIT 200') }));
 
-  // dọn dữ liệu cũ: giữ 400 ngày
-  setInterval(() => {
-    const cut = Date.now() - 400 * 864e5;
-    db.prepare('DELETE FROM events WHERE ts<?').run(cut); db.prepare('DELETE FROM vsessions WHERE start<?').run(cut);
+  // dọn dữ liệu cũ: giữ 400 ngày; chạy tối đa 6 giờ/lần khi nền tảng gọi sweep()
+  let lastClean = 0;
+  function cleanup() {
     const now = Date.now(); for (const [t, e] of asess) if (e < now) asess.delete(t);
-  }, 6 * 3600e3).unref();
+    if (now - lastClean < 6 * 3600e3) return; lastClean = now;
+    const cut = now - 400 * 864e5;
+    db.prepare('DELETE FROM events WHERE ts<?').run(cut); db.prepare('DELETE FROM vsessions WHERE start<?').run(cut);
+  }
 
-  return { logEv, enabled: true };
+  return { logEv, cleanup, enabled: true };
 };

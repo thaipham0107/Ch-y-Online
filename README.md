@@ -61,3 +61,7 @@ Hình học và độ cao của 10 bản đồ nằm trong `public/courses/` (`<
 - **Tổng quan**: đang truy cập, DAU/WAU/MAU, lượt truy cập và thiết bị duy nhất theo ngày, thời gian sử dụng (TB, trung vị, tổng giờ), giờ cao điểm, thiết bị, bản đồ phổ biến, km trong game/ngoài đời, giải đấu, xu lưu hành.
 - **Người chơi**: tìm, sắp xếp, chi tiết từng người (lịch sử ngày, chuyến chạy, phiên truy cập, hoạt động, giải/huy chương, vật phẩm); cộng/trừ xu, đổi tên, đặt lại mật khẩu, khóa/mở khóa, xóa. **Khách**, **Giải đấu** (xóa), **Hoạt động** (luồng sự kiện), **Nhật ký** (mọi thao tác quản trị).
 - Theo dõi truy cập: `public/js/track.js` gửi mở trang + nhịp 30 giây (chỉ tính lúc tab hiện) theo mã thiết bị ngẫu nhiên; IP lưu dạng băm có muối ngẫu nhiên (đổi mỗi lần khởi động), dữ liệu giữ 400 ngày. Nên nêu việc này trong chính sách quyền riêng tư của bạn.
+
+## Triển khai
+- **Cloudflare Workers (không container)**: `npm run deploy:worker` (xem `DEPLOY.md`, mục A). Kiểm thử tại chỗ: `npm run dev:worker`, rồi `node tools/smoke.mjs http://localhost:8787 <admin> <mật khẩu>`.
+- Node/Docker: `npm start` hoặc `docker compose up -d` (mục B). Hai bản dùng chung `core.js`.

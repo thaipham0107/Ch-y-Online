@@ -1,4 +1,7 @@
 # Changelog
+## 1.1.0
+- Bản Cloudflare Workers + Durable Object (SQLite, WebSocket) không dùng container: `wrangler.jsonc`, `worker/`, `scripts/build-assets.mjs`.
+- Tách lõi dùng chung `core.js` (Node và Worker), `node-tiles.js`, `lite-express.js`; thêm `tools/smoke.mjs`.
 ## 1.0.0
 - 10 bản đồ Việt Nam từ GPX thật, 4 làn, camera zoom/xoay 360°, thể lực, chó đuổi, vật phẩm, chế độ tự động.
 - Tài khoản (SQLite) và khách (trình duyệt), gộp dữ liệu khách; xu và cửa hàng.

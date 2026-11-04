@@ -7,3 +7,6 @@ tools/.cache/
 gpx/*.gpx
 admin.config.json
 release/
+dist/
+.wrangler/
+.dev.vars

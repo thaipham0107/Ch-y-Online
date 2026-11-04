@@ -1,6 +1,6 @@
 {
   "name": "chay-online",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Chạy Online - game chạy bộ nhiều người chơi, kết nối Strava, sức mạnh = số km",
   "main": "server.js",
   "scripts": {
@@ -8,7 +8,11 @@
     "demo": "STRAVA_MOCK=1 node server.js",
     "check:strava": "node tools/check-strava.mjs",
     "courses:build": "node tools/build-courses.mjs",
-    "courses:gpx": "node tools/import-gpx.mjs"
+    "courses:gpx": "node tools/import-gpx.mjs",
+    "build:worker": "node scripts/build-assets.mjs",
+    "dev:worker": "wrangler dev",
+    "deploy:worker": "wrangler deploy",
+    "smoke": "node tools/smoke.mjs"
   },
   "engines": {
     "node": ">=22.5"
@@ -18,5 +22,8 @@
     "leaflet": "^1.9.4",
     "three": "^0.170.0",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.157.0"
   }
 }
