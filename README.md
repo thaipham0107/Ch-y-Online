@@ -42,7 +42,7 @@ Mặc định dùng OpenStreetMap, Esri World Imagery, Valhalla, Nominatim (đ�
 `server.js` (Express, WebSocket, SQLite, giải đấu, bản đồ) · `strava.js` · `maps.js` (luật, bản đồ, cửa hàng; dùng chung) · `public/js/`: `world.js` (cảnh 3D), `gpsworld.js` (cảnh GPS), `game.js` (engine), `store.js` (hồ sơ tài khoản/khách), `tournaments.js`, `gpspicker.js`, `medal.js`, `main.js`.
 
 ## Dữ liệu đường chạy thật (10 bản đồ)
-Hình học và độ cao của 10 bản đồ nằm trong `public/courses/` (`<id>.json` + `meta.json`). Hiện được dựng từ **OpenStreetMap** (đường đi qua các điểm mốc, `tools/courses.config.mjs`) và **độ cao SRTM 30 m** (OpenTopoData), có lọc nhiễu và giới hạn độ dốc hợp lý. Đây **chưa phải GPX chính thức** của ban tổ chức giải.
+Hình học và độ cao của 10 bản đồ nằm trong `public/courses/` (`<id>.json` + `meta.json`). Hiện cả 10 tuyến dùng **GPX tự vẽ trong Komoot** (có độ cao, `gpx/NGUON.md` ghi chi tiết). Cách dựng dự phòng từ **OpenStreetMap** (đường đi qua các điểm mốc, `tools/courses.config.mjs`) và **độ cao SRTM 30 m** (OpenTopoData), có lọc nhiễu và giới hạn độ dốc hợp lý. Đây **chưa phải GPX chính thức** của ban tổ chức giải.
 - Dựng lại: `npm run courses:build` (chạy được cả từng bản đồ: `node tools/build-courses.mjs haivan`). Kết quả gọi mạng được lưu đệm trong `tools/.cache/`.
 - **Thay bằng GPX chính thức**: đặt file vào `gpx/<id>.gpx` (id: `hoguom saigon danang halong trangan mocchau haivan prenn oquyho mapileng`) rồi `npm run courses:gpx`. GPX có độ cao thì dùng luôn, thiếu thì lấy từ SRTM. Game tự nhận, hiển thị "GPX chính thức" ở màn chọn bản đồ.
 - Bên vách núi, vực, biển được phát hiện từ độ cao hai bên đường; cảnh dùng hình học thật (địa hình dạng lưới, lan can, cầu Rồng, tháp Bitexco, cổng Hải Vân Quan… đặt theo tọa độ).

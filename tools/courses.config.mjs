@@ -10,7 +10,7 @@ export const COURSES = {
   halong: { maxGrade: 8, costing: 'auto', via: [[20.9525, 107.0655], [20.96016, 107.06579], [20.96846, 107.0777]], bridges: [[0.3, 1.4]] },
   trangan: { maxGrade: 8, costing: 'auto', via: [[20.25269, 105.91808], [20.27284, 105.86403]], landmarks: { baidinh: [20.27284, 105.86403] } },
   mocchau: { maxGrade: 9, costing: 'auto', via: [[20.84499, 104.64099], [20.81798, 104.59169]] },
-  haivan: { maxGrade: 9, costing: 'auto', via: [[16.10978, 108.12374], [16.18775, 108.13129]], landmarks: { haivanquan: [16.18775, 108.13129] } },
+  haivan: { maxGrade: 9, startNear: [16.10978, 108.12374], costing: 'auto', via: [[16.10978, 108.12374], [16.18775, 108.13129]], landmarks: { haivanquan: [16.18775, 108.13129] } },
   prenn: { maxGrade: 12, costing: 'auto', via: [[11.87652, 108.4701], [11.91574, 108.44739]] },
   oquyho: { maxGrade: 14, costing: 'auto', via: [[22.3363, 103.844], [22.37238, 103.75714]] },
   mapileng: { maxGrade: 14, costing: 'auto', via: [[23.24196, 105.39792], [23.16332, 105.41044]], maxKm: 9 }

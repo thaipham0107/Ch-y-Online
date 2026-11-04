@@ -79,7 +79,7 @@ export function buildWorld(map, scene) {
   // dấu bên (-1 = trái, +1 = phải) của vách núi, vực, biển, hồ, sông (dữ liệu thật quyết định; mặc định như bản cũ)
   const cs = (map.cliff || 'L') === 'L' ? -1 : 1, ks = (map.canyon || (map.cliff === 'L' ? 'R' : 'L')) === 'L' ? -1 : 1, ss = (map.sea || 'R') === 'L' ? -1 : 1;
   const LAKE = map.route ? map.lake : (map.lake || 'L'), RIVER = map.route ? map.river : (map.river || (map.theme === 'trangan' ? 'L' : 'R'));
-  const lk = (map.lake || 'L') === 'L' ? -1 : 1, rv = (map.river || (map.theme === 'trangan' ? 'L' : 'R')) === 'L' ? -1 : 1, mk = (k) => (map.marks && map.marks[k]) || null;
+  const lk = (map.lake || 'L') === 'L' ? -1 : 1, rv = (map.river || (map.theme === 'trangan' ? 'L' : 'R')) === 'L' ? -1 : 1, mk = (k) => { const m = map.marks && map.marks[k]; return m && m.d < 300 ? m : null; };       // điểm mốc quá xa tuyến thì bỏ
   const at = (arr, s) => { const i = clamp(Math.floor(s), 0, N - 2), f = clamp(s - i, 0, 1); return arr[i] * (1 - f) + arr[i + 1] * f; };
   const posAt = (s) => ({ x: at(xs, s), y: at(ys, s), z: at(zs, s), h: at(hs, s) });
   const off = (P, o) => [P.x - Math.sin(P.h) * o, P.z + Math.cos(P.h) * o];  // o>0: bên phải
@@ -228,7 +228,7 @@ export function buildWorld(map, scene) {
       along(0, L, 14, 20, both((s, sd) => { if (sd === rv && RIVER && rng() < 0.5) return; block(s, sd * (15 + rng() * 6), 9 + rng() * 8, 12, 14 + rng() * 40, pick(['#7fb1cf', '#a9c1d1', '#d6cdbf', '#c9ad92', '#8fa6b8']), '#cfd5d8'); }));
       along(0, L, 12, 17, both((s, sd) => tree(s, sd * 8, 1.4 + rng() * 0.5, '#3f9a4a')));
       along(20, L, 24, 30, both((s, sd) => lamp(s, sd * 9.4)));
-      { const b = mk('bitexco'), bs = b ? b.s : 2800, bo = b ? b.o + Math.sign(b.o || 1) * 12 : 26; put('cyl', G.cyl, bs, bo, 7, 70, 7, '#3d79a8'); put('cyl', G.cyl, bs, bo, 4, 8, 4, '#c8d6df', 0, 70); put('cyl', G.cyl, bs, bo, 6.5, 0.8, 6.5, '#d0504b', 0, 78);
+      { const b = mk('bitexco'); if (map.route && !b) { /* tuyến thật không đi gần Bitexco */ } else { const bs = b ? b.s : 2800, bo = b ? b.o + Math.sign(b.o || 1) * 12 : 26; put('cyl', G.cyl, bs, bo, 7, 70, 7, '#3d79a8'); put('cyl', G.cyl, bs, bo, 4, 8, 4, '#c8d6df', 0, 70); put('cyl', G.cyl, bs, bo, 6.5, 0.8, 6.5, '#d0504b', 0, 78); }
         const l8 = mk('landmark81'); if (l8) { const lo = l8.o + Math.sign(l8.o || 1) * 16; put('cyl', G.cyl, l8.s - 10, lo, 9, 130, 9, '#2f6fa0'); put('cyl', G.cyl, l8.s - 10, lo, 1, 30, 1, '#dfe6ea', 0, 130); } }
       break;
     case 'danang':

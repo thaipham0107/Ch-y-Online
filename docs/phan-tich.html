@@ -60,7 +60,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <tr><td>Giải đấu: công khai / riêng tư, link mời, huy chương tùy biến, giờ G, tổng kết</td><td><span class="tag ok">Đã làm</span></td><td>Chưa có mã QR, chưa tải logo riêng</td></tr>
 <tr><td>GPS chạy ảo dọc tuyến, 2D hoặc vệ tinh, vị trí chỉ để lấy điểm xuất phát</td><td><span class="tag ok">Đã làm</span></td><td>Ảnh bản đồ phẳng nghiêng, chưa có mô hình tòa nhà 3D và độ cao</td></tr>
 <tr><td>Kết nối Strava thật</td><td><span class="tag ok">Sẵn sàng</span></td><td>File cấu hình <code>strava.config.json</code>, lệnh kiểm tra khóa, đã thử đầu-cuối với máy chủ Strava giả (đăng nhập, làm mới token, lỗi 401/429). Chờ khóa của bạn để thử với Strava thật</td></tr>
-<tr><td>Dữ liệu đường chạy thật và nhập GPX chính thức</td><td><span class="tag ok">Đã làm</span></td><td>9/10 tuyến dùng GPX Komoot do bạn vẽ; đèo Hải Vân còn dùng dữ liệu mở. Công cụ nhập có tự cắt đoạn quay lại</td></tr>
+<tr><td>Dữ liệu đường chạy thật và nhập GPX chính thức</td><td><span class="tag ok">Đã làm</span></td><td>Cả 10 tuyến dùng GPX Komoot do bạn vẽ. Công cụ nhập tự cắt đoạn quay lại; GPX chính thức của ban tổ chức vẫn thay được bằng cùng lệnh</td></tr>
 <tr><td>Thấy nhau trong phòng chờ trước giờ G, mã QR, logo huy chương</td><td><span class="tag todo">Chưa làm</span></td><td>Xem mục Việc tiếp theo</td></tr>
 </tbody></table></div>
 
@@ -114,14 +114,14 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <tr><td>Bãi Cháy – Hạ Long</td><td class="n">6,5 km</td><td class="n">121 m</td><td class="n">6–90 m</td><td class="n">★★</td><td>GPX Komoot: từ Quảng Ninh vượt đồi tới cầu Bãi Cháy (đã bỏ nhánh rẽ quay lại)</td></tr>
 <tr><td>Tràng An, Ninh Bình</td><td class="n">13,4 km</td><td class="n">91 m</td><td class="n">2–44 m</td><td class="n">★★</td><td>GPX Komoot do bạn vẽ: từ bến thuyền Tràng An tới chùa Bái Đính</td></tr>
 <tr><td>Đồi chè Mộc Châu, Sơn La</td><td class="n">23,8 km</td><td class="n">373 m</td><td class="n">709–1.187 m</td><td class="n">★★★</td><td>GPX Komoot do bạn vẽ: từ Mộc Châu tới thác Dải Yếm (đường vòng, nhiều đồi)</td></tr>
-<tr><td>Đèo Hải Vân</td><td class="n">14,0 km</td><td class="n">515 m</td><td class="n">0–483 m</td><td class="n">★★★★</td><td>Từ Nam Ô lên Hải Vân Quan; vách núi bên trái, vực và biển bên phải</td></tr>
+<tr><td>Đèo Hải Vân</td><td class="n">14,9 km</td><td class="n">526 m</td><td class="n">3–462 m</td><td class="n">★★★★</td><td>GPX Komoot: từ Nam Ô lên Hải Vân Quan (đã bỏ đoạn đường phố đầu file)</td></tr>
 <tr><td>Đèo Prenn, Đà Lạt</td><td class="n">6,5 km</td><td class="n">39 m</td><td class="n">1.354–1.486 m</td><td class="n">★★★★</td><td>GPX Komoot: đường dốc xuống từ trung tâm Đà Lạt, vùng đèo Prenn</td></tr>
 <tr><td>Đèo Ô Quy Hồ, Sa Pa – Lai Châu</td><td class="n">18,6 km</td><td class="n">1100 m</td><td class="n">1.207–2.138 m</td><td class="n">★★★★★</td><td>GPX Komoot: từ Sa Pa leo đèo tới cầu kính Rồng Mây</td></tr>
 <tr><td>Mã Pí Lèng, Hà Giang</td><td class="n">8,6 km</td><td class="n">139 m</td><td class="n">897–1.329 m</td><td class="n">★★★★★</td><td>GPX Komoot: từ đèo Mã Pí Lèng xuống dốc về phía Mèo Vạc</td></tr>
 </tbody></table></div>
 
 <h3>Dữ liệu đường chạy thật</h3>
-<div class="note"><b>Nguồn từng tuyến.</b> 9 tuyến dùng GPX từ Komoot do bạn tự vẽ (có độ cao); chỉ đèo Hải Vân còn dùng OpenStreetMap + SRTM, chờ GPX. Các vệt đi ra rồi quay về đúng đường cũ được cắt lấy chiều đi (Đà Nẵng còn 3,3 km, Hà Nội 8,1 km); nhánh rẽ rồi quay lại được bỏ (Hạ Long).</div>
+<div class="note"><b>Nguồn từng tuyến.</b> Cả 10 tuyến đều dùng GPX từ Komoot do bạn tự vẽ (có độ cao). Các vệt đi ra rồi quay về đúng đường cũ được cắt lấy chiều đi (Đà Nẵng còn 3,3 km, Hà Nội 8,1 km), nhánh rẽ rồi quay lại được bỏ (Hạ Long), và file Hải Vân được cắt từ chân đèo (Nam Ô). Đây là tuyến tự vẽ, chưa phải GPX chính thức của ban tổ chức giải.</div>
 <div class="shots">
 <figure><img src="img/real-lobby.jpg" alt="Chọn bản đồ với dữ liệu thật" width="1180" height="760"><figcaption><b>Màn chọn bản đồ.</b> Độ dài, tổng leo, dốc tối đa và biểu đồ độ cao lấy từ dữ liệu thật. Có ghi rõ nguồn dữ liệu của từng tuyến.</figcaption></figure>
 <figure><img src="img/real-haivan.jpg" alt="Đèo Hải Vân" width="1180" height="760"><figcaption><b>Đèo Hải Vân, zoom xa.</b> Đường uốn theo hình học thật, lan can phía vực, vách đá một bên. Biểu đồ độ cao trên đầu là độ cao thật của đoạn đường.</figcaption></figure>
