@@ -5,6 +5,11 @@ Có ba cách: **C. chạy trên máy cá nhân + Cloudflare Tunnel (không Docke
 ## C. Máy cá nhân + Cloudflare Tunnel, chạy như dịch vụ nền (không Docker)
 Game chạy trên máy của bạn bằng Node; **cloudflared** mở một đường hầm ra ngoài tới Cloudflare nên **không phải mở cổng router**, IP nhà không lộ, có HTTPS miễn phí. Dữ liệu nằm ở thư mục `data/` trên máy bạn.
 
+### Cách nhanh nhất trên Windows: bấm đúp `chay-online.bat`
+File này làm hết: kiểm tra Node 22.5+, cài thư viện, hỏi tài khoản quản trị lần đầu (lưu vào `.env`), tự tải cloudflared, khởi động game ở nền, mở link công khai `trycloudflare.com`, chép link vào clipboard và mở trình duyệt. Có thể đóng cửa sổ, game vẫn chạy; dừng bằng `chay-online-stop.bat`. Muốn tên miền cố định: thêm `TUNNEL_TOKEN=...` và `BASE_URL=https://...` vào `.env` (lấy token ở bước "Cách ổn định" bên dưới), lần chạy sau sẽ dùng tên miền đó. Muốn tự chạy khi bật máy: dùng `install-service.ps1` (bước 3). Nhật ký ở thư mục `logs\`.
+
+Các bước thủ công tương ứng:
+
 ### 1. Chuẩn bị
 - Cài **Node 22.5 trở lên** (nodejs.org, bản LTS) và **cloudflared** (developers.cloudflare.com → Cloudflare One → Connections → Downloads).
 - Lấy mã nguồn (giải nén gói hoặc `git clone`), rồi trong thư mục dự án:

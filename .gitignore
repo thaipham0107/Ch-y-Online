@@ -11,3 +11,4 @@ dist/
 .wrangler/
 .dev.vars
 logs/
+tools/bin/
