@@ -10,6 +10,7 @@ const Shared = require('./maps');
 const strava = require('./strava');
 
 const { RULES, ITEMS, MAPS, COIN, SHOP, SHOP_DEFAULT } = Shared;
+try { Shared.applyMeta(JSON.parse(fs.readFileSync(path.join(__dirname, 'public/courses/meta.json'), 'utf8'))); } catch { /* chưa dựng dữ liệu đường chạy: dùng số liệu mặc định */ }
 const PORT = +process.env.PORT || 3000;
 const BASE_URL = (process.env.BASE_URL || strava.FILE_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');

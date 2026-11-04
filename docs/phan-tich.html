@@ -50,7 +50,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <h2 id="tinh-trang">Tình trạng hiện tại</h2>
 <div class="tbl"><table>
 <thead><tr><th>Hạng mục</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>
-<tr><td>Cảnh 3D, 10 bản đồ Việt Nam, độ khó theo độ dốc</td><td><span class="tag ok">Đã làm</span></td><td>Cảnh low-poly dựng theo đặc trưng từng nơi; độ cao là xấp xỉ, chưa phải GPX thật</td></tr>
+<tr><td>Cảnh 3D, 10 bản đồ Việt Nam, độ khó theo độ dốc</td><td><span class="tag ok">Đã làm</span></td><td>Đường chạy là hình học thật từ OpenStreetMap, độ cao SRTM 30 m; cảnh low-poly đặt theo bên vách, vực, biển và tọa độ điểm mốc</td></tr>
 <tr><td>Đường 4 làn, vật phẩm và chướng ngại rơi ngẫu nhiên ở các làn</td><td><span class="tag ok">Đã làm</span></td><td>Đổi làn bằng ←/→, vuốt ngang hoặc nút ◀ ▶</td></tr>
 <tr><td>Camera zoom in / zoom out xoay 360°</td><td><span class="tag ok">Đã làm</span></td><td>Cuộn hoặc chụm để zoom, kéo để xoay khi zoom xa</td></tr>
 <tr><td>Bước, thể lực, vật phẩm, chó đuổi, chế độ tự động</td><td><span class="tag ok">Đã làm</span></td><td>Space = bước, J = nhảy</td></tr>
@@ -59,8 +59,9 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <tr><td>Lịch sử, xếp hạng có cột Game / Ngoài đời / Tổng</td><td><span class="tag ok">Đã làm</span></td><td>Strava là tùy chọn; thử với dữ liệu Strava giả lập</td></tr>
 <tr><td>Giải đấu: công khai / riêng tư, link mời, huy chương tùy biến, giờ G, tổng kết</td><td><span class="tag ok">Đã làm</span></td><td>Chưa có mã QR, chưa tải logo riêng</td></tr>
 <tr><td>GPS chạy ảo dọc tuyến, 2D hoặc vệ tinh, vị trí chỉ để lấy điểm xuất phát</td><td><span class="tag ok">Đã làm</span></td><td>Ảnh bản đồ phẳng nghiêng, chưa có mô hình tòa nhà 3D và độ cao</td></tr>
-<tr><td>Kết nối Strava thật</td><td><span class="tag todo">Chưa thử</span></td><td>Cần khóa Strava của bạn; luồng OAuth đã viết, đã thử với chế độ giả lập</td></tr>
-<tr><td>Nhập GPX thật cho các bản đồ, thấy nhau trong phòng chờ trước giờ G, mã QR</td><td><span class="tag todo">Chưa làm</span></td><td>Xem mục Việc tiếp theo</td></tr>
+<tr><td>Kết nối Strava thật</td><td><span class="tag ok">Sẵn sàng</span></td><td>File cấu hình <code>strava.config.json</code>, lệnh kiểm tra khóa, đã thử đầu-cuối với máy chủ Strava giả (đăng nhập, làm mới token, lỗi 401/429). Chờ khóa của bạn để thử với Strava thật</td></tr>
+<tr><td>Dữ liệu đường chạy thật và nhập GPX chính thức</td><td><span class="tag ok">Đã làm</span></td><td>10 tuyến đã dựng từ dữ liệu mở; công cụ nhập GPX chính thức đã có, chờ file GPX của ban tổ chức</td></tr>
+<tr><td>Thấy nhau trong phòng chờ trước giờ G, mã QR, logo huy chương</td><td><span class="tag todo">Chưa làm</span></td><td>Xem mục Việc tiếp theo</td></tr>
 </tbody></table></div>
 
 <h2 id="quyet-dinh">Các quyết định bạn đã chốt</h2>
@@ -104,21 +105,37 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <div class="box"><h4>Chó đuổi</h4><ul><li>Cảnh báo 2 giây rồi chó đuổi 9 giây với tốc độ 2,8 m/s, đi theo làn của bạn.</li><li>Tự động (2 m/s) bị bắt kịp; dùng ⚡ (3 m/s) hoặc bấm tay trên khoảng 1,4 bước/giây để thoát.</li><li>Bị cắn: −20 thể lực, bước ngắn một nửa trong 4 giây. Điện giải xóa trạng thái chậm.</li></ul></div>
 </div>
 
-<h3>10 bản đồ Việt Nam</h3>
+<h3>10 bản đồ Việt Nam (đường chạy thật)</h3>
 <div class="tbl"><table>
-<thead><tr><th>Bản đồ</th><th class="n">Dài</th><th class="n">Độ khó</th><th>Đặc điểm</th></tr></thead><tbody>
-<tr><td>Hồ Gươm, Hà Nội</td><td class="n">6 km</td><td class="n">★</td><td>Phẳng; hồ, Tháp Rùa, cầu Thê Húc, phố cổ, hàng phượng</td></tr>
-<tr><td>Nguyễn Huệ – Bến Bạch Đằng, TP.HCM</td><td class="n">6 km</td><td class="n">★</td><td>Phẳng; tháp Bitexco, bờ sông, nhà cao tầng</td></tr>
-<tr><td>Cầu Rồng – Mỹ Khê, Đà Nẵng</td><td class="n">8 km</td><td class="n">★★</td><td>Gò cầu Rồng; biển, cọ, khách sạn</td></tr>
-<tr><td>Bãi Cháy – Hạ Long, Quảng Ninh</td><td class="n">8 km</td><td class="n">★★</td><td>Dốc cầu Bãi Cháy; đảo đá vôi, thuyền buồm</td></tr>
-<tr><td>Tràng An, Ninh Bình</td><td class="n">7 km</td><td class="n">★★</td><td>Núi đá vôi giữa ruộng lúa, sông, chùa</td></tr>
-<tr><td>Đồi chè Mộc Châu, Sơn La</td><td class="n">10 km</td><td class="n">★★★</td><td>Đồi lượn sóng, hàng chè, thông; cao nguyên ~1.000 m</td></tr>
-<tr><td>Đèo Hải Vân, Đà Nẵng – Huế</td><td class="n">12 km</td><td class="n">★★★★</td><td>Leo lên 496 m, vách núi, vực phía biển, cổng Hải Vân Quan</td></tr>
-<tr><td>Đèo Prenn, Đà Lạt</td><td class="n">6 km</td><td class="n">★★★★</td><td>Rừng thông dày, vách núi, lan can đỏ trắng</td></tr>
-<tr><td>Đèo Ô Quy Hồ, Sa Pa – Lai Châu</td><td class="n">10 km</td><td class="n">★★★★★</td><td>Dốc tới ~16%, ruộng bậc thang, đỉnh 2.035 m</td></tr>
-<tr><td>Mã Pí Lèng, Hà Giang</td><td class="n">8 km</td><td class="n">★★★★★</td><td>Vách đá, hẻm vực với sông xanh ngọc phía dưới, lan can</td></tr>
+<thead><tr><th>Bản đồ</th><th class="n">Dài</th><th class="n">Tổng leo</th><th class="n">Độ cao</th><th class="n">Độ khó</th><th>Tuyến và đặc điểm</th></tr></thead><tbody>
+<tr><td>Hồ Gươm, Hà Nội</td><td class="n">4,7 km</td><td class="n">33 m</td><td class="n">8–22 m</td><td class="n">★</td><td>Từ đền Ngọc Sơn vòng quanh hồ rồi ra cầu Long Biên; Tháp Rùa, phố cổ</td></tr>
+<tr><td>Nguyễn Huệ, TP.HCM</td><td class="n">11,1 km</td><td class="n">63 m</td><td class="n">0–15 m</td><td class="n">★</td><td>Nguyễn Huệ, Bitexco, bờ sông, cầu Ba Son, Landmark 81</td></tr>
+<tr><td>Cầu Rồng – Mỹ Khê, Đà Nẵng</td><td class="n">6,0 km</td><td class="n">36 m</td><td class="n">0–13 m</td><td class="n">★★</td><td>Từ cầu Rồng theo đường ven biển; biển bên phải</td></tr>
+<tr><td>Bãi Cháy – Hạ Long</td><td class="n">9,2 km</td><td class="n">194 m</td><td class="n">0–55 m</td><td class="n">★★</td><td>Qua cầu Bãi Cháy; đảo đá vôi, thuyền buồm</td></tr>
+<tr><td>Tràng An, Ninh Bình</td><td class="n">14,6 km</td><td class="n">228 m</td><td class="n">0–70 m</td><td class="n">★★</td><td>Từ khu du lịch Tràng An tới chùa Bái Đính; núi đá vôi, ruộng lúa</td></tr>
+<tr><td>Đồi chè Mộc Châu, Sơn La</td><td class="n">8,7 km</td><td class="n">52 m</td><td class="n">706–850 m</td><td class="n">★★★</td><td>Từ thị xã Mộc Châu tới thác Dải Yếm; luống chè, thông</td></tr>
+<tr><td>Đèo Hải Vân</td><td class="n">14,0 km</td><td class="n">515 m</td><td class="n">0–483 m</td><td class="n">★★★★</td><td>Từ Nam Ô lên Hải Vân Quan; vách núi bên trái, vực và biển bên phải</td></tr>
+<tr><td>Đèo Prenn, Đà Lạt</td><td class="n">6,2 km</td><td class="n">362 m</td><td class="n">1.126–1.470 m</td><td class="n">★★★★</td><td>Từ thác Prenn lên đèo; rừng thông, lan can đỏ trắng</td></tr>
+<tr><td>Đèo Ô Quy Hồ, Sa Pa – Lai Châu</td><td class="n">17,6 km</td><td class="n">608 m</td><td class="n">1.498–2.005 m</td><td class="n">★★★★★</td><td>Từ Sa Pa lên đỉnh đèo; vách núi, ruộng bậc thang</td></tr>
+<tr><td>Mã Pí Lèng, Hà Giang</td><td class="n">8,9 km</td><td class="n">327 m</td><td class="n">1.079–1.395 m</td><td class="n">★★★★★</td><td>Đoạn 9 km từ đèo Mã Pí Lèng về phía Mèo Vạc; vách đá, sông Nho Quế</td></tr>
 </tbody></table></div>
-<p>Mỗi bản đồ lưu dạng điểm độ cao theo km (<code>maps.js</code>), nên có thể thay bằng dữ liệu GPX thật của các giải chạy mà không đổi phần còn lại.</p>
+
+<h3>Dữ liệu đường chạy thật</h3>
+<div class="shots">
+<figure><img src="img/real-lobby.jpg" alt="Chọn bản đồ với dữ liệu thật" width="1180" height="760"><figcaption><b>Màn chọn bản đồ.</b> Độ dài, tổng leo, dốc tối đa và biểu đồ độ cao lấy từ dữ liệu thật. Có ghi rõ nguồn dữ liệu của từng tuyến.</figcaption></figure>
+<figure><img src="img/real-haivan.jpg" alt="Đèo Hải Vân" width="1180" height="760"><figcaption><b>Đèo Hải Vân, zoom xa.</b> Đường uốn theo hình học thật, lan can phía vực, vách đá một bên. Biểu đồ độ cao trên đầu là độ cao thật của đoạn đường.</figcaption></figure>
+<figure><img src="img/real-hoguom.jpg" alt="Hồ Gươm" width="1180" height="760"><figcaption><b>Hồ Gươm.</b> Các khúc cua quanh hồ là của đường phố thật, không còn là đường uốn lượn dựng sẵn.</figcaption></figure>
+</div>
+<div class="grid" style="margin-top:18px">
+<div class="box"><h4>Nguồn và cách dựng</h4><ul><li>Đường: các điểm mốc (<code>tools/courses.config.mjs</code>) được nối bằng chỉ đường OpenStreetMap thành tuyến liên tục, lấy mẫu 10 m.</li><li>Độ cao: SRTM 30 m, lọc gai nhiễu rồi giới hạn độ dốc theo từng loại đường (phố 5%, đèo 9–14%). SRTM đo cả mặt nước, hẻm vực nên cần bước này.</li><li>Bên vách núi, vực, biển được phát hiện từ độ cao hai bên đường; điểm mốc (Tháp Rùa, Bitexco, Landmark 81, cầu Rồng, Hải Vân Quan, chùa Bái Đính) đặt đúng tọa độ.</li></ul></div>
+<div class="box"><h4>Chưa phải GPX chính thức</h4><ul><li>Tuyến chỉ lấy cảm hứng từ các cung chạy của giải; chưa dùng GPX của ban tổ chức.</li><li>Có GPX chính thức: đặt vào <code>gpx/&lt;id&gt;.gpx</code> rồi chạy <code>npm run courses:gpx</code>. GPX có độ cao thì dùng luôn, thiếu thì lấy từ SRTM. Game tự nhận và ghi "GPX chính thức".</li><li>Dựng lại toàn bộ: <code>npm run courses:build</code>.</li></ul></div>
+</div>
+
+<h3>Kết nối Strava thật</h3>
+<div class="grid">
+<div class="box"><h4>Ba bước điền khóa</h4><ul><li>Tạo ứng dụng tại strava.com/settings/api. Ô Authorization Callback Domain chỉ điền tên miền (không có http), ví dụ <code>chay.example.com</code>; chạy thử thì điền <code>localhost</code>.</li><li>Sao chép <code>strava.config.example.json</code> thành <code>strava.config.json</code> rồi điền <code>clientId</code>, <code>clientSecret</code>, <code>baseUrl</code>. File này không được commit.</li><li>Chạy <code>npm run check:strava</code> tới khi báo cấu hình ổn, rồi <code>npm start</code>. Hoặc đặt biến môi trường <code>STRAVA_CLIENT_ID</code>, <code>STRAVA_CLIENT_SECRET</code>, <code>BASE_URL</code> (ưu tiên hơn file).</li></ul></div>
+<div class="box"><h4>Đã kiểm tra</h4><ul><li>22 kiểm thử đầu-cuối với máy chủ Strava giả: kết nối, km từng ngày chỉ tính Run/TrailRun/VirtualRun, phân trang, làm mới token hết hạn, tự ngắt khi Strava thu hồi quyền (401), nghỉ khi hết hạn mức (429), ngắt kết nối.</li><li>Tự đồng bộ nền khi mở game (tối đa mỗi 15 phút).</li><li>Chưa thử với Strava thật vì cần khóa của bạn.</li></ul></div>
+</div>
 
 <h2 id="xu">Xu và cửa hàng</h2>
 <div class="shots">
@@ -187,6 +204,6 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 <h2 id="rui-ro">Rủi ro và việc tiếp theo</h2>
 <div class="grid">
 <div class="box"><h4>Giới hạn hiện tại</h4><ul><li>Chống gian lận dựa trên giới hạn nhịp bước và thời gian server; công cụ bấm tự động đều đặn 4 bước/giây vẫn không phân biệt được với người thật.</li><li>Khách trong giải đấu nhận diện bằng mã thiết bị do trình duyệt tạo, có thể bị giả; xóa dữ liệu trình duyệt thì mất huy chương của khách.</li><li>Chỉ thử Strava ở chế độ giả lập. Dữ liệu chỉ lấy buổi chạy công khai nếu dùng quyền mặc định.</li><li>Một máy chủ, một file SQLite: đủ cho nhóm nhỏ; đông người cần Postgres và HTTPS.</li></ul></div>
-<div class="box"><h4>Đề xuất bước tiếp theo</h4><ul><li>Thử Strava thật với khóa của bạn.</li><li>Nhập GPX thật cho 10 bản đồ để độ dốc sát thực tế.</li><li>Phòng chờ giờ G: thấy nhau ngay trước khi xuất phát; mã QR cho link mời; tải logo riêng cho huy chương.</li><li>GPS: thêm độ cao và mô hình tòa nhà 3D.</li><li>Cân bằng thể lực, giá xu và độ khó sau khi chơi thử với người thật.</li></ul></div>
+<div class="box"><h4>Đề xuất bước tiếp theo</h4><ul><li>Thử Strava thật: điền khóa vào <code>strava.config.json</code>.</li><li>Thay dữ liệu OpenStreetMap + SRTM bằng GPX chính thức của các giải chạy (công cụ đã sẵn).</li><li>Phòng chờ giờ G: thấy nhau ngay trước khi xuất phát; mã QR cho link mời; tải logo riêng cho huy chương.</li><li>GPS: thêm độ cao và mô hình tòa nhà 3D.</li><li>Cân bằng thể lực, giá xu và độ khó sau khi chơi thử với người thật.</li></ul></div>
 </div>
 </div>

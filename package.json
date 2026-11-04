@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server.js",
     "demo": "STRAVA_MOCK=1 node server.js",
-    "check:strava": "node tools/check-strava.mjs"
+    "check:strava": "node tools/check-strava.mjs",
+    "courses:build": "node tools/build-courses.mjs",
+    "courses:gpx": "node tools/import-gpx.mjs"
   },
   "engines": {
     "node": ">=20"

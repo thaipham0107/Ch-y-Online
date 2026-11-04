@@ -87,7 +87,7 @@ function renderSetup() {
   const c = curCourse(), gps = sel.kind === 'gps';
   $('#s-name').textContent = gps ? (c ? c.name : 'Chạy GPS') : `${c.name} · ${c.place}`;
   $('#s-desc').textContent = gps ? (c ? `Tuyến đi bộ ${c.km} km. Nhân vật chạy ảo dọc tuyến này trên ${c.style === 'sat' ? 'ảnh vệ tinh' : 'bản đồ 2D'}.` : 'Chọn điểm xuất phát và điểm đến ở bên trái.') : c.desc;
-  $('#s-ref').textContent = gps ? 'Vị trí thật chỉ dùng để chọn điểm xuất phát, không theo dõi liên tục.' : c.ref + '. Dữ liệu độ cao là xấp xỉ.';
+  $('#s-ref').textContent = gps ? 'Vị trí thật chỉ dùng để chọn điểm xuất phát, không theo dõi liên tục.' : c.ref + '. ' + (c.real ? (c.source === 'gpx' ? 'Đường chạy và độ cao từ GPX chính thức.' : 'Đường chạy từ OpenStreetMap, độ cao SRTM 30 m (chưa phải GPX chính thức).') : 'Độ cao là xấp xỉ.');
   $('#s-prof').hidden = gps;
   if (!gps) drawElev($('#s-prof'), c);
   if (!c) { $('#s-kv').innerHTML = ''; $('#s-dist').innerHTML = ''; $('#s-go').disabled = true; return; }
@@ -148,6 +148,7 @@ async function launchTour(t, catId, mode) {
   api(`/api/tournaments/${t.code}/go`, { runId: store.runId }).catch(() => {});      // bắt đầu tính giờ
 }
 async function launch({ course, dist, mode, seed, room, tour }) {
+  if (course.real && !course.route) { try { const r = await fetch(`/courses/${course.id}.json`); if (r.ok) course.route = await r.json(); } catch { /* dựng theo hồ sơ độ cao */ } }
   const g = ensureGame(); sel.mode = mode; sessionCoins = 0; coinBase = store.profile().coins || 0; cur = { course, dist, mode, seed, room, tour };
   show('game');
   g.load(course, dist, mode, store.profile(), seed);
@@ -308,6 +309,7 @@ async function profilePanel() {
 // ----- khởi động -----
 (async function boot() {
   try { cfg = await api('/api/config'); } catch { /* giữ mặc định */ }
+  try { const r = await fetch('/courses/meta.json'); if (r.ok) S.applyMeta(await r.json()); } catch { /* dùng số liệu mặc định */ }
   tours = createTournamentUI({ store, cfg, toast, show, toLobby: () => enterLobby(), launchTour, getMode, setMode, fmt: { time: fmtTime } });
   document.querySelectorAll('[data-open]').forEach(() => {});
   const qs = new URLSearchParams(location.search);

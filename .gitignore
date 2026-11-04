@@ -2,3 +2,5 @@ node_modules/
 data/
 .env
 strava.config.json
+.claude/
+tools/.cache/

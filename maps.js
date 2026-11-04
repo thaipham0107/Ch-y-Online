@@ -77,15 +77,15 @@
   // elev: [km, mét so với mực nước biển]; curve: độ ngoằn ngoèo; theme: khóa dựng cảnh phía client
   const MAPS = [
     { id: 'hoguom', name: 'Hồ Gươm', place: 'Hà Nội', diff: 1, km: 6, theme: 'hanoi',
-      desc: 'Vòng quanh hồ Hoàn Kiếm: Tháp Rùa, cầu Thê Húc, phố cổ nhà ống, hàng phượng và liễu rủ.',
+      desc: 'Vòng quanh hồ Hoàn Kiếm rồi ra cầu Long Biên: Tháp Rùa, phố cổ nhà ống, hàng phượng và liễu rủ.',
       ref: 'Tham khảo các giải chạy phố đi bộ quanh hồ Gươm', elev: [[0, 6], [6, 6]],
       curve: { a: 0.35, f: [0.006, 0.0135] }, sky: ['#7fc4f2', '#f4efe3'], fog: '#e9e6dc' },
     { id: 'saigon', name: 'Nguyễn Huệ – Bến Bạch Đằng', place: 'TP. Hồ Chí Minh', diff: 1, km: 6, theme: 'saigon',
-      desc: 'Phố đi bộ Nguyễn Huệ, tháp Bitexco, bờ sông Sài Gòn, cầu Ba Son.',
+      desc: 'Từ phố đi bộ Nguyễn Huệ qua tháp Bitexco, bờ sông Sài Gòn, cầu Ba Son tới Landmark 81.',
       ref: 'Tham khảo cung đường quanh trung tâm của giải Marathon TP.HCM', elev: [[0, 3], [3, 5], [6, 3]],
       curve: { a: 0.3, f: [0.005, 0.012] }, sky: ['#77b9ee', '#f6e7cf'], fog: '#e8dcc8' },
     { id: 'danang', name: 'Cầu Rồng – Biển Mỹ Khê', place: 'Đà Nẵng', diff: 2, km: 8, theme: 'danang',
-      desc: 'Cầu Rồng phun lửa, đường Võ Nguyên Giáp ven biển Mỹ Khê, bán đảo Sơn Trà phía xa.',
+      desc: 'Từ cầu Rồng theo đường ven biển Mỹ Khê về phía bán đảo Sơn Trà.',
       ref: 'Tham khảo cung đường của giải Marathon Quốc tế Đà Nẵng', elev: [[0, 3], [2, 4], [2.5, 16], [3, 4], [8, 3]],
       curve: { a: 0.3, f: [0.004, 0.01] }, sky: ['#5fb8f5', '#fdf3df'], fog: '#e7edf0', sea: 'L' },
     { id: 'halong', name: 'Bãi Cháy – Vịnh Hạ Long', place: 'Quảng Ninh', diff: 2, km: 8, theme: 'halong',
@@ -93,11 +93,11 @@
       ref: 'Tham khảo cung đường của giải VnExpress Marathon Hạ Long', elev: [[0, 4], [2, 12], [3, 48], [4, 52], [5, 30], [6, 10], [8, 5]],
       curve: { a: 0.45, f: [0.0045, 0.012] }, sky: ['#7dc7e8', '#eaf6f2'], fog: '#d9ece8', sea: 'R' },
     { id: 'trangan', name: 'Tràng An', place: 'Ninh Bình', diff: 2, km: 7, theme: 'trangan',
-      desc: 'Núi đá vôi dựng đứng giữa đồng lúa, sông nước, chùa Bái Đính xa xa.',
+      desc: 'Từ khu du lịch Tràng An qua núi đá vôi và đồng lúa tới chùa Bái Đính.',
       ref: 'Lấy cảm hứng từ các cung chạy quanh quần thể Tràng An', elev: [[0, 5], [2, 9], [4, 6], [6, 12], [7, 8]],
       curve: { a: 0.5, f: [0.005, 0.013] }, sky: ['#86c9ee', '#f3f1dc'], fog: '#e3e8d6' },
     { id: 'mocchau', name: 'Đồi chè Mộc Châu', place: 'Sơn La', diff: 3, km: 10, theme: 'mocchau',
-      desc: 'Những đồi chè xanh uốn lượn, rừng thông, sương sớm trên cao nguyên 1.000 m.',
+      desc: 'Từ thị xã Mộc Châu qua những đồi chè xanh tới thác Dải Yếm.',
       ref: 'Tham khảo các giải chạy trên cao nguyên Mộc Châu', elev: [[0, 980], [2, 1030], [4, 1010], [6, 1090], [8, 1050], [10, 1100]],
       curve: { a: 0.7, f: [0.0055, 0.014] }, sky: ['#9fd0ee', '#eef2e8'], fog: '#dfe9e0' },
     { id: 'haivan', name: 'Đèo Hải Vân', place: 'Đà Nẵng – Huế', diff: 4, km: 12, theme: 'haivan',
@@ -139,6 +139,15 @@
   // hệ số thể lực mỗi bước theo độ dốc: lên dốc tốn hơn, xuống dốc đỡ hơn
   const slopeMult = (g) => (g >= 0 ? 1 + 0.12 * g : Math.max(0.6, 1 + 0.04 * g));
 
-  const api = { RULES, ITEMS, TIERS, tierIndex, MAPS, elevAt, gradeAt, stats, slopeMult, LANES, COIN, SHOP, SHOP_CATS, SHOP_DEFAULT, shopItem, MEDAL_ICONS, MEDAL_SHAPES };
+  // Gắn dữ liệu đường chạy thật (public/courses/meta.json): độ dài, độ cao, bên vách/vực/biển, nguồn dữ liệu
+  function applyMeta(meta) {
+    for (const m of MAPS) {
+      const x = meta && meta[m.id]; if (!x) continue;
+      m.km = x.km; m.elev = x.elev; m.source = x.source; m.gain = x.gain; m.marks = x.marks || {}; m.real = true;
+      delete m.cliff; delete m.canyon; delete m.sea; delete m.lake; delete m.river;
+      Object.assign(m, x.sides || {});
+    }
+  }
+  const api = { applyMeta, RULES, ITEMS, TIERS, tierIndex, MAPS, elevAt, gradeAt, stats, slopeMult, LANES, COIN, SHOP, SHOP_CATS, SHOP_DEFAULT, shopItem, MEDAL_ICONS, MEDAL_SHAPES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Shared = api;
 })(typeof window !== 'undefined' ? window : this);

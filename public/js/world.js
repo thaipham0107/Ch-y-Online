@@ -44,36 +44,64 @@ export function textSprite(text, { color = '#fff', bg = null, font = 'bold 56px 
 export function buildWorld(map, scene) {
   const T = THEMES[map.theme];
   const rng = mulberry(hstr(map.id));
-  const L = map.km * 1000 + 120;
-  const N = Math.ceil(L) + 2;
   const group = new THREE.Group(); scene.add(group);
 
-  // ---------- tuyến đường: hướng uốn lượn + độ cao theo hồ sơ ----------
-  const xs = new Float32Array(N), zs = new Float32Array(N), ys = new Float32Array(N), hs = new Float32Array(N);
-  const p1 = rng() * 6.28, p2 = rng() * 6.28, cv = map.curve;
-  let px = 0, pz = 0;
-  for (let i = 0; i < N; i++) {
-    const th = cv.a * (0.7 * Math.sin(cv.f[0] * i + p1) + 0.3 * Math.sin(cv.f[1] * i + p2)) - cv.a * 0.7 * Math.sin(p1);
-    hs[i] = th; xs[i] = px; zs[i] = pz; ys[i] = S.elevAt(map, i);
-    px += Math.cos(th); pz += Math.sin(th);
+  // ---------- tuyến đường: hình học thật (OSM/GPX + độ cao SRTM) nếu có, không thì dựng uốn lượn theo hồ sơ ----------
+  let xs, zs, ys, hs, N, L;
+  const sm = (arr, w) => { const o = new Float32Array(arr.length); for (let i = 0; i < arr.length; i++) { let t = 0, n = 0; for (let k = -w; k <= w; k++) { const q = i + k; if (q >= 0 && q < arr.length) { t += arr[q]; n++; } } o[i] = t / n; } return o; };
+  if (map.route) {
+    const Rt = map.route, [lat0, lon0] = Rt.pts[0], kx = 111320 * Math.cos(lat0 * Math.PI / 180), kz = 110574;
+    const raw = Rt.pts.map(([a, b]) => [(b - lon0) * kx, -(a - lat0) * kz]), cum = [0];
+    for (let i = 1; i < raw.length; i++) cum.push(cum[i - 1] + Math.hypot(raw[i][0] - raw[i - 1][0], raw[i][1] - raw[i - 1][1]));
+    const total = cum[cum.length - 1]; N = Math.floor(total) + 122; L = total + 120;
+    xs = new Float32Array(N); zs = new Float32Array(N); ys = new Float32Array(N); hs = new Float32Array(N);
+    let j = 0;
+    for (let i = 0; i < N; i++) {
+      const d = Math.min(i, total); while (j < cum.length - 2 && cum[j + 1] < d) j++;
+      const f = cum[j + 1] > cum[j] ? (d - cum[j]) / (cum[j + 1] - cum[j]) : 0;
+      xs[i] = raw[j][0] + (raw[j + 1][0] - raw[j][0]) * f; zs[i] = raw[j][1] + (raw[j + 1][1] - raw[j][1]) * f; ys[i] = Rt.elev[j] + (Rt.elev[j + 1] - Rt.elev[j]) * f;
+    }
+    const cut = Math.floor(total); xs = sm(xs.subarray(0, cut + 1), 4); zs = sm(zs.subarray(0, cut + 1), 4); ys = sm(ys.subarray(0, cut + 1), 10);
+    const hh = new Float32Array(N); let prev = 0;
+    for (let i = 0; i <= cut; i++) { const a = Math.max(0, i - 6), b = Math.min(cut, i + 6); let h = Math.atan2(zs[b] - zs[a], xs[b] - xs[a]); if (i) { while (h - prev > Math.PI) h -= 2 * Math.PI; while (h - prev < -Math.PI) h += 2 * Math.PI; } hh[i] = h; prev = h; }
+    const X = new Float32Array(N), Z = new Float32Array(N), Y = new Float32Array(N); X.set(xs); Z.set(zs); Y.set(ys);
+    for (let i = cut + 1; i < N; i++) { hh[i] = prev; X[i] = X[i - 1] + Math.cos(prev); Z[i] = Z[i - 1] + Math.sin(prev); Y[i] = Y[i - 1]; }
+    xs = X; zs = Z; ys = Y; hs = hh;
+  } else {
+    L = map.km * 1000 + 120; N = Math.ceil(L) + 2;
+    xs = new Float32Array(N); zs = new Float32Array(N); ys = new Float32Array(N); hs = new Float32Array(N);
+    const p1 = rng() * 6.28, p2 = rng() * 6.28, cv = map.curve; let px = 0, pz = 0;
+    for (let i = 0; i < N; i++) {
+      const th = cv.a * (0.7 * Math.sin(cv.f[0] * i + p1) + 0.3 * Math.sin(cv.f[1] * i + p2)) - cv.a * 0.7 * Math.sin(p1);
+      hs[i] = th; xs[i] = px; zs[i] = pz; ys[i] = S.elevAt(map, i); px += Math.cos(th); pz += Math.sin(th);
+    }
   }
+  // dấu bên (-1 = trái, +1 = phải) của vách núi, vực, biển, hồ, sông (dữ liệu thật quyết định; mặc định như bản cũ)
+  const cs = (map.cliff || 'L') === 'L' ? -1 : 1, ks = (map.canyon || (map.cliff === 'L' ? 'R' : 'L')) === 'L' ? -1 : 1, ss = (map.sea || 'R') === 'L' ? -1 : 1;
+  const lk = (map.lake || 'L') === 'L' ? -1 : 1, rv = (map.river || (map.theme === 'trangan' ? 'L' : 'R')) === 'L' ? -1 : 1, mk = (k) => (map.marks && map.marks[k]) || null;
   const at = (arr, s) => { const i = clamp(Math.floor(s), 0, N - 2), f = clamp(s - i, 0, 1); return arr[i] * (1 - f) + arr[i + 1] * f; };
   const posAt = (s) => ({ x: at(xs, s), y: at(ys, s), z: at(zs, s), h: at(hs, s) });
   const off = (P, o) => [P.x - Math.sin(P.h) * o, P.z + Math.cos(P.h) * o];  // o>0: bên phải
 
+  // bên trong khúc cua: không cho địa hình/vật thể vượt quá bán kính cua (tránh gập đè lên mặt đường)
+  function innerLimit(s) { const i = clamp(Math.floor(s), 10, N - 12), hd = (hs[i + 10] - hs[i - 10]) / 20, R = Math.abs(hd) > 1e-4 ? 1 / Math.abs(hd) : 1e9; return { side: hd > 0 ? 1 : -1, lim: Math.max(9, R * 0.85) }; }
+  const clampO = (s, o) => { const { side, lim } = innerLimit(s); return Math.sign(o) === side && Math.abs(o) > lim ? side * lim : o; };
+
   // độ cao mặt đất tại (s, o): đường, vai đường, vách núi, vực, bãi biển...
   function groundH(s, o) {
-    const ry = at(ys, s), a = Math.abs(o), side = o < 0 ? 'L' : 'R';
-    if (a <= HALF) return ry - 0.04;
-    let y = ry - 0.3;
-    const n = vnoise(s * 0.06, o * 0.08);
-    if (map.cliff === side) return y + Math.min((a - HALF) * 0.8, 46) + n * 3.5;
-    if (map.canyon === side) return y - Math.min(Math.max(0, a - 6) * 1.35, 150) + n * 1.2;
-    if (map.sea === side) return a > 14 ? Math.max(y - (a - 14) * 0.7, -2.2) : y;
-    if (map.theme === 'hanoi' && side === 'L' && a > 24) return ry - 2.4;
-    if (map.theme === 'saigon' && side === 'R' && a > 34) return ry - 2.6;
-    if (map.theme === 'trangan' && side === 'L' && a > 14 && a < 26) return ry - 1.2;
-    return y + (vnoise(s * 0.012, o * 0.025) - 0.5) * T.hill * 2 * clamp((a - HALF) / 18, 0, 1) + n * 0.4;
+    const ry = at(ys, s), a = Math.abs(o), side = o < 0 ? 'L' : 'R', sh = HALF + 9;        // vai đường phẳng tới 9 m
+    if (a <= HALF) return ry - 0.12;
+    const y = ry - 0.3;
+    if (a <= sh) return y;
+    const e = a - sh, n = vnoise(s * 0.06, o * 0.08) * clamp(e / 10, 0, 1);
+    if (map.cliff === side) return y + Math.min(e * 0.9, 46) + n * 3.5;
+    if (map.canyon === side) return y - Math.min(e * 1.5, 150) + n * 1.2;
+    if (map.sea === side) return e > 2 ? Math.max(y - (e - 2) * 0.7, -2.2) : y;
+    if (map.theme === 'hanoi' && side === (map.lake || 'L') && a > 24) return ry - 2.4;
+    if (map.theme === 'saigon' && side === (map.river || 'R') && a > 34) return ry - 2.6;
+    if (map.theme === 'trangan' && side === (map.river || 'L') && a > 14 && a < 26) return ry - 1.2;
+    const dip = clamp((a - 40) / 40, 0, 1) * 1.5;
+    return y + (vnoise(s * 0.012, o * 0.025) - 0.5) * T.hill * 2 * clamp(e / 18, 0, 1) + n * 0.4 - dip;
   }
 
   // ---------- mặt đường 4 làn (tô đỏ ấm khi dốc), kẻ vạch, sọc nhịp để thấy chuyển động ----------
@@ -101,40 +129,42 @@ export function buildWorld(map, scene) {
     group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })));
   }
 
-  // ---------- địa hình hai bên ----------
+  // ---------- địa hình dạng lưới: mỗi ô lấy độ cao/màu theo mặt cắt (s, o) của đoạn đường gần nó nhất ----------
+  // (không dùng dải theo đường vì nơi tuyến đi gần chính nó, dải của đoạn cao sẽ che mất đường của đoạn thấp)
   {
-    const COLS = [-420, -260, -160, -90, -60, -40, -25, -14, -7, -5.0, 5.0, 7, 14, 25, 40, 60, 90, 160, 260, 420];
-    const GAP = COLS.indexOf(-5.0);
-    const pos = [], col = [], idx = [];
-    const grass = C(T.grass), rock = C(T.rock), sand = C(T.sand || '#e6d6a6'), pave = T.pave ? C(T.pave) : null, water = C('#4aa3c4');
-    let rows = 0;
-    for (let s = 0; s < L; s += 4) {
-      const P = posAt(s);
-      for (let c = 0; c < COLS.length; c++) {
-        const o = COLS[c], a = Math.abs(o), side = o < 0 ? 'L' : 'R';
-        const [x, z] = off(P, o), y = groundH(s, o);
-        pos.push(x, y, z);
-        const n = 0.9 + vnoise(s * 0.09, o * 0.13) * 0.2;
-        let k = grass.clone();
-        if (map.cliff === side) k.lerp(rock, clamp((a - 6) / 12, 0, 1));
-        if (a > 120) k.lerp(C(T.bg), clamp((a - 120) / 400, 0, 0.5));
-        if (map.canyon === side) k.lerp(rock, clamp((a - 7) / 8, 0, 1));
-        if (map.sea === side && a > 7) k.lerp(sand, clamp((a - 7) / 5, 0, 1)).lerp(water, clamp((a - 16) / 6, 0, 1));
-        if (pave && a < 8.5) k = pave.clone();
-        if (map.theme === 'trangan' && side === 'L' && a > 14 && a < 26) k = water.clone();
-        k.multiplyScalar(n); col.push(k.r, k.g, k.b);
+    const CELL = 12, EXT = 240, grass = C(T.grass), rock = C(T.rock), sand = C(T.sand || '#e6d6a6'), pave = T.pave ? C(T.pave) : null, water = C('#4aa3c4');
+    const cells = new Map(); let minX = 1e9, minZ = 1e9, maxX = -1e9, maxZ = -1e9;
+    for (let sIdx = 0; sIdx < L; sIdx += 2) {
+      const P = posAt(sIdx);
+      for (let o = -EXT; o <= EXT; o += 4) {
+        const [x, z] = off(P, o), gx = Math.floor(x / CELL), gz = Math.floor(z / CELL), key = gx * 100003 + gz, cur = cells.get(key);
+        if (!cur || Math.abs(o) < Math.abs(cur.o)) cells.set(key, { gx, gz, s: sIdx, o });
+        minX = Math.min(minX, gx); maxX = Math.max(maxX, gx); minZ = Math.min(minZ, gz); maxZ = Math.max(maxZ, gz);
       }
-      if (rows > 0) for (let c = 0; c < COLS.length - 1; c++) {
-        if (c === GAP) continue;     // khe giữa là mặt đường
-        const i0 = (rows - 1) * COLS.length + c, i1 = rows * COLS.length + c;
-        idx.push(i0, i0 + 1, i1, i0 + 1, i1 + 1, i1);
-      }
-      rows++;
+    }
+    const pos = [], col = [], idx = [], vid = new Map();
+    for (const c of cells.values()) {
+      const cx = (c.gx + 0.5) * CELL, cz = (c.gz + 0.5) * CELL, P0 = posAt(c.s), dx = cx - P0.x, dz = cz - P0.z;
+      c.s = clamp(c.s + dx * Math.cos(P0.h) + dz * Math.sin(P0.h), 0, L); c.o = dx * -Math.sin(P0.h) + dz * Math.cos(P0.h);      // chiếu tâm ô lên mặt cắt đường
+      const a = Math.abs(c.o), side = c.o < 0 ? 'L' : 'R', y = groundH(c.s, c.o);
+      pos.push(cx, y, cz); vid.set(c.gx * 100003 + c.gz, pos.length / 3 - 1);
+      const n = 0.9 + vnoise(c.s * 0.09, c.o * 0.13) * 0.2; let k = grass.clone();
+      if (map.cliff === side) k.lerp(rock, clamp((a - 6) / 12, 0, 1));
+      if (map.canyon === side) k.lerp(rock, clamp((a - 7) / 8, 0, 1));
+      if (map.sea === side && a > 7) k.lerp(sand, clamp((a - 7) / 5, 0, 1)).lerp(water, clamp((a - 16) / 6, 0, 1));
+      if (pave && a < 8.5) k = pave.clone();
+      if (a <= HALF + 0.5) k = (pave || grass).clone().multiplyScalar(0.6);
+      if (map.theme === 'trangan' && side === (map.river || 'L') && a > 14 && a < 26) k = water.clone();
+      if (a > 120) k.lerp(C(T.bg), clamp((a - 120) / 400, 0, 0.5));
+      k.multiplyScalar(n); col.push(k.r, k.g, k.b);
+    }
+    for (const c of cells.values()) {
+      const i0 = vid.get(c.gx * 100003 + c.gz), i1 = vid.get((c.gx + 1) * 100003 + c.gz), i2 = vid.get(c.gx * 100003 + c.gz + 1), i3 = vid.get((c.gx + 1) * 100003 + c.gz + 1);
+      if (i1 !== undefined && i2 !== undefined && i3 !== undefined) idx.push(i0, i2, i1, i1, i2, i3);
     }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx); geo.computeVertexNormals();
-    group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })));
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    group.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
   }
 
   // ---------- nước: biển (đi theo người chơi) và dải sông/hồ ----------
@@ -146,7 +176,7 @@ export function buildWorld(map, scene) {
   function ribbon(s0, s1, o0, o1, dy, color, opacity = 0.9) {
     const pos = [], idx = []; let r = 0;
     for (let s = s0; s <= s1; s += 5) {
-      const P = posAt(s); const [ax, az] = off(P, o0), [bx, bz] = off(P, o1);
+      const P = posAt(s); const [ax, az] = off(P, clampO(s, o0)), [bx, bz] = off(P, clampO(s, o1));
       pos.push(ax, P.y + dy, az, bx, P.y + dy, bz);
       if (r) idx.push((r - 1) * 2, r * 2, (r - 1) * 2 + 1, (r - 1) * 2 + 1, r * 2, r * 2 + 1); r++;
     }
@@ -164,6 +194,7 @@ export function buildWorld(map, scene) {
   const mat = new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true });
   const sets = {};
   function put(name, geo, s, o, sx, sy, sz, color, ry = 0, dy = 0) {
+    { const { side: is, lim } = innerLimit(s); if (Math.sign(o) === is && Math.abs(o) > lim) return; }
     const P = posAt(s), [x, z] = off(P, o), y = groundH(s, o) + dy;
     (sets[name] || (sets[name] = { geo, list: [] })).list.push([x, y, z, sx, sy, sz, ry, color]);
   }
@@ -184,73 +215,74 @@ export function buildWorld(map, scene) {
 
   switch (map.theme) {
     case 'hanoi':
-      ribbon(0, L, -150, -24, -0.35, '#5fa8b8', 0.88);
+      if (lk < 0) ribbon(0, L, -220, -24, -0.35, '#5fa8b8', 0.88); else ribbon(0, L, 24, 220, -0.35, '#5fa8b8', 0.88);
       along(0, L, 11, 16, both((s, sd) => tree(s, sd * 7.5, 1.1 + rng() * 0.4, sd > 0 ? '#e0533c' : '#59b04c')));
       along(0, L, 10, 14, (s) => { const w = 6 + rng() * 3, h = 9 + rng() * 8; house(s, 17 + rng() * 3, w, 11, h, pick(PASTEL), '#b8503a'); });
       along(20, L, 28, 34, both((s, sd) => lamp(s, sd * 9.4)));
-      put('box', G.box, 3000, -62, 6, 6, 3, '#d9d3c3'); put('box', G.box, 3000, -62, 4.6, 4.6, 3, '#d9d3c3', 0, 3); put('roof', G.cone4, 3000, -62, 8, 2.4, 8, '#7a8f6a', 0, 6);
-      put('box', G.box, 1500, -20, 3.2, 26, 0.5, '#c93f2e', fwd(1500) + Math.PI / 2, -0.4);
+      { const t = mk('thaprua'), ts = t ? t.s : 3000, to = t ? t.o : -62; put('box', G.box, ts, to, 6, 6, 3, '#d9d3c3'); put('box', G.box, ts, to, 4.6, 4.6, 3, '#d9d3c3', 0, 3); put('roof', G.cone4, ts, to, 8, 2.4, 8, '#7a8f6a', 0, 6); }
+      if (!map.route) put('box', G.box, 1500, -20, 3.2, 26, 0.5, '#c93f2e', fwd(1500) + Math.PI / 2, -0.4);
       break;
     case 'saigon':
-      ribbon(0, L, 36, 120, -0.5, '#5f9bb0', 0.9);
-      along(0, L, 14, 20, both((s, sd) => { if (sd > 0 && rng() < 0.5) return; block(s, sd * (15 + rng() * 6), 9 + rng() * 8, 12, 14 + rng() * 40, pick(['#7fb1cf', '#a9c1d1', '#d6cdbf', '#c9ad92', '#8fa6b8']), '#cfd5d8'); }));
+      if (map.river) { if (rv > 0) ribbon(0, L, 36, 160, -0.5, '#5f9bb0', 0.9); else ribbon(0, L, -160, -36, -0.5, '#5f9bb0', 0.9); }
+      along(0, L, 14, 20, both((s, sd) => { if (sd === rv && map.river && rng() < 0.5) return; block(s, sd * (15 + rng() * 6), 9 + rng() * 8, 12, 14 + rng() * 40, pick(['#7fb1cf', '#a9c1d1', '#d6cdbf', '#c9ad92', '#8fa6b8']), '#cfd5d8'); }));
       along(0, L, 12, 17, both((s, sd) => tree(s, sd * 8, 1.4 + rng() * 0.5, '#3f9a4a')));
       along(20, L, 24, 30, both((s, sd) => lamp(s, sd * 9.4)));
-      put('cyl', G.cyl, 2800, 26, 7, 70, 7, '#3d79a8'); put('cyl', G.cyl, 2800, 26, 4, 8, 4, '#c8d6df', 0, 70); put('cyl', G.cyl, 2800, 26, 6.5, 0.8, 6.5, '#d0504b', 0, 78);
+      { const b = mk('bitexco'), bs = b ? b.s : 2800, bo = b ? b.o + Math.sign(b.o || 1) * 12 : 26; put('cyl', G.cyl, bs, bo, 7, 70, 7, '#3d79a8'); put('cyl', G.cyl, bs, bo, 4, 8, 4, '#c8d6df', 0, 70); put('cyl', G.cyl, bs, bo, 6.5, 0.8, 6.5, '#d0504b', 0, 78);
+        const l8 = mk('landmark81'); if (l8) { const lo = l8.o + Math.sign(l8.o || 1) * 16; put('cyl', G.cyl, l8.s - 10, lo, 9, 130, 9, '#2f6fa0'); put('cyl', G.cyl, l8.s - 10, lo, 1, 30, 1, '#dfe6ea', 0, 130); } }
       break;
     case 'danang':
       along(0, L, 11, 16, both((s, sd) => palm(s, sd * (7 + rng() * 2), 1.2 + rng() * 0.5)));
       along(0, L, 12, 18, (s) => block(s, 18 + rng() * 6, 10 + rng() * 6, 14, 20 + rng() * 36, pick(['#f1f1ec', '#cfe2ee', '#f2e6c8']), '#9fb7c8'));
       along(20, L, 28, 34, both((s, sd) => lamp(s, sd * 9.4)));
-      for (let s = 2050; s <= 2950; s += 14) { const t = (s - 2050) / 900, y = 2.2 + Math.sin(Math.PI * t) * 6.5; put('gold', G.sph, s, -6.2, 1.5, 1.3 + Math.sin(t * 40) * 0.2, 1.5, '#f2b705', 0, y + 3 + Math.sin(Math.PI * t) * 3.5); }
+      { const c = mk('caurong'), s0 = c ? Math.max(0, c.s - 20) : 2050, s1 = c ? s0 + 340 : 2950; for (let s = s0; s <= s1; s += 14) { const t = (s - s0) / (s1 - s0), y = 2.2 + Math.sin(Math.PI * t) * 6.5; put('gold', G.sph, s, -6.2, 1.5, 1.3 + Math.sin(t * 40) * 0.2, 1.5, '#f2b705', 0, y + 3 + Math.sin(Math.PI * t) * 3.5); } }
       break;
     case 'halong':
-      for (let i = 0; i < 90; i++) karst(rng() * L, 30 + rng() * 120, 8 + rng() * 9, 18 + rng() * 30, pick(['#7d8a7a', '#8b9684', '#6f7d6d']));
-      for (let i = 0; i < 40; i++) { const s = rng() * L, o = 24 + rng() * 80; put('hull', G.box, s, o, 3.4, 0.9, 1.2, '#7a4b2b', rng() * 3, 0.2); put('sail', G.cone4, s, o, 3.4, 3.4, 0.5, '#b34a2d', rng() * 3, 1.1); }
-      along(0, L, 12, 18, (s) => palm(s, -(7 + rng() * 2), 1.2 + rng() * 0.4));
-      along(0, L, 13, 19, (s) => block(s, -(16 + rng() * 6), 9 + rng() * 5, 14, 14 + rng() * 26, pick(['#f2ecdd', '#e8cdb0', '#d6e6ee']), '#9fb7c8'));
+      for (let i = 0; i < 90; i++) karst(rng() * L, ss * (30 + rng() * 120), 8 + rng() * 9, 18 + rng() * 30, pick(['#7d8a7a', '#8b9684', '#6f7d6d']));
+      for (let i = 0; i < 40; i++) { const s = rng() * L, o = ss * (24 + rng() * 80); put('hull', G.box, s, o, 3.4, 0.9, 1.2, '#7a4b2b', rng() * 3, 0.2); put('sail', G.cone4, s, o, 3.4, 3.4, 0.5, '#b34a2d', rng() * 3, 1.1); }
+      along(0, L, 12, 18, (s) => palm(s, -ss * (7 + rng() * 2), 1.2 + rng() * 0.4));
+      along(0, L, 13, 19, (s) => block(s, -ss * (16 + rng() * 6), 9 + rng() * 5, 14, 14 + rng() * 26, pick(['#f2ecdd', '#e8cdb0', '#d6e6ee']), '#9fb7c8'));
       along(20, L, 28, 34, both((s, sd) => lamp(s, sd * 9.4)));
       break;
     case 'trangan':
       for (let i = 0; i < 110; i++) karst(rng() * L, (rng() < 0.5 ? -1 : 1) * (26 + rng() * 70), 9 + rng() * 11, 24 + rng() * 38);
-      along(0, L, 10, 18, both((s, sd) => { if (sd < 0 && s % 20 < 1) return; put('paddy', G.box, s, sd * (11 + rng() * 14), 6 + rng() * 6, 7, 0.1, pick(['#9ed45a', '#c8dc6a', '#7fbf4f', '#d9d57a']), fwd(s), 0.05); }));
+      along(0, L, 10, 18, both((s, sd) => { if (sd === rv && s % 20 < 1) return; put('paddy', G.box, s, sd * (11 + rng() * 14), 6 + rng() * 6, 7, 0.1, pick(['#9ed45a', '#c8dc6a', '#7fbf4f', '#d9d57a']), fwd(s), 0.05); }));
       along(0, L, 14, 22, both((s, sd) => tree(s, sd * 6.4, 1 + rng() * 0.4)));
-      for (let i = 0; i < 14; i++) { const s = rng() * L; put('hull', G.box, s, -20, 3, 0.7, 1, '#7a4b2b', fwd(s), -1); }
-      block(5500, 52, 9, 9, 6, '#f1e4c4', '#c4402f'); put('roof', G.cone4, 5500, 52, 14, 5, 14, '#b8402f', 0, 6.5); put('roof', G.cone4, 5500, 52, 9, 4, 9, '#b8402f', 0, 11);
+      for (let i = 0; i < 14; i++) { const s = rng() * L; put('hull', G.box, s, rv * 20, 3, 0.7, 1, '#7a4b2b', fwd(s), -1); }
+      { const b = mk('baidinh'), ps = b ? Math.max(0, b.s - 25) : 5500, po = b ? (b.o >= 0 ? 1 : -1) * Math.max(42, Math.abs(b.o) + 25) : 52; block(ps, po, 9, 9, 6, '#f1e4c4', '#c4402f'); put('roof', G.cone4, ps, po, 14, 5, 14, '#b8402f', 0, 6.5); put('roof', G.cone4, ps, po, 9, 4, 9, '#b8402f', 0, 11); }
       break;
     case 'mocchau':
-      for (let r = 0; r < 8; r++) along(30, L, 6, 7, both((s, sd) => put('tea', G.box, s, sd * (9 + r * 3.4), 1.9, 0.8, 6.4, r % 2 ? '#4f9c3f' : '#5fae48', fwd(s), 0.0)));
+      for (let r = 0; r < 8; r++) along(30, L, 6, 7, both((s, sd) => put('tea', G.box, s, sd * (9 + r * 3.4), 6.4, 0.8, 1.9, r % 2 ? '#4f9c3f' : '#5fae48', fwd(s), 0.0)));
       along(0, L, 22, 40, both((s, sd) => pine(s, sd * (35 + rng() * 40), 1.5 + rng())));
       along(120, L, 160, 260, (s) => house(s, (rng() < 0.5 ? -1 : 1) * (28 + rng() * 10), 6, 8, 3.2, '#c9a66b', '#8a5a34'));
       along(0, L, 22, 30, both((s, sd) => rock(s, sd * 7.4, 0.5 + rng() * 0.4, '#a79f8e')));
       break;
     case 'haivan':
-      along(0, L, 6, 12, (s) => rock(s, -(7 + rng() * 40), 0.8 + rng() * 2.4, pick(['#8f8a80', '#7f7b73', '#9a9488'])));
-      along(0, L, 10, 18, (s) => tree(s, -(9 + rng() * 40), 0.9 + rng() * 0.7, pick(['#5e9a4a', '#6aa84f', '#4d8a45'])));
-      along(0, L, 14, 22, (s) => tree(s, 14 + rng() * 40, 0.8 + rng() * 0.6, '#4f9a55'));
-      along(0, L, 4, 4.2, (s) => guard(s, 5.9));
-      { const g = 10000; put('box', G.box, g, -5.6, 1.6, 9, 1.6, '#bcb4a2'); put('box', G.box, g, 5.6, 1.6, 9, 1.6, '#bcb4a2'); put('box', G.box, g, 0, 13, 1.8, 2.4, '#b0a892', fwd(g) + Math.PI / 2, 8.5); put('roof', G.cone4, g, 0, 15, 2.4, 4, '#a7402e', fwd(g) + Math.PI / 2, 10.3); }
+      along(0, L, 6, 12, (s) => rock(s, cs * (7 + rng() * 40), 0.8 + rng() * 2.4, pick(['#8f8a80', '#7f7b73', '#9a9488'])));
+      along(0, L, 10, 18, (s) => tree(s, cs * (9 + rng() * 40), 0.9 + rng() * 0.7, pick(['#5e9a4a', '#6aa84f', '#4d8a45'])));
+      along(0, L, 14, 22, (s) => tree(s, ks * (14 + rng() * 40), 0.8 + rng() * 0.6, '#4f9a55'));
+      along(0, L, 4, 4.2, (s) => guard(s, ks * 5.9));
+      { const hq = mk('haivanquan'), g = hq ? Math.max(0, hq.s - 15) : 10000; put('box', G.box, g, -5.6, 1.6, 9, 1.6, '#bcb4a2'); put('box', G.box, g, 5.6, 1.6, 9, 1.6, '#bcb4a2'); put('box', G.box, g, 0, 13, 1.8, 2.4, '#b0a892', fwd(g) + Math.PI / 2, 8.5); put('roof', G.cone4, g, 0, 15, 2.4, 4, '#a7402e', fwd(g) + Math.PI / 2, 10.3); }
       break;
     case 'prenn':
-      along(0, L, 4.5, 8, (s) => pine(s, -(8 + rng() * 45), 1.4 + rng() * 1.2));
-      along(0, L, 5, 9, (s) => pine(s, 8 + rng() * 45, 1.4 + rng() * 1.2, '#2a6e45'));
-      along(0, L, 24, 40, (s) => rock(s, -(7 + rng() * 14), 1 + rng() * 1.6));
-      along(0, L, 4, 4.2, (s) => put('guard', G.box, s, 5.9, 3.9, 0.7, 0.18, s % 8 < 4 ? '#e24a3a' : '#f3f1ea', fwd(s), 0.2));
+      along(0, L, 4.5, 8, (s) => pine(s, cs * (8 + rng() * 45), 1.4 + rng() * 1.2));
+      along(0, L, 5, 9, (s) => pine(s, -cs * (8 + rng() * 45), 1.4 + rng() * 1.2, '#2a6e45'));
+      along(0, L, 24, 40, (s) => rock(s, cs * (7 + rng() * 14), 1 + rng() * 1.6));
+      along(0, L, 4, 4.2, (s) => put('guard', G.box, s, ks * 5.9, 3.9, 0.7, 0.18, s % 8 < 4 ? '#e24a3a' : '#f3f1ea', fwd(s), 0.2));
       break;
     case 'oquyho':
-      for (let t = 0; t < 7; t++) along(40, L, 8, 9, (s) => put('paddy', G.box, s, -(10 + t * 7), 8.5, 6.2, 0.4, pick(['#8fc455', '#b6cf5e', '#6fae48']), fwd(s), 0.2 + t * 0.9));
-      along(0, L, 8, 14, (s) => rock(s, -(8 + rng() * 40), 0.8 + rng() * 2.2, '#9b9686'));
-      along(0, L, 14, 26, (s) => put('hull', G.box, s, 12 + rng() * 40, 6, 3, 6, '#f4f4f0', rng() * 3, 8 + rng() * 14));
-      along(0, L, 4, 4.2, (s) => guard(s, 5.9));
-      along(100, L, 150, 240, (s) => house(s, -(24 + rng() * 10), 6, 7, 3, '#b59a6d', '#6e4e30'));
+      for (let t = 0; t < 7; t++) along(40, L, 8, 9, (s) => put('paddy', G.box, s, cs * (10 + t * 7), 8.5, 6.2, 0.4, pick(['#8fc455', '#b6cf5e', '#6fae48']), fwd(s), 0.2 + t * 0.9));
+      along(0, L, 8, 14, (s) => rock(s, cs * (8 + rng() * 40), 0.8 + rng() * 2.2, '#9b9686'));
+      along(0, L, 14, 26, (s) => put('hull', G.box, s, -cs * (12 + rng() * 40), 6, 3, 6, '#f4f4f0', rng() * 3, 8 + rng() * 14));
+      along(0, L, 4, 4.2, (s) => guard(s, ks * 5.9));
+      along(100, L, 150, 240, (s) => house(s, cs * (24 + rng() * 10), 6, 7, 3, '#b59a6d', '#6e4e30'));
       break;
     case 'mapileng':
-      ribbon(0, L, 56, 70, -90, '#3fb3a6', 1);
-      along(0, L, 5, 10, (s) => rock(s, -(7 + rng() * 40), 1 + rng() * 3, pick(['#a79a84', '#8f8472', '#b4a68c'])));
-      along(0, L, 10, 18, (s) => rock(s, 14 + rng() * 40, 1 + rng() * 2, '#9a8f7a'));
-      along(0, L, 4, 4.2, (s) => guard(s, 5.9));
-      along(150, L, 240, 380, (s) => house(s, -(22 + rng() * 10), 6, 7, 3, '#a8a79f', '#5e5a52'));
-      along(0, L, 18, 30, (s) => put('hull', G.box, s, -(18 + rng() * 30), 2.2, 0.2, 2.2, pick(['#f2a6c4', '#f7d4e2', '#ffffff']), 0, 0.1));
+      if (ks > 0) ribbon(0, L, 56, 70, -90, '#3fb3a6', 1); else ribbon(0, L, -70, -56, -90, '#3fb3a6', 1);
+      along(0, L, 5, 10, (s) => rock(s, cs * (7 + rng() * 40), 1 + rng() * 3, pick(['#a79a84', '#8f8472', '#b4a68c'])));
+      along(0, L, 10, 18, (s) => rock(s, -cs * (14 + rng() * 40), 1 + rng() * 2, '#9a8f7a'));
+      along(0, L, 4, 4.2, (s) => guard(s, ks * 5.9));
+      along(150, L, 240, 380, (s) => house(s, cs * (22 + rng() * 10), 6, 7, 3, '#a8a79f', '#5e5a52'));
+      along(0, L, 18, 30, (s) => put('hull', G.box, s, cs * (18 + rng() * 30), 2.2, 0.2, 2.2, pick(['#f2a6c4', '#f7d4e2', '#ffffff']), 0, 0.1));
       break;
   }
   // ---------- dựng các instance ----------
