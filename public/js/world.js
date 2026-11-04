@@ -1,6 +1,7 @@
 // Dựng thế giới 3D cho một bản đồ: tuyến đường theo độ cao, địa hình, cảnh vật đặc trưng từng địa danh.
 import * as THREE from 'three';
 const S = window.Shared;
+const HALF = S.LANES.HALF;   // nửa bề rộng mặt đường (4 làn)
 
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function hstr(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -63,31 +64,31 @@ export function buildWorld(map, scene) {
   // độ cao mặt đất tại (s, o): đường, vai đường, vách núi, vực, bãi biển...
   function groundH(s, o) {
     const ry = at(ys, s), a = Math.abs(o), side = o < 0 ? 'L' : 'R';
-    if (a <= 4.3) return ry - 0.04;
+    if (a <= HALF) return ry - 0.04;
     let y = ry - 0.3;
     const n = vnoise(s * 0.06, o * 0.08);
-    if (map.cliff === side) return y + (a - 4.3) * 0.8 + n * 3.5;
-    if (map.canyon === side) return y - Math.max(0, a - 6) * 1.35 + n * 1.2;
+    if (map.cliff === side) return y + Math.min((a - HALF) * 0.8, 46) + n * 3.5;
+    if (map.canyon === side) return y - Math.min(Math.max(0, a - 6) * 1.35, 150) + n * 1.2;
     if (map.sea === side) return a > 14 ? Math.max(y - (a - 14) * 0.7, -2.2) : y;
     if (map.theme === 'hanoi' && side === 'L' && a > 24) return ry - 2.4;
     if (map.theme === 'saigon' && side === 'R' && a > 34) return ry - 2.6;
     if (map.theme === 'trangan' && side === 'L' && a > 14 && a < 26) return ry - 1.2;
-    return y + (vnoise(s * 0.012, o * 0.025) - 0.5) * T.hill * 2 * clamp((a - 4.3) / 18, 0, 1) + n * 0.4;
+    return y + (vnoise(s * 0.012, o * 0.025) - 0.5) * T.hill * 2 * clamp((a - HALF) / 18, 0, 1) + n * 0.4;
   }
 
-  // ---------- mặt đường (tô đỏ ấm khi dốc), kẻ vạch, nhịp sọc để thấy chuyển động ----------
+  // ---------- mặt đường 4 làn (tô đỏ ấm khi dốc), kẻ vạch, sọc nhịp để thấy chuyển động ----------
   {
-    const OFF = [-4.3, -3.9, -0.12, 0.12, 3.9, 4.3];
+    const OFF = [-5.0, -4.75, -2.45, -2.35, -0.06, 0.06, 2.35, 2.45, 4.75, 5.0];
     const pos = [], col = [];
     const asph = C(T.road), warm = C('#9a4f3e'), white = C('#f5f2ea'), yellow = C('#f2c230');
-    for (let s = 0; s < L - 2; s += 2) {
+    const STEP = 3;
+    for (let s = 0; s < L - STEP; s += STEP) {
       const g = S.gradeAt(map, s), tint = clamp((g - 3) / 9, 0, 0.8);
       const stripe = Math.floor(s / 6) % 2 ? 0.93 : 1;
       const base = asph.clone().lerp(warm, tint).multiplyScalar(stripe);
-      const A = posAt(s), B = posAt(s + 2);
-      const dash = Math.floor(s / 6) % 2 === 0;
-      const colors = [white, base, dash ? yellow : base, base, white];
-      for (let c = 0; c < 5; c++) {
+      const A = posAt(s), B = posAt(s + STEP), dash = Math.floor(s / 6) % 2 === 0;
+      const colors = [white, base, dash ? white : base, base, yellow, base, dash ? white : base, base, white];
+      for (let c = 0; c < 9; c++) {
         const [ax, az] = off(A, OFF[c]), [bx, bz] = off(A, OFF[c + 1]), [cx, cz] = off(B, OFF[c + 1]), [dx, dz] = off(B, OFF[c]);
         const y0 = A.y + 0.02, y1 = B.y + 0.02;
         pos.push(ax, y0, az, bx, y0, bz, cx, y1, cz, ax, y0, az, cx, y1, cz, dx, y1, dz);
@@ -102,7 +103,8 @@ export function buildWorld(map, scene) {
 
   // ---------- địa hình hai bên ----------
   {
-    const COLS = [-90, -60, -40, -25, -14, -7, -4.3, 4.3, 7, 14, 25, 40, 60, 90];
+    const COLS = [-420, -260, -160, -90, -60, -40, -25, -14, -7, -5.0, 5.0, 7, 14, 25, 40, 60, 90, 160, 260, 420];
+    const GAP = COLS.indexOf(-5.0);
     const pos = [], col = [], idx = [];
     const grass = C(T.grass), rock = C(T.rock), sand = C(T.sand || '#e6d6a6'), pave = T.pave ? C(T.pave) : null, water = C('#4aa3c4');
     let rows = 0;
@@ -115,6 +117,7 @@ export function buildWorld(map, scene) {
         const n = 0.9 + vnoise(s * 0.09, o * 0.13) * 0.2;
         let k = grass.clone();
         if (map.cliff === side) k.lerp(rock, clamp((a - 6) / 12, 0, 1));
+        if (a > 120) k.lerp(C(T.bg), clamp((a - 120) / 400, 0, 0.5));
         if (map.canyon === side) k.lerp(rock, clamp((a - 7) / 8, 0, 1));
         if (map.sea === side && a > 7) k.lerp(sand, clamp((a - 7) / 5, 0, 1)).lerp(water, clamp((a - 16) / 6, 0, 1));
         if (pave && a < 8.5) k = pave.clone();
@@ -122,7 +125,7 @@ export function buildWorld(map, scene) {
         k.multiplyScalar(n); col.push(k.r, k.g, k.b);
       }
       if (rows > 0) for (let c = 0; c < COLS.length - 1; c++) {
-        if (c === 6) continue;     // khe giữa là mặt đường
+        if (c === GAP) continue;     // khe giữa là mặt đường
         const i0 = (rows - 1) * COLS.length + c, i1 = rows * COLS.length + c;
         idx.push(i0, i0 + 1, i1, i0 + 1, i1 + 1, i1);
       }
@@ -225,27 +228,27 @@ export function buildWorld(map, scene) {
       along(0, L, 6, 12, (s) => rock(s, -(7 + rng() * 40), 0.8 + rng() * 2.4, pick(['#8f8a80', '#7f7b73', '#9a9488'])));
       along(0, L, 10, 18, (s) => tree(s, -(9 + rng() * 40), 0.9 + rng() * 0.7, pick(['#5e9a4a', '#6aa84f', '#4d8a45'])));
       along(0, L, 14, 22, (s) => tree(s, 14 + rng() * 40, 0.8 + rng() * 0.6, '#4f9a55'));
-      along(0, L, 4, 4.2, (s) => guard(s, 5.2));
+      along(0, L, 4, 4.2, (s) => guard(s, 5.9));
       { const g = 10000; put('box', G.box, g, -5.6, 1.6, 9, 1.6, '#bcb4a2'); put('box', G.box, g, 5.6, 1.6, 9, 1.6, '#bcb4a2'); put('box', G.box, g, 0, 13, 1.8, 2.4, '#b0a892', fwd(g) + Math.PI / 2, 8.5); put('roof', G.cone4, g, 0, 15, 2.4, 4, '#a7402e', fwd(g) + Math.PI / 2, 10.3); }
       break;
     case 'prenn':
       along(0, L, 4.5, 8, (s) => pine(s, -(8 + rng() * 45), 1.4 + rng() * 1.2));
       along(0, L, 5, 9, (s) => pine(s, 8 + rng() * 45, 1.4 + rng() * 1.2, '#2a6e45'));
       along(0, L, 24, 40, (s) => rock(s, -(7 + rng() * 14), 1 + rng() * 1.6));
-      along(0, L, 4, 4.2, (s) => put('guard', G.box, s, 5.3, 3.9, 0.7, 0.18, s % 8 < 4 ? '#e24a3a' : '#f3f1ea', fwd(s), 0.2));
+      along(0, L, 4, 4.2, (s) => put('guard', G.box, s, 5.9, 3.9, 0.7, 0.18, s % 8 < 4 ? '#e24a3a' : '#f3f1ea', fwd(s), 0.2));
       break;
     case 'oquyho':
       for (let t = 0; t < 7; t++) along(40, L, 8, 9, (s) => put('paddy', G.box, s, -(10 + t * 7), 8.5, 6.2, 0.4, pick(['#8fc455', '#b6cf5e', '#6fae48']), fwd(s), 0.2 + t * 0.9));
       along(0, L, 8, 14, (s) => rock(s, -(8 + rng() * 40), 0.8 + rng() * 2.2, '#9b9686'));
       along(0, L, 14, 26, (s) => put('hull', G.box, s, 12 + rng() * 40, 6, 3, 6, '#f4f4f0', rng() * 3, 8 + rng() * 14));
-      along(0, L, 4, 4.2, (s) => guard(s, 5.2));
+      along(0, L, 4, 4.2, (s) => guard(s, 5.9));
       along(100, L, 150, 240, (s) => house(s, -(24 + rng() * 10), 6, 7, 3, '#b59a6d', '#6e4e30'));
       break;
     case 'mapileng':
       ribbon(0, L, 56, 70, -90, '#3fb3a6', 1);
       along(0, L, 5, 10, (s) => rock(s, -(7 + rng() * 40), 1 + rng() * 3, pick(['#a79a84', '#8f8472', '#b4a68c'])));
       along(0, L, 10, 18, (s) => rock(s, 14 + rng() * 40, 1 + rng() * 2, '#9a8f7a'));
-      along(0, L, 4, 4.2, (s) => guard(s, 5.2));
+      along(0, L, 4, 4.2, (s) => guard(s, 5.9));
       along(150, L, 240, 380, (s) => house(s, -(22 + rng() * 10), 6, 7, 3, '#a8a79f', '#5e5a52'));
       along(0, L, 18, 30, (s) => put('hull', G.box, s, -(18 + rng() * 30), 2.2, 0.2, 2.2, pick(['#f2a6c4', '#f7d4e2', '#ffffff']), 0, 0.1));
       break;
@@ -263,7 +266,7 @@ export function buildWorld(map, scene) {
 
   // ---------- biển cột mốc mỗi 500 m ----------
   for (let s = 500; s < map.km * 1000; s += 500) {
-    const P = posAt(s), [x, z] = off(P, 6.4);
+    const P = posAt(s), [x, z] = off(P, 7.0);
     const sp = textSprite(s % 1000 === 0 ? (s / 1000) + ' km' : (s / 1000).toFixed(1) + ' km', { bg: '#1f2a33cc', scaleW: 3.2, w: 256, h: 96, font: 'bold 48px system-ui' });
     sp.position.set(x, P.y + 1.6, z); group.add(sp);
   }
@@ -271,11 +274,11 @@ export function buildWorld(map, scene) {
   function gantry(s, label, color) {
     const P = posAt(s), g = new THREE.Group();
     const post = (o) => { const [x, z] = off(P, o); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 6, 8), new THREE.MeshLambertMaterial({ color: '#e9e6dc' })); m.position.set(x, P.y + 3, z); g.add(m); };
-    post(-4.8); post(4.8);
+    post(-5.7); post(5.7);
     const [cx, cz] = off(P, 0);
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 10.4), new THREE.MeshLambertMaterial({ color })); bar.position.set(cx, P.y + 6, cz); bar.rotation.y = -P.h; g.add(bar);
-    const t = textSprite(label, { scaleW: 7, w: 512, h: 128, font: 'bold 64px system-ui' }); t.position.set(cx, P.y + 8, cz); g.add(t);
-    const chk = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 8.6).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 12.2), new THREE.MeshLambertMaterial({ color })); bar.position.set(cx, P.y + 6, cz); bar.rotation.y = -P.h; g.add(bar);
+    const t = textSprite(label, { scaleW: 5, w: 512, h: 128, font: 'bold 64px system-ui' }); t.position.set(cx, P.y + 8, cz); g.add(t);
+    const chk = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 10).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
     chk.position.set(cx, P.y + 0.06, cz); chk.rotation.y = -P.h; g.add(chk);
     group.add(g); return g;
   }
@@ -285,6 +288,6 @@ export function buildWorld(map, scene) {
 
   return {
     group, theme: T, posAt, off, groundH, setFinish,
-    update(x, z) { if (sea) sea.position.set(x, 0, z); }
+    update(x, z) { if (sea) sea.position.set(x, 0, z); }, bg: T.bg
   };
 }

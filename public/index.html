@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Chạy Online</title>
+<link rel="stylesheet" href="/leaflet/leaflet.css">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
 </head>
@@ -43,11 +44,12 @@
   <header class="lobbybar">
     <div class="who"><b id="who-name">…</b> <span id="who-tier" class="pill"></span></div>
     <div class="stats" id="who-stats"></div>
-    <nav class="navbtns"><button data-open="history">📖 Lịch sử</button><button data-open="board">🏆 Xếp hạng</button><button data-open="profile">👤 Hồ sơ</button></nav>
+    <nav class="navbtns"><button data-open="tour">🏅 Giải đấu</button><button data-open="shop">🛍 Cửa hàng</button><button data-open="history">📖 Lịch sử</button><button data-open="board">🏆 Xếp hạng</button><button data-open="profile">👤 Hồ sơ</button></nav>
   </header>
   <div class="goal" id="goal"></div>
+  <div class="seg kindtabs" id="kind-tabs"><button data-k="sim" class="on">🏞 Giả lập 3D · 10 địa danh</button><button data-k="gps">📍 GPS · chạy ảo dọc tuyến thật</button></div>
   <div class="lobbymain">
-    <div class="mapgrid" id="mapgrid"></div>
+    <div class="leftcol"><div class="mapgrid" id="mapgrid"></div><div id="gps-box" class="panel gpsbox" hidden></div></div>
     <aside class="setup panel">
       <h2 id="s-name"></h2><p class="sub" id="s-desc"></p><div id="s-ref" class="hint"></div>
       <canvas id="s-prof" width="360" height="90"></canvas>
@@ -61,9 +63,12 @@
   </div>
 </section>
 
+<!-- ===== Giải đấu ===== -->
+<section id="scr-tour" class="screen" hidden><div id="tour-root" class="tourwrap"></div></section>
+
 <!-- ===== HUD khi chạy ===== -->
 <section id="hud" hidden>
-  <div class="tl"><div class="online"><i></i><span id="h-online">1 đang online</span></div><div id="ticker" class="ticker"></div></div>
+  <div class="tl"><div class="row"><div class="online"><i></i><span id="h-online">1 đang online</span></div><div class="online coinchip" id="h-coins">🪙 0</div></div><div id="ticker" class="ticker"></div></div>
   <div class="topc panel">
     <div class="row"><b id="h-map"></b><span id="h-time">00:00</span></div>
     <div class="bar"><i id="h-prog"></i></div>
@@ -72,18 +77,22 @@
   </div>
   <div class="rightcol" id="rightcol">
     <button data-open="quest" title="Mục tiêu hôm nay">🎯</button>
+    <button data-open="shop" title="Cửa hàng">🛍</button>
     <button data-open="history" title="Lịch sử">📖</button>
     <button data-open="board" title="Xếp hạng">🏆</button>
     <button data-open="tour" title="Giải đấu (sắp có)">🏅</button>
-    <button id="b-tilt" title="Đổi góc nhìn (T)">🎥</button>
+    <button id="b-tilt" title="Đổi góc nhìn / về góc chạy (T)">🎥</button>
     <button id="b-exit" title="Thoát chuyến chạy">⏏</button>
   </div>
   <div class="zoom"><button id="z-in">+</button><button id="z-out">−</button></div>
+  <div id="viewhint" class="viewhint" hidden>Toàn cảnh: kéo để xoay 360°, cuộn/chụm để zoom. Zoom gần để về góc chạy.</div>
+  <div id="attr" class="attr"></div>
   <div class="stamwrap"><div class="stamlbl">Thể lực <b id="h-stam">100</b></div><div class="bar stam"><i id="h-stambar"></i></div><div id="h-status" class="status"></div></div>
   <div id="banner" class="banner" hidden></div>
   <div class="inv" id="inv"></div>
   <div class="actions">
     <label class="auto"><input type="checkbox" id="h-auto"><span>Tự động</span></label>
+    <button id="b-left" class="act sm">◀<small>←</small></button><button id="b-right" class="act sm">▶<small>→</small></button>
     <button id="b-jump" class="act">NHẢY<small>J</small></button>
     <button id="b-step" class="act main">BƯỚC<small>Space</small></button>
   </div>
@@ -94,6 +103,7 @@
 <div id="toast" class="toast"></div>
 
 <script src="/maps.js"></script>
+<script src="/leaflet/leaflet.js"></script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

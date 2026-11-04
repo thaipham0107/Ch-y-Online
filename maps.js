@@ -32,6 +32,46 @@
     { min: 400,  name: 'Huyền thoại', icon: '⚡', color: '#ef4444' },
     { min: 1000, name: 'Thần chạy',   icon: '👑', color: '#a855f7' }
   ];
+
+  // 4 làn đường rộng; vị trí ngang (m) của tâm từng làn
+  const LANES = { COUNT: 4, X: [-3.6, -1.2, 1.2, 3.6], HALF: 5.0 };
+  // xu: kiếm khi chạy (nhiều hơn khi chạy ngoài đời để khuyến khích)
+  const COIN = { PER_KM_GAME: 10, PER_KM_REAL: 25, FINISH: 20, ICON: '🪙' };
+  const SHOP_CATS = [['hat', 'Mũ'], ['shoes', 'Giày'], ['acc', 'Phụ kiện'], ['watch', 'Đồng hồ'], ['aura', 'Hào quang']];
+  const SHOP_DEFAULT = { hat: 'none', shoes: 'shoe_basic', acc: 'none', watch: 'none', aura: 'aura_tier' };
+  const SHOP = [
+    { id: 'none', cat: 'hat', name: 'Không đội', price: 0, icon: '🙂' },
+    { id: 'bando', cat: 'hat', name: 'Băng đô', price: 100, icon: '🎀', color: '#e03131' },
+    { id: 'nonla', cat: 'hat', name: 'Nón lá', price: 120, icon: '👒', color: '#ecd58e' },
+    { id: 'cap', cat: 'hat', name: 'Mũ lưỡi trai', price: 160, icon: '🧢', color: '#1971c2' },
+    { id: 'neko', cat: 'hat', name: 'Tai mèo', price: 250, icon: '🐱', color: '#ffb3c7' },
+    { id: 'crown', cat: 'hat', name: 'Vương miện', price: 600, icon: '👑', color: '#f5b700' },
+    { id: 'shoe_basic', cat: 'shoes', name: 'Giày thường', price: 0, icon: '👞', color: '#3a2d26' },
+    { id: 'shoe_red', cat: 'shoes', name: 'Giày đỏ', price: 80, icon: '👟', color: '#e03131' },
+    { id: 'shoe_blue', cat: 'shoes', name: 'Giày xanh', price: 80, icon: '👟', color: '#1c7ed6' },
+    { id: 'shoe_gold', cat: 'shoes', name: 'Giày vàng', price: 300, icon: '🥇', color: '#f5b700' },
+    { id: 'shoe_wing', cat: 'shoes', name: 'Giày cánh', price: 900, icon: '🪽', color: '#ffffff' },
+    { id: 'none', cat: 'acc', name: 'Không', price: 0, icon: '🙂' },
+    { id: 'glasses', cat: 'acc', name: 'Kính râm', price: 150, icon: '🕶️', color: '#111' },
+    { id: 'scarf', cat: 'acc', name: 'Khăn quàng', price: 120, icon: '🧣', color: '#d6453d' },
+    { id: 'backpack', cat: 'acc', name: 'Ba lô', price: 200, icon: '🎒', color: '#2f9e44' },
+    { id: 'cape', cat: 'acc', name: 'Áo choàng', price: 450, icon: '🦸', color: '#b02a4a' },
+    { id: 'none', cat: 'watch', name: 'Không', price: 0, icon: '🙂' },
+    { id: 'watch_basic', cat: 'watch', name: 'Đồng hồ thể thao', price: 100, icon: '⌚', color: '#222' },
+    { id: 'watch_gold', cat: 'watch', name: 'Đồng hồ vàng', price: 350, icon: '⌚', color: '#f5b700' },
+    { id: 'watch_smart', cat: 'watch', name: 'Đồng hồ thông minh', price: 500, icon: '⌚', color: '#38bdf8' },
+    { id: 'aura_tier', cat: 'aura', name: 'Theo hạng', price: 0, icon: '✨' },
+    { id: 'aura_gold', cat: 'aura', name: 'Hào quang vàng', price: 300, icon: '🌟', color: '#ffd23a' },
+    { id: 'aura_fire', cat: 'aura', name: 'Hào quang lửa', price: 500, icon: '🔥', color: '#ff6a2a' },
+    { id: 'aura_ice', cat: 'aura', name: 'Hào quang băng', price: 500, icon: '❄️', color: '#7fd8ff' },
+    { id: 'aura_sakura', cat: 'aura', name: 'Hào quang hoa anh đào', price: 700, icon: '🌸', color: '#ff9ccd' },
+    { id: 'aura_rainbow', cat: 'aura', name: 'Hào quang cầu vồng', price: 1200, icon: '🌈', color: '#ff00ff' }
+  ];
+  const shopItem = (cat, id) => SHOP.find((x) => x.cat === cat && x.id === id);
+  // biểu tượng huy chương giải đấu cho phép chọn
+  const MEDAL_ICONS = ['🏃', '🏆', '🌿', '⭐', '🔥', '⚡', '🏔️', '🌊', '🐉', '🌸', '🦅', '❤️'];
+  const MEDAL_SHAPES = ['circle', 'shield', 'star', 'hex'];
+
   const tierIndex = (km) => { let i = 0; TIERS.forEach((t, k) => { if (km >= t.min) i = k; }); return i; };
 
   // elev: [km, mét so với mực nước biển]; curve: độ ngoằn ngoèo; theme: khóa dựng cảnh phía client
@@ -99,6 +139,6 @@
   // hệ số thể lực mỗi bước theo độ dốc: lên dốc tốn hơn, xuống dốc đỡ hơn
   const slopeMult = (g) => (g >= 0 ? 1 + 0.12 * g : Math.max(0.6, 1 + 0.04 * g));
 
-  const api = { RULES, ITEMS, TIERS, tierIndex, MAPS, elevAt, gradeAt, stats, slopeMult };
+  const api = { RULES, ITEMS, TIERS, tierIndex, MAPS, elevAt, gradeAt, stats, slopeMult, LANES, COIN, SHOP, SHOP_CATS, SHOP_DEFAULT, shopItem, MEDAL_ICONS, MEDAL_SHAPES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Shared = api;
 })(typeof window !== 'undefined' ? window : this);

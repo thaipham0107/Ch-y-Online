@@ -1,0 +1,192 @@
+<title>Phân tích Chạy Online 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&family=Baloo+2:wght@700;800&display=swap">
+<style>
+/* Bố cục: một cột đọc, ảnh chụp giao diện thật đặt thành lưới tự co */
+:root{--bg:#f1f4f6;--surface:#ffffff;--ink:#16212b;--mut:#566674;--line:#d3dce3;--soft:#e6edf1;--acc:#d2491f;--teal:#0b6f66;--ok-bg:#e3f4ef;--warn:#b42318;--warn-bg:#fdeceb;--f-body:"Be Vietnam Pro",system-ui,"Segoe UI",sans-serif;--f-disp:"Baloo 2","Be Vietnam Pro",system-ui,sans-serif}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0e171e;--surface:#15212b;--ink:#e8eff4;--mut:#9db0bf;--line:#2a3b48;--soft:#1c2a35;--acc:#ff7a4d;--teal:#35c2b2;--ok-bg:#12302b;--warn:#ff8a7e;--warn-bg:#35191a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e171e;--surface:#15212b;--ink:#e8eff4;--mut:#9db0bf;--line:#2a3b48;--soft:#1c2a35;--acc:#ff7a4d;--teal:#35c2b2;--ok-bg:#12302b;--warn:#ff8a7e;--warn-bg:#35191a;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:1120px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-disp);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,6vw,56px);font-weight:800}
+h2{font-size:clamp(25px,3.6vw,33px);margin-top:60px;padding-top:18px;border-top:2px solid var(--ink)}
+h3{font-size:20px;margin-top:28px}
+p{margin:10px 0;max-width:74ch}
+a{color:var(--acc)}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);font-weight:700}
+header.top{padding-block:44px 8px}header.top p{font-size:17px;color:var(--mut)}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:6px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);margin-top:18px}
+nav.toc a{font-size:13px;font-weight:500;text-decoration:none;color:var(--ink);background:var(--soft);padding:4px 11px;border-radius:99px}
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));align-items:start}
+.shots{display:grid;gap:22px 18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));align-items:start;margin-top:14px}
+figure{margin:0;min-width:0}
+figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid var(--line);background:var(--soft)}
+figcaption{font-size:13.5px;color:var(--mut);margin-top:8px}figcaption b{color:var(--ink)}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px;min-width:0}
+.box h4{margin:0 0 6px;font-size:15px}.box ul{margin:6px 0 0;padding-left:18px}.box li{margin:3px 0}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);background:var(--soft)}tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--soft);color:var(--mut)}
+.tag.ok{background:var(--ok-bg);color:var(--teal)}.tag.todo{background:var(--warn-bg);color:var(--warn)}
+.note{border-left:5px solid var(--acc);background:var(--surface);border-radius:8px;padding:10px 16px;margin:14px 0;max-width:80ch}
+code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
+.tourbadge{white-space:nowrap}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Tài liệu phân tích · cập nhật theo bản đã dựng</div>
+  <h1>Chạy Online 3D</h1>
+  <p>Bản phân tích đã cập nhật theo các quyết định của bạn và theo giao diện thật đã làm xong: đường 4 làn, camera góc cao zoom in/zoom out xoay 360°, xu và cửa hàng, gộp dữ liệu khách, giải đấu có huy chương riêng và chế độ GPS chạy ảo dọc tuyến thật. Ảnh trong tài liệu là ảnh chụp từ game đang chạy.</p>
+  <nav class="toc" aria-label="Mục lục"><a href="#tinh-trang">Tình trạng</a><a href="#quyet-dinh">Quyết định đã chốt</a><a href="#chay">Màn hình chạy</a><a href="#luat">Luật chơi</a><a href="#xu">Xu &amp; cửa hàng</a><a href="#tai-khoan">Tài khoản &amp; khách</a><a href="#giai">Giải đấu</a><a href="#gps">GPS</a><a href="#du-lieu">Dữ liệu &amp; API</a><a href="#rui-ro">Rủi ro &amp; việc tiếp</a></nav>
+</header>
+
+<h2 id="tinh-trang">Tình trạng hiện tại</h2>
+<div class="tbl"><table>
+<thead><tr><th>Hạng mục</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>
+<tr><td>Cảnh 3D, 10 bản đồ Việt Nam, độ khó theo độ dốc</td><td><span class="tag ok">Đã làm</span></td><td>Cảnh low-poly dựng theo đặc trưng từng nơi; độ cao là xấp xỉ, chưa phải GPX thật</td></tr>
+<tr><td>Đường 4 làn, vật phẩm và chướng ngại rơi ngẫu nhiên ở các làn</td><td><span class="tag ok">Đã làm</span></td><td>Đổi làn bằng ←/→, vuốt ngang hoặc nút ◀ ▶</td></tr>
+<tr><td>Camera zoom in / zoom out xoay 360°</td><td><span class="tag ok">Đã làm</span></td><td>Cuộn hoặc chụm để zoom, kéo để xoay khi zoom xa</td></tr>
+<tr><td>Bước, thể lực, vật phẩm, chó đuổi, chế độ tự động</td><td><span class="tag ok">Đã làm</span></td><td>Space = bước, J = nhảy</td></tr>
+<tr><td>Xu, cửa hàng (mũ, giày, phụ kiện, đồng hồ, hào quang)</td><td><span class="tag ok">Đã làm</span></td><td>Trang bị hiện trên nhân vật cho mọi người thấy</td></tr>
+<tr><td>Tài khoản (SQLite) và chế độ khách (lưu trên máy), gộp dữ liệu khách</td><td><span class="tag ok">Đã làm</span></td><td>Gộp một lần cho mỗi tài khoản, có giới hạn hợp lý</td></tr>
+<tr><td>Lịch sử, xếp hạng có cột Game / Ngoài đời / Tổng</td><td><span class="tag ok">Đã làm</span></td><td>Strava là tùy chọn; thử với dữ liệu Strava giả lập</td></tr>
+<tr><td>Giải đấu: công khai / riêng tư, link mời, huy chương tùy biến, giờ G, tổng kết</td><td><span class="tag ok">Đã làm</span></td><td>Chưa có mã QR, chưa tải logo riêng</td></tr>
+<tr><td>GPS chạy ảo dọc tuyến, 2D hoặc vệ tinh, vị trí chỉ để lấy điểm xuất phát</td><td><span class="tag ok">Đã làm</span></td><td>Ảnh bản đồ phẳng nghiêng, chưa có mô hình tòa nhà 3D và độ cao</td></tr>
+<tr><td>Kết nối Strava thật</td><td><span class="tag todo">Chưa thử</span></td><td>Cần khóa Strava của bạn; luồng OAuth đã viết, đã thử với chế độ giả lập</td></tr>
+<tr><td>Nhập GPX thật cho các bản đồ, thấy nhau trong phòng chờ trước giờ G, mã QR</td><td><span class="tag todo">Chưa làm</span></td><td>Xem mục Việc tiếp theo</td></tr>
+</tbody></table></div>
+
+<h2 id="quyet-dinh">Các quyết định bạn đã chốt</h2>
+<div class="tbl"><table>
+<thead><tr><th>Chủ đề</th><th>Quyết định</th></tr></thead><tbody>
+<tr><td>Strava</td><td>Chỉ là tùy chọn. Có dữ liệu Strava trong ngày thì lịch sử và xếp hạng có thêm cột km chạy ngoài đời và cột tổng (game + ngoài đời). Không kết nối thì km ngoài đời bằng 0. Mục tiêu là khuyến khích chạy ngoài đời.</td></tr>
+<tr><td>Bước và nhảy</td><td>1 bước = 1 lần Space = 2 m. Nhảy là phím J.</td></tr>
+<tr><td>Chế độ tự động</td><td>1 bước/giây, tự nhảy qua chướng ngại. Chó đuổi: vẫn giữ tốc độ tự động, chỉ dùng tia sét mới tăng tốc để thoát.</td></tr>
+<tr><td>Giải đấu</td><td>Áp dụng chung cho bấm tay và tự động, không phân biệt. Trong một giải người chơi đổi qua lại giữa hai kiểu bất cứ lúc nào. Có hai chế độ: công khai (ai cũng thấy) và riêng tư (chỉ người có link).</td></tr>
+<tr><td>GPS</td><td>Chỉ chạy ảo dọc tuyến. Vị trí thật chỉ dùng để lấy điểm xuất phát.</td></tr>
+<tr><td>Bản đồ</td><td>10 địa danh Việt Nam, độ khó khác nhau (đường đèo, đường núi, độ dốc), dựng theo thực tế.</td></tr>
+<tr><td>Lưu trữ</td><td>SQLite.</td></tr>
+<tr><td>Bổ sung ở lượt này</td><td>Xu kiếm khi chạy, mua giày, mũ, phụ kiện, đồng hồ, hào quang. Khách nâng tài khoản thì gộp được dữ liệu. Đường 4 làn. Hai góc nhìn zoom in / zoom out xoay 360°.</td></tr>
+</tbody></table></div>
+
+<h2 id="chay">Màn hình chạy</h2>
+<div class="shots">
+<figure><img src="img/lobby.jpg" alt="Sảnh chọn bản đồ" width="1180" height="860"><figcaption><b>Sảnh.</b> Hồ sơ, ba cột km (game, ngoài đời, tổng), số xu, mục tiêu hôm nay chia màu giữa game và ngoài đời, 10 bản đồ có độ khó và biểu đồ độ cao.</figcaption></figure>
+<figure><img src="img/lanes.jpg" alt="Đường chạy 4 làn" width="1100" height="640"><figcaption><b>Đường 4 làn, góc cao nghiêng.</b> Nhân vật chibi có hào quang, tên, cấp và tổng km trên đầu. Hàng xu, vật phẩm và chướng ngại rơi ở các làn khác nhau; né sang làn khác hoặc nhảy qua.</figcaption></figure>
+<figure><img src="img/overview.jpg" alt="Toàn cảnh xoay 360 độ" width="1100" height="640"><figcaption><b>Zoom out: toàn cảnh.</b> Kéo để xoay 360° quanh nhân vật, cuộn hoặc chụm để zoom. Khi chạy, camera vẫn bám theo nên cảnh vật trôi theo. Zoom gần lại để về góc chạy.</figcaption></figure>
+<figure><img src="img/cosmetics.jpg" alt="Trang bị trên nhân vật" width="1100" height="640"><figcaption><b>Trang bị.</b> Vương miện, áo choàng, hào quang cầu vồng. Người khác trong cùng cung đường cũng thấy trang bị của bạn.</figcaption></figure>
+<figure><img src="img/mobile.jpg" alt="Giao diện điện thoại ngang" width="1688" height="780"><figcaption><b>Điện thoại ngang.</b> Các nút thu gọn: đổi làn ◀ ▶, nhảy, bước, túi đồ 5 ô.</figcaption></figure>
+</div>
+<div class="grid" style="margin-top:18px">
+<div class="box"><h4>Điều khiển</h4><ul><li><b>Space</b> bước · <b>J</b> nhảy · <b>← →</b> đổi làn · <b>1–5</b> dùng vật phẩm</li><li><b>A</b> bật/tắt tự động · <b>+ −</b> hoặc cuộn: zoom · <b>T</b> đổi góc / về góc chạy</li><li>Điện thoại: nút Bước, Nhảy, ◀ ▶, vuốt ngang để đổi làn, chụm để zoom</li></ul></div>
+<div class="box"><h4>Hai góc nhìn</h4><ul><li><b>Zoom in:</b> tập trung vào đường chạy, camera cao nghiêng bám theo hướng đường.</li><li><b>Zoom out:</b> toàn cảnh, tự do xoay 360° và đổi độ nghiêng.</li><li>Zoom xa tới mức nào cũng không mất thông tin: tên và km vẫn hiện trên đầu người chơi.</li></ul></div>
+</div>
+
+<h2 id="luat">Luật chơi</h2>
+<div class="tbl"><table>
+<thead><tr><th>Cách chạy</th><th class="n">Bước/giây</th><th class="n">Bước dài</th><th class="n">Tốc độ</th><th class="n">Pace</th><th class="n">5 km mất</th></tr></thead><tbody>
+<tr><td>Tự động</td><td class="n">1</td><td class="n">2,0 m</td><td class="n">7,2 km/h</td><td class="n">8:20 /km</td><td class="n">41:40</td></tr>
+<tr><td>Tự động + tia sét</td><td class="n">1</td><td class="n">3,0 m</td><td class="n">10,8 km/h</td><td class="n">5:33 /km</td><td class="n">27:46</td></tr>
+<tr><td>Bấm tay vừa</td><td class="n">2</td><td class="n">2,0 m</td><td class="n">14,4 km/h</td><td class="n">4:10 /km</td><td class="n">20:50</td></tr>
+<tr><td>Bấm tay tối đa (giới hạn chống macro)</td><td class="n">4</td><td class="n">2,0 m</td><td class="n">28,8 km/h</td><td class="n">2:05 /km</td><td class="n">10:25</td></tr>
+</tbody></table></div>
+<div class="grid">
+<div class="box"><h4>Thể lực</h4><ul><li>Thang 0–100. Mỗi bước trừ 0,12; lên dốc trừ nhiều hơn (hệ số theo độ dốc), xuống dốc đỡ hơn.</li><li>Về 0 thì nhân vật dừng lại; tự hồi 2 điểm/giây khi đứng, chạy lại khi đạt 15.</li><li>Tia sét làm mỗi bước tốn gấp rưỡi.</li></ul></div>
+<div class="box"><h4>Vật phẩm (túi 5 ô, mỗi ô tối đa 3)</h4><ul><li>💧 Nước +15 · 🍌 Chuối +25 · 🍉 Dưa hấu +35 · 🧂 Điện giải +50 và xóa trạng thái chậm</li><li>⚡ Tia sét: bước dài 3 m trong 8 giây</li><li>🪙 Xu: nhặt trực tiếp, không vào túi đồ</li></ul></div>
+<div class="box"><h4>Làn đường</h4><ul><li>4 làn. Vật phẩm, xu và chướng ngại rơi ngẫu nhiên theo seed ở các làn.</li><li>Chướng ngại có thể chiếm 1 hoặc 2 làn. Né sang làn trống hoặc nhảy qua (J).</li><li>Tự động chỉ nhảy khi có chướng ngại trong làn của bạn; không tự đổi làn.</li></ul></div>
+<div class="box"><h4>Chó đuổi</h4><ul><li>Cảnh báo 2 giây rồi chó đuổi 9 giây với tốc độ 2,8 m/s, đi theo làn của bạn.</li><li>Tự động (2 m/s) bị bắt kịp; dùng ⚡ (3 m/s) hoặc bấm tay trên khoảng 1,4 bước/giây để thoát.</li><li>Bị cắn: −20 thể lực, bước ngắn một nửa trong 4 giây. Điện giải xóa trạng thái chậm.</li></ul></div>
+</div>
+
+<h3>10 bản đồ Việt Nam</h3>
+<div class="tbl"><table>
+<thead><tr><th>Bản đồ</th><th class="n">Dài</th><th class="n">Độ khó</th><th>Đặc điểm</th></tr></thead><tbody>
+<tr><td>Hồ Gươm, Hà Nội</td><td class="n">6 km</td><td class="n">★</td><td>Phẳng; hồ, Tháp Rùa, cầu Thê Húc, phố cổ, hàng phượng</td></tr>
+<tr><td>Nguyễn Huệ – Bến Bạch Đằng, TP.HCM</td><td class="n">6 km</td><td class="n">★</td><td>Phẳng; tháp Bitexco, bờ sông, nhà cao tầng</td></tr>
+<tr><td>Cầu Rồng – Mỹ Khê, Đà Nẵng</td><td class="n">8 km</td><td class="n">★★</td><td>Gò cầu Rồng; biển, cọ, khách sạn</td></tr>
+<tr><td>Bãi Cháy – Hạ Long, Quảng Ninh</td><td class="n">8 km</td><td class="n">★★</td><td>Dốc cầu Bãi Cháy; đảo đá vôi, thuyền buồm</td></tr>
+<tr><td>Tràng An, Ninh Bình</td><td class="n">7 km</td><td class="n">★★</td><td>Núi đá vôi giữa ruộng lúa, sông, chùa</td></tr>
+<tr><td>Đồi chè Mộc Châu, Sơn La</td><td class="n">10 km</td><td class="n">★★★</td><td>Đồi lượn sóng, hàng chè, thông; cao nguyên ~1.000 m</td></tr>
+<tr><td>Đèo Hải Vân, Đà Nẵng – Huế</td><td class="n">12 km</td><td class="n">★★★★</td><td>Leo lên 496 m, vách núi, vực phía biển, cổng Hải Vân Quan</td></tr>
+<tr><td>Đèo Prenn, Đà Lạt</td><td class="n">6 km</td><td class="n">★★★★</td><td>Rừng thông dày, vách núi, lan can đỏ trắng</td></tr>
+<tr><td>Đèo Ô Quy Hồ, Sa Pa – Lai Châu</td><td class="n">10 km</td><td class="n">★★★★★</td><td>Dốc tới ~16%, ruộng bậc thang, đỉnh 2.035 m</td></tr>
+<tr><td>Mã Pí Lèng, Hà Giang</td><td class="n">8 km</td><td class="n">★★★★★</td><td>Vách đá, hẻm vực với sông xanh ngọc phía dưới, lan can</td></tr>
+</tbody></table></div>
+<p>Mỗi bản đồ lưu dạng điểm độ cao theo km (<code>maps.js</code>), nên có thể thay bằng dữ liệu GPX thật của các giải chạy mà không đổi phần còn lại.</p>
+
+<h2 id="xu">Xu và cửa hàng</h2>
+<div class="shots">
+<figure><img src="img/shop.jpg" alt="Cửa hàng" width="1100" height="680"><figcaption><b>Cửa hàng</b> có 5 nhóm: mũ, giày, phụ kiện, đồng hồ, hào quang. Mua xong dùng ngay; đổi trang bị bất cứ lúc nào.</figcaption></figure>
+<div class="box"><h4>Cách kiếm xu</h4><ul><li><b>10 xu</b> mỗi km chạy trong game.</li><li><b>25 xu</b> mỗi km chạy ngoài đời (Strava, tính cho các ngày gần đây). Cao hơn để khuyến khích chạy thật.</li><li>Nhặt 🪙 trên đường (mỗi cái 1 xu).</li><li>+20 xu khi về đích.</li></ul>
+<h4 style="margin-top:14px">Trang bị và giá</h4><ul><li><b>Mũ:</b> băng đô 100, nón lá 120, mũ lưỡi trai 160, tai mèo 250, vương miện 600</li><li><b>Giày:</b> đỏ/xanh 80, vàng 300, cánh 900</li><li><b>Phụ kiện:</b> khăn 120, kính 150, ba lô 200, áo choàng 450</li><li><b>Đồng hồ:</b> thể thao 100, vàng 350, thông minh 500</li><li><b>Hào quang:</b> vàng 300, lửa 500, băng 500, hoa anh đào 700, cầu vồng 1.200 (mặc định tô theo hạng)</li></ul>
+<p style="font-size:13.5px;color:var(--mut)">Các con số là điểm xuất phát, sẽ chỉnh sau khi chơi thử. Xu của tài khoản tính ở server; xu của khách lưu trên máy.</p></div>
+</div>
+
+<h2 id="tai-khoan">Tài khoản, chế độ khách, lịch sử</h2>
+<div class="shots">
+<figure><img src="img/history.jpg" alt="Lịch sử từng ngày" width="1180" height="700"><figcaption><b>Lịch sử.</b> Bản đồ nhiệt 17 tuần, bảng từng ngày: Game, Ngoài đời, Tổng, bước, thời gian, vật phẩm (có cả xu nhặt). Km ngoài đời của ngày đó lấy từ Strava; không kết nối thì bằng 0.</figcaption></figure>
+<figure><img src="img/board.jpg" alt="Bảng xếp hạng" width="1180" height="700"><figcaption><b>Xếp hạng</b> hôm nay / 7 ngày / tất cả, xếp theo tổng km, có cột Game và Ngoài đời. Người đã kết nối Strava có dấu 🟧.</figcaption></figure>
+<figure><img src="img/merge.jpg" alt="Gộp dữ liệu khách" width="1100" height="680"><figcaption><b>Gộp dữ liệu khách.</b> Khi đăng ký hoặc đăng nhập trên máy đang lưu dữ liệu khách, game hỏi có gộp vào tài khoản không.</figcaption></figure>
+</div>
+<div class="grid" style="margin-top:18px">
+<div class="box"><h4>Hai kiểu tài khoản</h4><ul><li><b>Đăng nhập:</b> dữ liệu lưu trên server (SQLite); đăng nhập thiết bị nào cũng thấy. Có xếp hạng, tạo giải, kết nối Strava.</li><li><b>Khách:</b> lưu trong trình duyệt, lần sau vào lại vẫn còn (nhân vật, lịch sử, vật phẩm, xu). Có nút sao lưu ra file. Vào giải đấu được bằng link; không có xếp hạng chung và không kết nối Strava.</li></ul></div>
+<div class="box"><h4>Quy tắc gộp dữ liệu khách</h4><ul><li>Gộp lịch sử từng ngày, túi đồ, trang bị, xu và vật phẩm đã mua.</li><li>Chỉ gộp một lần cho mỗi tài khoản.</li><li>Dữ liệu khách do máy tự lưu nên server kiểm tra: số bước không vượt quá thời gian × 4 bước/giây; xu và đồ đã mua không vượt quá số xu mà quãng đường đã nhập có thể kiếm được.</li><li>Km gộp tính vào hồ sơ và lịch sử nhưng <b>không tính</b> vào bảng xếp hạng chung.</li></ul></div>
+</div>
+
+<h2 id="giai">Giải đấu</h2>
+<div class="shots">
+<figure><img src="img/tourlist.jpg" alt="Danh sách giải đấu" width="1180" height="700"><figcaption><b>Danh sách giải.</b> Tab Công khai và Của tôi, ô dán mã hoặc link, nút Tạo giải (cần tài khoản). Giải riêng tư không xuất hiện trong danh sách.</figcaption></figure>
+<figure><img src="img/medal.jpg" alt="Thiết kế huy chương" width="1100" height="680"><figcaption><b>Thiết kế huy chương.</b> Bốn huy chương: nhất, nhì, ba, phong trào. Chọn hình (tròn, khiên, sao, lục giác), màu, màu dây đeo, biểu tượng, chữ khắc; xem trước ngay.</figcaption></figure>
+<figure><img src="img/tour-detail.jpg" alt="Trang giải đấu" width="1100" height="680"><figcaption><b>Trang giải.</b> Thông tin, link mời, huy chương, nút chạy từng cự ly (hiện số lượt còn lại), chọn thủ công / tự động, bảng xếp hạng theo cự ly.</figcaption></figure>
+<figure><img src="img/live.jpg" alt="Chờ giờ G" width="1100" height="640"><figcaption><b>Giờ G.</b> Đếm ngược tới giờ xuất phát chung. Bấm Sẵn sàng; tới giờ mọi người xuất phát cùng lúc và thấy nhau trên đường.</figcaption></figure>
+<figure><img src="img/finish.jpg" alt="Về đích trong giải" width="1100" height="680"><figcaption><b>Về đích.</b> Kết quả ghi nhận là thời gian do server đo từ lúc xuất phát, không phải đồng hồ trên máy.</figcaption></figure>
+<figure><img src="img/invite.jpg" alt="Lời mời vào giải" width="1100" height="680"><figcaption><b>Link mời.</b> Người chưa đăng nhập mở link sẽ thấy lời mời, chọn tài khoản hoặc chơi khách rồi vào thẳng giải.</figcaption></figure>
+</div>
+<div class="grid" style="margin-top:18px">
+<div class="box"><h4>Tạo giải (4 bước)</h4><ul><li><b>Thông tin:</b> tên, mô tả, công khai hoặc riêng tư, thời gian bắt đầu và kết thúc (tối đa 31 ngày), giờ G tùy chọn.</li><li><b>Thể thức:</b> bản đồ giả lập hoặc tuyến GPS, tối đa 4 cự ly, số lượt chạy mỗi cự ly.</li><li><b>Huy chương:</b> thiết kế bốn loại.</li><li><b>Xuất bản:</b> nhận link mời để gửi cho mọi người.</li></ul></div>
+<div class="box"><h4>Cách thi đấu</h4><ul><li><b>Khác giờ:</b> chạy lúc nào cũng được trong khoảng bắt đầu đến kết thúc; kết quả ghi lại để so sánh.</li><li><b>Giờ G:</b> mọi người xuất phát cùng lúc và thấy nhau. Sau giờ G vẫn chạy bù được đến hết hạn.</li><li>Bấm tay và tự động chung một bảng; đổi qua lại khi đang chạy.</li><li>Mọi người dùng chung seed chướng ngại, vật phẩm và chó, nên công bằng.</li></ul></div>
+<div class="box"><h4>Xếp hạng và tổng kết</h4><ul><li>Về đích: xếp theo thời gian ngắn nhất (lượt tốt nhất). Chưa về đích: xếp sau, theo quãng đường.</li><li>Hết giờ: server khóa kết quả, phát huy chương nhất, nhì, ba cho ba người đầu; những người còn lại về đích nhận huy chương phong trào.</li><li>Huy chương nằm trong Hồ sơ → Kệ huy chương (kể cả khách, theo mã thiết bị).</li></ul></div>
+<div class="box"><h4>Chống gian lận</h4><ul><li>Server đo thời gian; đồng hồ giải bắt đầu khi cảnh đã nạp xong nên máy chậm không bị thiệt.</li><li>Số bước bị giới hạn theo thời gian thực (4 bước/giây). Thử khai 150 bước ngay lập tức chỉ được ghi 12 m.</li><li>Người tổ chức không sửa được kết quả; chỉ tạo giải, không có quyền sửa bảng.</li></ul></div>
+</div>
+<div class="tbl"><table>
+<thead><tr><th>Trạng thái</th><th>Khi nào</th><th>Người chơi làm được gì</th></tr></thead><tbody>
+<tr><td>Sắp diễn ra</td><td>Trước giờ bắt đầu</td><td>Xem trang giải, tham gia</td></tr>
+<tr><td>Chờ giờ G</td><td>Từ lúc bắt đầu đến giờ G (nếu có)</td><td>Bấm Sẵn sàng, đếm ngược</td></tr>
+<tr><td>Đang diễn ra</td><td>Sau giờ G hoặc từ lúc bắt đầu</td><td>Chạy các cự ly trong số lượt cho phép</td></tr>
+<tr><td>Đang tổng kết → Đã tổng kết</td><td>Sau giờ kết thúc</td><td>Xem bảng cuối, bục nhận huy chương, kệ huy chương</td></tr>
+</tbody></table></div>
+
+<h2 id="gps">GPS chạy ảo dọc tuyến</h2>
+<div class="shots">
+<figure><img src="img/gps-setup.jpg" alt="Chọn tuyến GPS" width="1100" height="640"><figcaption><b>Thiết lập.</b> Chọn đồ họa 2D hoặc vệ tinh; điểm xuất phát bằng vị trí của tôi, địa chỉ hoặc ghim; điểm đến; tuyến đi bộ và tổng km hiện ngay.</figcaption></figure>
+<figure><img src="img/gps-2d.jpg" alt="Chạy trên bản đồ 2D" width="1100" height="640"><figcaption><b>Chạy trên bản đồ 2D.</b> Đường 4 làn bán trong suốt đặt lên bản đồ; nhân vật chạy theo tuyến thật. Có ghi nguồn bản đồ.</figcaption></figure>
+<figure><img src="img/gps-sat.jpg" alt="Chạy trên ảnh vệ tinh" width="1688" height="780"><figcaption><b>Chạy trên ảnh vệ tinh.</b> Zoom xa, xoay 360° để xem toàn cảnh khu vực. Ảnh vệ tinh phẳng nhìn nghiêng, chưa có mô hình 3D tòa nhà.</figcaption></figure>
+</div>
+<div class="grid" style="margin-top:18px">
+<div class="box"><h4>Luồng</h4><ul><li>Vị trí thực chỉ dùng một lần để lấy điểm xuất phát, không theo dõi liên tục và không lưu lên server. Không lấy được vị trí thì nhập địa chỉ hoặc chạm lên bản đồ.</li><li>Gõ địa chỉ để tìm, hoặc chạm bản đồ, kéo ghim để chỉnh. Tuyến đi bộ tối đa 40 km.</li><li>Giải GPS: người tổ chức đặt tuyến; người chơi không cần cấp quyền vị trí và không đổi được tuyến.</li></ul></div>
+<div class="box"><h4>Dịch vụ thay cho Google (đang dùng)</h4><ul><li><b>Bản đồ 2D:</b> OpenStreetMap, hiển thị bằng Leaflet.</li><li><b>Vệ tinh:</b> Esri World Imagery.</li><li><b>Tuyến đi bộ:</b> Valhalla (máy chủ công cộng của OpenStreetMap).</li><li><b>Tìm địa chỉ:</b> Nominatim.</li><li>Đổi nhà cung cấp bằng biến môi trường (<code>TILES_ROAD</code>, <code>TILES_SAT</code>, <code>GEO_SEARCH_URL</code>, <code>GEO_ROUTE_URL</code>), không cần sửa code.</li></ul></div>
+</div>
+<div class="note"><b>Lưu ý khi triển khai thật.</b> Máy chủ công cộng của OpenStreetMap, Nominatim, Valhalla công cộng và ảnh Esri đều có điều kiện sử dụng và giới hạn tần suất; phù hợp để thử và nhóm nhỏ. Khi đông người nên dùng nhà cung cấp có khóa API (ví dụ MapTiler hoặc Mapbox) qua các biến môi trường trên, và đọc lại điều khoản của từng bên, đặc biệt phần ghi nguồn. Mình chưa kiểm tra bảng giá hiện tại của các bên đó.</div>
+
+<h2 id="du-lieu">Dữ liệu và API</h2>
+<div class="tbl"><table>
+<thead><tr><th>Bảng SQLite</th><th>Nội dung</th></tr></thead><tbody>
+<tr><td><code>users</code>, <code>sessions</code></td><td>Tài khoản (mật khẩu băm scrypt), phiên đăng nhập, Strava, túi đồ, xu, đồ đã mua, trang bị, cờ đã gộp dữ liệu khách</td></tr>
+<tr><td><code>daily</code>, <code>real_daily</code></td><td>Từng ngày: km game, bước, thời gian, vật phẩm; km chạy ngoài đời từ Strava</td></tr>
+<tr><td><code>runs</code></td><td>Mỗi chuyến chạy: bản đồ, cự ly, seed, bước và mét đã được server xác nhận, giờ xuất phát</td></tr>
+<tr><td><code>tournaments</code>, <code>participants</code>, <code>results</code>, <code>awards</code></td><td>Giải đấu (công khai/riêng tư, thời gian, cự ly, huy chương, tuyến GPS), người tham gia (tài khoản hoặc khách), kết quả từng lượt, huy chương đã trao</td></tr>
+</tbody></table></div>
+<p>Các nhóm API chính: đăng ký, đăng nhập; chuyến chạy và đồng bộ bước; cửa hàng; gộp dữ liệu khách; lịch sử, xếp hạng; giải đấu (tạo, danh sách, chi tiết, tham gia, bắt đầu, tính giờ, ghi kết quả, huy chương); bản đồ (tìm địa chỉ, địa chỉ ngược, tuyến đi bộ); Strava (kết nối, đồng bộ, ngắt).</p>
+
+<h2 id="rui-ro">Rủi ro và việc tiếp theo</h2>
+<div class="grid">
+<div class="box"><h4>Giới hạn hiện tại</h4><ul><li>Chống gian lận dựa trên giới hạn nhịp bước và thời gian server; công cụ bấm tự động đều đặn 4 bước/giây vẫn không phân biệt được với người thật.</li><li>Khách trong giải đấu nhận diện bằng mã thiết bị do trình duyệt tạo, có thể bị giả; xóa dữ liệu trình duyệt thì mất huy chương của khách.</li><li>Chỉ thử Strava ở chế độ giả lập. Dữ liệu chỉ lấy buổi chạy công khai nếu dùng quyền mặc định.</li><li>Một máy chủ, một file SQLite: đủ cho nhóm nhỏ; đông người cần Postgres và HTTPS.</li></ul></div>
+<div class="box"><h4>Đề xuất bước tiếp theo</h4><ul><li>Thử Strava thật với khóa của bạn.</li><li>Nhập GPX thật cho 10 bản đồ để độ dốc sát thực tế.</li><li>Phòng chờ giờ G: thấy nhau ngay trước khi xuất phát; mã QR cho link mời; tải logo riêng cho huy chương.</li><li>GPS: thêm độ cao và mô hình tòa nhà 3D.</li><li>Cân bằng thể lực, giá xu và độ khó sau khi chơi thử với người thật.</li></ul></div>
+</div>
+</div>
