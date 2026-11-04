@@ -2,7 +2,7 @@
 // Khi có GPX chính thức của ban tổ chức, đặt vào gpx/<id>.gpx rồi chạy `npm run courses:gpx` để thay thế.
 // costing: 'pedestrian' (phố đi bộ) hoặc 'auto' (đường đèo, cầu); maxKm: cắt tuyến; bridges: nội suy thẳng độ cao qua cầu/hầm (km).
 export const COURSES = {
-  hoguom: { maxGrade: 5, startNear: [21.03073, 105.85238], costing: 'pedestrian', via: [[21.03073, 105.85238], [21.0291, 105.8502], [21.0255, 105.8522], [21.0283, 105.8547], [21.0317, 105.8531], [21.04314, 105.85817]],
+  hoguom: { maxGrade: 5, costing: 'pedestrian', via: [[21.03073, 105.85238], [21.0291, 105.8502], [21.0255, 105.8522], [21.0283, 105.8547], [21.0317, 105.8531], [21.04314, 105.85817]],
     landmarks: { thaprua: [21.02876, 105.85227] }, features: { lake: [21.0288, 105.8522] } },
   saigon: { maxGrade: 5, costing: 'pedestrian', via: [[10.77541, 106.70014], [10.77186, 106.70446], [10.78188, 106.70674], [10.79696, 106.75045]],
     landmarks: { bitexco: [10.77186, 106.70446], landmark81: [10.79696, 106.75045] }, features: { river: [10.7735, 106.7088] } },

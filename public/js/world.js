@@ -78,6 +78,7 @@ export function buildWorld(map, scene) {
   }
   // dấu bên (-1 = trái, +1 = phải) của vách núi, vực, biển, hồ, sông (dữ liệu thật quyết định; mặc định như bản cũ)
   const cs = (map.cliff || 'L') === 'L' ? -1 : 1, ks = (map.canyon || (map.cliff === 'L' ? 'R' : 'L')) === 'L' ? -1 : 1, ss = (map.sea || 'R') === 'L' ? -1 : 1;
+  const LAKE = map.route ? map.lake : (map.lake || 'L'), RIVER = map.route ? map.river : (map.river || (map.theme === 'trangan' ? 'L' : 'R'));
   const lk = (map.lake || 'L') === 'L' ? -1 : 1, rv = (map.river || (map.theme === 'trangan' ? 'L' : 'R')) === 'L' ? -1 : 1, mk = (k) => (map.marks && map.marks[k]) || null;
   const at = (arr, s) => { const i = clamp(Math.floor(s), 0, N - 2), f = clamp(s - i, 0, 1); return arr[i] * (1 - f) + arr[i + 1] * f; };
   const posAt = (s) => ({ x: at(xs, s), y: at(ys, s), z: at(zs, s), h: at(hs, s) });
@@ -97,9 +98,9 @@ export function buildWorld(map, scene) {
     if (map.cliff === side) return y + Math.min(e * 0.9, 46) + n * 3.5;
     if (map.canyon === side) return y - Math.min(e * 1.5, 150) + n * 1.2;
     if (map.sea === side) return e > 2 ? Math.max(y - (e - 2) * 0.7, -2.2) : y;
-    if (map.theme === 'hanoi' && side === (map.lake || 'L') && a > 24) return ry - 2.4;
-    if (map.theme === 'saigon' && side === (map.river || 'R') && a > 34) return ry - 2.6;
-    if (map.theme === 'trangan' && side === (map.river || 'L') && a > 14 && a < 26) return ry - 1.2;
+    if (map.theme === 'hanoi' && side === LAKE && a > 24) return ry - 2.4;
+    if (map.theme === 'saigon' && side === RIVER && a > 34) return ry - 2.6;
+    if (map.theme === 'trangan' && side === RIVER && a > 14 && a < 26) return ry - 1.2;
     const dip = clamp((a - 40) / 40, 0, 1) * 1.5;
     return y + (vnoise(s * 0.012, o * 0.025) - 0.5) * T.hill * 2 * clamp(e / 18, 0, 1) + n * 0.4 - dip;
   }
@@ -154,7 +155,7 @@ export function buildWorld(map, scene) {
       if (map.sea === side && a > 7) k.lerp(sand, clamp((a - 7) / 5, 0, 1)).lerp(water, clamp((a - 16) / 6, 0, 1));
       if (pave && a < 8.5) k = pave.clone();
       if (a <= HALF + 0.5) k = (pave || grass).clone().multiplyScalar(0.6);
-      if (map.theme === 'trangan' && side === (map.river || 'L') && a > 14 && a < 26) k = water.clone();
+      if (map.theme === 'trangan' && side === RIVER && a > 14 && a < 26) k = water.clone();
       if (a > 120) k.lerp(C(T.bg), clamp((a - 120) / 400, 0, 0.5));
       k.multiplyScalar(n); col.push(k.r, k.g, k.b);
     }
@@ -215,16 +216,16 @@ export function buildWorld(map, scene) {
 
   switch (map.theme) {
     case 'hanoi':
-      if (lk < 0) ribbon(0, L, -220, -24, -0.35, '#5fa8b8', 0.88); else ribbon(0, L, 24, 220, -0.35, '#5fa8b8', 0.88);
+      if (LAKE) { if (lk < 0) ribbon(0, L, -220, -24, -0.35, '#5fa8b8', 0.88); else ribbon(0, L, 24, 220, -0.35, '#5fa8b8', 0.88); }
       along(0, L, 11, 16, both((s, sd) => tree(s, sd * 7.5, 1.1 + rng() * 0.4, sd > 0 ? '#e0533c' : '#59b04c')));
       along(0, L, 10, 14, (s) => { const w = 6 + rng() * 3, h = 9 + rng() * 8; house(s, 17 + rng() * 3, w, 11, h, pick(PASTEL), '#b8503a'); });
       along(20, L, 28, 34, both((s, sd) => lamp(s, sd * 9.4)));
-      { const t = mk('thaprua'), ts = t ? t.s : 3000, to = t ? t.o : -62; put('box', G.box, ts, to, 6, 6, 3, '#d9d3c3'); put('box', G.box, ts, to, 4.6, 4.6, 3, '#d9d3c3', 0, 3); put('roof', G.cone4, ts, to, 8, 2.4, 8, '#7a8f6a', 0, 6); }
+      { const t = mk('thaprua'); if (!map.route || (t && Math.abs(t.o) < 300 && LAKE)) { const ts = t ? t.s : 3000, to = t ? t.o : -62; put('box', G.box, ts, to, 6, 6, 3, '#d9d3c3'); put('box', G.box, ts, to, 4.6, 4.6, 3, '#d9d3c3', 0, 3); put('roof', G.cone4, ts, to, 8, 2.4, 8, '#7a8f6a', 0, 6); } }
       if (!map.route) put('box', G.box, 1500, -20, 3.2, 26, 0.5, '#c93f2e', fwd(1500) + Math.PI / 2, -0.4);
       break;
     case 'saigon':
-      if (map.river) { if (rv > 0) ribbon(0, L, 36, 160, -0.5, '#5f9bb0', 0.9); else ribbon(0, L, -160, -36, -0.5, '#5f9bb0', 0.9); }
-      along(0, L, 14, 20, both((s, sd) => { if (sd === rv && map.river && rng() < 0.5) return; block(s, sd * (15 + rng() * 6), 9 + rng() * 8, 12, 14 + rng() * 40, pick(['#7fb1cf', '#a9c1d1', '#d6cdbf', '#c9ad92', '#8fa6b8']), '#cfd5d8'); }));
+      if (RIVER) { if (rv > 0) ribbon(0, L, 36, 160, -0.5, '#5f9bb0', 0.9); else ribbon(0, L, -160, -36, -0.5, '#5f9bb0', 0.9); }
+      along(0, L, 14, 20, both((s, sd) => { if (sd === rv && RIVER && rng() < 0.5) return; block(s, sd * (15 + rng() * 6), 9 + rng() * 8, 12, 14 + rng() * 40, pick(['#7fb1cf', '#a9c1d1', '#d6cdbf', '#c9ad92', '#8fa6b8']), '#cfd5d8'); }));
       along(0, L, 12, 17, both((s, sd) => tree(s, sd * 8, 1.4 + rng() * 0.5, '#3f9a4a')));
       along(20, L, 24, 30, both((s, sd) => lamp(s, sd * 9.4)));
       { const b = mk('bitexco'), bs = b ? b.s : 2800, bo = b ? b.o + Math.sign(b.o || 1) * 12 : 26; put('cyl', G.cyl, bs, bo, 7, 70, 7, '#3d79a8'); put('cyl', G.cyl, bs, bo, 4, 8, 4, '#c8d6df', 0, 70); put('cyl', G.cyl, bs, bo, 6.5, 0.8, 6.5, '#d0504b', 0, 78);
@@ -247,7 +248,7 @@ export function buildWorld(map, scene) {
       for (let i = 0; i < 110; i++) karst(rng() * L, (rng() < 0.5 ? -1 : 1) * (26 + rng() * 70), 9 + rng() * 11, 24 + rng() * 38);
       along(0, L, 10, 18, both((s, sd) => { if (sd === rv && s % 20 < 1) return; put('paddy', G.box, s, sd * (11 + rng() * 14), 6 + rng() * 6, 7, 0.1, pick(['#9ed45a', '#c8dc6a', '#7fbf4f', '#d9d57a']), fwd(s), 0.05); }));
       along(0, L, 14, 22, both((s, sd) => tree(s, sd * 6.4, 1 + rng() * 0.4)));
-      for (let i = 0; i < 14; i++) { const s = rng() * L; put('hull', G.box, s, rv * 20, 3, 0.7, 1, '#7a4b2b', fwd(s), -1); }
+      for (let i = 0; i < (RIVER ? 14 : 0); i++) { const s = rng() * L; put('hull', G.box, s, rv * 20, 3, 0.7, 1, '#7a4b2b', fwd(s), -1); }
       { const b = mk('baidinh'), ps = b ? Math.max(0, b.s - 25) : 5500, po = b ? (b.o >= 0 ? 1 : -1) * Math.max(42, Math.abs(b.o) + 25) : 52; block(ps, po, 9, 9, 6, '#f1e4c4', '#c4402f'); put('roof', G.cone4, ps, po, 14, 5, 14, '#b8402f', 0, 6.5); put('roof', G.cone4, ps, po, 9, 4, 9, '#b8402f', 0, 11); }
       break;
     case 'mocchau':

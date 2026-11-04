@@ -76,8 +76,8 @@
 
   // elev: [km, mét so với mực nước biển]; curve: độ ngoằn ngoèo; theme: khóa dựng cảnh phía client
   const MAPS = [
-    { id: 'hoguom', name: 'Hồ Gươm', place: 'Hà Nội', diff: 1, km: 6, theme: 'hanoi',
-      desc: 'Vòng quanh hồ Hoàn Kiếm rồi ra cầu Long Biên: Tháp Rùa, phố cổ nhà ống, hàng phượng và liễu rủ.',
+    { id: 'hoguom', name: 'Hà Nội – Cầu Long Biên', place: 'Hà Nội', diff: 1, km: 6, theme: 'hanoi',
+      desc: 'Cung đường chạy qua nội thành Hà Nội tới cầu Long Biên (GPX Komoot).',
       ref: 'Tham khảo các giải chạy phố đi bộ quanh hồ Gươm', elev: [[0, 6], [6, 6]],
       curve: { a: 0.35, f: [0.006, 0.0135] }, sky: ['#7fc4f2', '#f4efe3'], fog: '#e9e6dc' },
     { id: 'saigon', name: 'Nguyễn Huệ – Bến Bạch Đằng', place: 'TP. Hồ Chí Minh', diff: 1, km: 6, theme: 'saigon',
@@ -89,7 +89,7 @@
       ref: 'Tham khảo cung đường của giải Marathon Quốc tế Đà Nẵng', elev: [[0, 3], [2, 4], [2.5, 16], [3, 4], [8, 3]],
       curve: { a: 0.3, f: [0.004, 0.01] }, sky: ['#5fb8f5', '#fdf3df'], fog: '#e7edf0', sea: 'L' },
     { id: 'halong', name: 'Bãi Cháy – Vịnh Hạ Long', place: 'Quảng Ninh', diff: 2, km: 8, theme: 'halong',
-      desc: 'Cầu Bãi Cháy bắc qua vịnh, các đảo đá vôi nhô lên mặt nước, thuyền buồm nâu.',
+      desc: 'Từ Quảng Ninh vượt đồi tới cầu Bãi Cháy (GPX Komoot).',
       ref: 'Tham khảo cung đường của giải VnExpress Marathon Hạ Long', elev: [[0, 4], [2, 12], [3, 48], [4, 52], [5, 30], [6, 10], [8, 5]],
       curve: { a: 0.45, f: [0.0045, 0.012] }, sky: ['#7dc7e8', '#eaf6f2'], fog: '#d9ece8', sea: 'R' },
     { id: 'trangan', name: 'Tràng An', place: 'Ninh Bình', diff: 2, km: 7, theme: 'trangan',
@@ -105,15 +105,15 @@
       ref: 'Tham khảo các giải chạy leo đèo Hải Vân', elev: [[0, 8], [2, 95], [4, 210], [6, 330], [8, 430], [10, 496], [12, 400]],
       curve: { a: 1.1, f: [0.0065, 0.016] }, sky: ['#72b6ea', '#e7eef0'], fog: '#bcd4e6', canyon: 'R', cliff: 'L' },
     { id: 'prenn', name: 'Đèo Prenn', place: 'Đà Lạt', diff: 4, km: 6, theme: 'prenn',
-      desc: 'Đường đèo dưới rừng thông, sương mù, thác Prenn và thung lũng phía dưới.',
+      desc: 'Đường dốc xuống từ trung tâm Đà Lạt, vùng đèo Prenn (GPX Komoot).',
       ref: 'Lấy cảm hứng từ các cung trail của Dalat Ultra Trail', elev: [[0, 1100], [1.5, 1220], [3, 1340], [4.5, 1430], [6, 1490]],
       curve: { a: 1.2, f: [0.007, 0.017] }, sky: ['#aac6d9', '#e5ebe8'], fog: '#cdd9d6', cliff: 'L' },
     { id: 'oquyho', name: 'Đèo Ô Quy Hồ', place: 'Sa Pa – Lai Châu', diff: 5, km: 10, theme: 'oquyho',
-      desc: 'Đèo cao nhất miền Bắc: ruộng bậc thang, biển mây, đỉnh Fansipan phía sau.',
+      desc: 'Từ Sa Pa leo đèo Ô Quy Hồ tới cầu kính Rồng Mây (GPX Komoot).',
       ref: 'Tham khảo các cung chạy của Vietnam Mountain Marathon (Sa Pa)', elev: [[0, 1550], [2, 1760], [4, 1900], [6, 2000], [8, 2035], [10, 1990]],
       curve: { a: 1.3, f: [0.0075, 0.018] }, sky: ['#6aa9e0', '#eaf0f4'], fog: '#d4dfe8', cliff: 'R' },
     { id: 'mapileng', name: 'Mã Pí Lèng', place: 'Hà Giang', diff: 5, km: 8, theme: 'mapileng',
-      desc: 'Đường treo trên vách đá cao, hẻm vực Tu Sản, dòng sông Nho Quế xanh ngọc phía dưới.',
+      desc: 'Từ đèo Mã Pí Lèng xuống dốc về phía Mèo Vạc (GPX Komoot).',
       ref: 'Lấy cảm hứng từ các giải chạy cung đường Hạnh Phúc, Hà Giang', elev: [[0, 820], [1.5, 980], [3, 1160], [4.5, 1230], [6, 1180], [8, 1020]],
       curve: { a: 1.4, f: [0.0075, 0.019] }, sky: ['#78b1e0', '#efe9dc'], fog: '#d9dcd8', cliff: 'L', canyon: 'R' }
   ];

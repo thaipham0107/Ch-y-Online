@@ -15,8 +15,10 @@ if (!jobs.length) { console.log('Không có GPX. Đặt file vào thư mục gpx
 function clean(id, pts, startNear, log) {
   let p = resample(pts, 20);
   if (startNear) { let bi = 0, bd = 1e18; p.forEach((q, i) => { const d = hav(q, startNear); if (d < bd) { bd = d; bi = i; } }); if (bi > 0) { log(`  cắt từ điểm gần mốc xuất phát nhất (cách ${Math.round(bd)} m), bỏ ${(length(p.slice(0, bi + 1)) / 1000).toFixed(1)} km đầu`); p = p.slice(bi); } }
+  const erase = (arr) => { const out = []; for (const q of arr) { let cut = -1; for (let j = 0; j < out.length - 15; j++) if (hav(q, out[j]) < 25) { cut = j; break; } if (cut >= 0) out.length = cut + 1; else out.push(q); } return out; };
   let retr = 0; for (let i = 0; i < p.length; i++) { for (let j = 0; j < i - 15; j++) if (hav(p[i], p[j]) < 25) { retr++; break; } }
-  if (retr / p.length > 0.3) { let far = 0, fi = 0; p.forEach((q, i) => { const d = hav(p[0], q); if (d > far) { far = d; fi = i; } }); log(`  vệt đi ra rồi quay lại đúng đường cũ (${Math.round(100 * retr / p.length)}% lặp): giữ chiều đi, cắt tại điểm xa nhất (${(length(p.slice(0, fi + 1)) / 1000).toFixed(1)} km)`); p = p.slice(0, fi + 1); }
+  if (retr / p.length > 0.03 && retr / p.length <= 0.3) { const before = length(p); p = erase(p); log(`  bỏ nhánh rẽ đi rồi quay lại (${Math.round(100 * retr / (retr + p.length))}% điểm lặp): ${(before / 1000).toFixed(1)} → ${(length(p) / 1000).toFixed(1)} km`); }
+  else if (retr / p.length > 0.3) { let far = 0, fi = 0; p.forEach((q, i) => { const d = hav(p[0], q); if (d > far) { far = d; fi = i; } }); log(`  vệt đi ra rồi quay lại đúng đường cũ (${Math.round(100 * retr / p.length)}% lặp): giữ chiều đi, cắt tại điểm xa nhất (${(length(p.slice(0, fi + 1)) / 1000).toFixed(1)} km)`); p = p.slice(0, fi + 1); }
   return p;
 }
 for (const [id, file, name] of jobs) {
@@ -25,7 +27,7 @@ for (const [id, file, name] of jobs) {
   console.log(`[${id}] ${pts.length} điểm, ${pts.every((p) => p.length > 2) ? 'có độ cao trong GPX' : 'thiếu độ cao: lấy từ SRTM'}`);
   const cleaned = clean(id, pts, COURSES[id].startNear, console.log);
   const nm = name || (Shared.MAPS.find((m) => m.id === id) || {}).name || id;
-  const { course, meta: m } = await buildCourse(id, cleaned, { name: nm, source: 'gpx', maxGrade: COURSES[id].maxGrade, bridges: COURSES[id].bridges, landmarks: COURSES[id].landmarks, features: COURSES[id].features, onLog: console.log });
+  const { course, meta: m } = await buildCourse(id, cleaned, { name: nm, source: 'gpx', maxGrade: COURSES[id].maxGrade, bridges: [], landmarks: COURSES[id].landmarks, features: COURSES[id].features, onLog: console.log });
   fs.writeFileSync(path.join(OUT, id + '.json'), JSON.stringify(course)); meta[id] = m; fs.writeFileSync(metaFile, JSON.stringify(meta));
   console.log(`  ✓ ${course.km} km, leo ${m.gain} m`);
 }

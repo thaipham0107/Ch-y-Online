@@ -27,5 +27,6 @@ Không file nào tải được trực tiếp, công khai và có giấy phép r
 2. Đặt `<id>.gpx` vào thư mục này, chạy `npm run courses:gpx`.
 
 ## Đã nhập (2026-11-04)
-GPX tự vẽ trong Komoot (đường nền OpenStreetMap, có độ cao): `trangan` (13,4 km), `danang` (cắt còn 3,3 km: bản gốc đi tới biển rồi quay lại), `saigon` (12,7 km), `mocchau` (23,8 km).
-Chưa dùng: file Hà Nội (xuất phát cách Hồ Gươm ~7 km, không đi qua hồ). Còn thiếu: `hoguom`, `halong`, `haivan`, `prenn`, `oquyho`, `mapileng`. File GPX gốc không commit (`gpx/*.gpx` nằm trong .gitignore), dữ liệu đã dựng nằm ở `public/courses/`.
+GPX tự vẽ trong Komoot (đường nền OpenStreetMap, có độ cao), 9/10 bản đồ: `hoguom` (Hà Nội → cầu Long Biên, 8,1 km: chỉ lấy chiều đi), `saigon` (12,7 km), `danang` (3,3 km: chỉ lấy chiều đi), `halong` (6,5 km: bỏ nhánh rẽ), `trangan` (13,4 km), `mocchau` (23,8 km), `prenn` (6,5 km), `oquyho` (18,6 km, tới cầu kính Rồng Mây), `mapileng` (8,6 km).
+Còn thiếu: `haivan` (đang dùng OpenStreetMap + SRTM). Lưu ý `prenn`: vệt nằm trong Đà Lạt, cách các điểm đèo Prenn khoảng 1,2 km.
+File GPX gốc không commit (`gpx/*.gpx` trong .gitignore); dữ liệu đã dựng nằm ở `public/courses/`.
