@@ -6,3 +6,4 @@ strava.config.json
 tools/.cache/
 gpx/*.gpx
 admin.config.json
+release/
