@@ -91,7 +91,7 @@ export function makeRunner(info, me) {
 const emojiTex = {};
 function emojiSprite(ch, size = 2.2) {
   if (!emojiTex[ch]) { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'); x.font = '96px system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(ch, 64, 70); emojiTex[ch] = new THREE.CanvasTexture(cv); emojiTex[ch].colorSpace = THREE.SRGBColorSpace; }
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTex[ch], transparent: true, depthWrite: false })); sp.scale.set(size, size, 1); return sp;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTex[ch], transparent: true, depthWrite: false })); sp.scale.set(size, size, 1); sp.renderOrder = 6; return sp;   // vẽ sau lớp đường bán trong suốt của chế độ bản đồ
 }
 function obstacleMesh(kind) {
   const g = new THREE.Group(), M = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
@@ -157,9 +157,12 @@ export class Game {
   orbit(dx, dy) { this.yaw += dx * 0.008; this.pitchO = clamp(this.pitchO - dy * 0.006, 0.35, 1.45); }
   resetView() { this.camD = 34; this.yaw = 0; this.pitchO = 1.0; }
 
-  load(course, dist, mode, profile, seed = Math.floor(Math.random() * 1e9)) {
+  load(course, dist, mode, profile, seed = Math.floor(Math.random() * 1e9), view = '3d') {
     this.dispose(); this.map = course; this.total = Math.min(dist, course.km * 1000);
-    this.world = course.kind === 'gps' ? buildGpsWorld(course, this.scene, this.cfg) : buildWorld(course, this.scene);
+    // vệ tinh / bản đồ 2D cho bản đồ có tuyến thật: trải ảnh bản đồ dưới đường chạy (mặt phẳng, độ dốc vẫn tính theo dữ liệu độ cao)
+    const imagery = course.kind !== 'gps' && course.route && (view === 'sat' || view === 'road');
+    this.world = course.kind === 'gps' ? buildGpsWorld(course, this.scene, this.cfg) : imagery ? buildGpsWorld({ pts: course.route.pts, style: view }, this.scene, this.cfg) : buildWorld(course, this.scene);
+    this.view = course.kind === 'gps' ? course.style : imagery ? view : '3d';
     this.scene.background = C(this.world.theme.bg); this.scene.fog = new THREE.Fog(this.world.theme.bg, 70, 190);
     this.world.setFinish(this.total);
     this.profile = profile; this.mode = mode; this.seed = seed;

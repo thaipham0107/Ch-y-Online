@@ -46,3 +46,6 @@ Hình học và độ cao của 10 bản đồ nằm trong `public/courses/` (`<
 - Dựng lại: `npm run courses:build` (chạy được cả từng bản đồ: `node tools/build-courses.mjs haivan`). Kết quả gọi mạng được lưu đệm trong `tools/.cache/`.
 - **Thay bằng GPX chính thức**: đặt file vào `gpx/<id>.gpx` (id: `hoguom saigon danang halong trangan mocchau haivan prenn oquyho mapileng`) rồi `npm run courses:gpx`. GPX có độ cao thì dùng luôn, thiếu thì lấy từ SRTM. Game tự nhận, hiển thị "GPX chính thức" ở màn chọn bản đồ.
 - Bên vách núi, vực, biển được phát hiện từ độ cao hai bên đường; cảnh dùng hình học thật (địa hình dạng lưới, lan can, cầu Rồng, tháp Bitexco, cổng Hải Vân Quan… đặt theo tọa độ).
+
+## Vệ tinh cho 10 bản đồ
+Ở màn chọn bản đồ, mục **Hiển thị**: Cảnh 3D / Bản đồ 2D / Vệ tinh. Ảnh bản đồ trải dưới đường chạy (mặt phẳng); độ dốc và thể lực vẫn theo độ cao thật. Cần mạng; nguồn ảnh đổi bằng `TILES_ROAD`, `TILES_SAT`.

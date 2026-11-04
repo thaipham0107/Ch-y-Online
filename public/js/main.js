@@ -9,7 +9,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const store = new Store();
 let cfg = { strava: false, mock: false, tiles: {} }, game = null, ws = null, wsTimer = 0, flushTimer = 0, posTimer = 0, tours = null, picker = null, cur = null, sessionCoins = 0, coinBase = 0;
-let sel = { kind: 'sim', map: MAPS[0], dist: 5000, mode: 'manual', route: null };
+let sel = { kind: 'sim', map: MAPS[0], dist: 5000, mode: 'manual', route: null, view: '3d' };
 let pendingTour = null;
 const GOAL_KM = 5;
 
@@ -99,11 +99,15 @@ function renderSetup() {
   if (!opts.includes(sel.dist / 1000)) sel.dist = opts.includes(5) ? 5000 : opts[opts.length - 1] * 1000;
   $('#s-dist').innerHTML = opts.map((d) => `<button data-d="${d}" class="${d * 1000 === sel.dist ? 'on' : ''}">${d === c.km ? 'Cả tuyến ' + d : d} km</button>`).join('');
   document.querySelectorAll('#s-mode button').forEach((b) => b.classList.toggle('on', b.dataset.m === sel.mode));
+  const canView = !gps && c.real; $('#s-viewbox').hidden = !canView; if (!canView) sel.view = '3d';
+  document.querySelectorAll('#s-view button').forEach((b) => b.classList.toggle('on', b.dataset.v === sel.view));
+  $('#s-viewhint').textContent = sel.view === '3d' ? 'Cảnh 3D dựng theo đường thật (có độ cao, vách, vực, biển).' : 'Ảnh bản đồ phẳng trải dưới đường chạy; độ dốc và thể lực vẫn tính theo độ cao thật. Cần mạng để tải ảnh bản đồ.';
   $('#s-modehint').textContent = sel.mode === 'auto' ? `Tự động: 1 bước/giây (7,2 km/h), tự nhảy qua chướng ngại trong làn của bạn. Khoảng ${fmtTime(sel.dist / (R.STRIDE * R.AUTO_STEPS_PER_SEC))} cho cự ly này. Vẫn đổi làn, dùng vật phẩm được.`
     : 'Thủ công: Space = 1 bước, J = nhảy, ←/→ đổi làn. Tối đa 4 bước/giây. Có thể chuyển sang Tự động bất cứ lúc nào.';
 }
 $('#mapgrid').onclick = (e) => { const b = e.target.closest('.mcard'); if (!b) return; sel.map = MAPS.find((m) => m.id === b.dataset.id); renderMaps(); renderSetup(); };
 $('#s-dist').onclick = (e) => { const d = e.target.dataset.d; if (d) { sel.dist = +d * 1000; renderSetup(); } };
+$('#s-view').onclick = (e) => { const v = e.target.dataset.v; if (v) { sel.view = v; renderSetup(); } };
 $('#s-mode').onclick = (e) => { const m = e.target.dataset.m; if (m) { sel.mode = m; renderSetup(); } };
 $('#kind-tabs').onclick = (e) => {
   const k = e.target.dataset.k; if (!k) return; sel.kind = k;
@@ -137,7 +141,7 @@ function roomOf(course) { if (course.kind !== 'gps') return null; const f = cour
 async function startFree() {
   const course = curCourse(); if (!course) return toast('Hãy chọn tuyến GPS trước');
   $('#s-go').disabled = true;
-  try { await store.startRun(course.kind === 'gps' ? 'gps' : course.id, sel.dist, sel.mode); await launch({ course, dist: sel.dist, mode: sel.mode, room: roomOf(course), tour: null }); }
+  try { await store.startRun(course.kind === 'gps' ? 'gps' : course.id, sel.dist, sel.mode); await launch({ course, dist: sel.dist, mode: sel.mode, room: roomOf(course), tour: null, view: sel.view }); }
   finally { $('#s-go').disabled = false; }
 }
 async function launchTour(t, catId, mode) {
@@ -147,13 +151,13 @@ async function launchTour(t, catId, mode) {
   await launch({ course, dist: info.dist, mode, seed: info.seed, room: 't:' + t.code, tour: { code: t.code, title: t.title, cat: catId, km: cat.km } });
   api(`/api/tournaments/${t.code}/go`, { runId: store.runId }).catch(() => {});      // bắt đầu tính giờ
 }
-async function launch({ course, dist, mode, seed, room, tour }) {
+async function launch({ course, dist, mode, seed, room, tour, view = '3d' }) {
   if (course.real && !course.route) { try { const r = await fetch(`/courses/${course.id}.json`); if (r.ok) course.route = await r.json(); } catch { /* dựng theo hồ sơ độ cao */ } }
   const g = ensureGame(); sel.mode = mode; sessionCoins = 0; coinBase = store.profile().coins || 0; cur = { course, dist, mode, seed, room, tour };
   show('game');
-  g.load(course, dist, mode, store.profile(), seed);
+  g.load(course, dist, mode, store.profile(), seed, view);
   $('#h-map').textContent = tour ? `🏅 ${tour.title}` : course.name; $('#h-auto').checked = mode === 'auto'; renderInv(g.inv);
-  $('#h-elev').hidden = course.kind === 'gps'; $('#attr').textContent = course.kind === 'gps' ? (course.style === 'sat' ? cfg.tiles.attrSat : cfg.tiles.attrRoad) : '';
+  $('#h-elev').hidden = course.kind === 'gps'; const imgStyle = course.kind === 'gps' ? course.style : g.view; $('#attr').textContent = imgStyle === 'sat' ? cfg.tiles.attrSat : imgStyle === 'road' ? cfg.tiles.attrRoad : '';
   $('#ticker').textContent = ''; $('#banner').hidden = true; $('#h-coins').textContent = '🪙 ' + coinBase;
   connectWs(course, room); clearInterval(flushTimer); flushTimer = setInterval(() => doFlush(false), 15000);
 }

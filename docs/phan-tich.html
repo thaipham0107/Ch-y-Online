@@ -192,6 +192,16 @@ code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:13px}
 </div>
 <div class="note"><b>Lưu ý khi triển khai thật.</b> Máy chủ công cộng của OpenStreetMap, Nominatim, Valhalla công cộng và ảnh Esri đều có điều kiện sử dụng và giới hạn tần suất; phù hợp để thử và nhóm nhỏ. Khi đông người nên dùng nhà cung cấp có khóa API (ví dụ MapTiler hoặc Mapbox) qua các biến môi trường trên, và đọc lại điều khoản của từng bên, đặc biệt phần ghi nguồn. Mình chưa kiểm tra bảng giá hiện tại của các bên đó.</div>
 
+<h3>Vệ tinh và bản đồ 2D cho 10 bản đồ có tuyến thật</h3>
+<div class="shots">
+<figure><img src="img/sat-course.jpg" alt="Vệ tinh trên tuyến Hà Nội" width="960" height="540"><figcaption><b>Hà Nội, chế độ vệ tinh.</b> Ảnh vệ tinh trải dưới đường 4 làn; nhân vật chạy đúng tuyến GPX.</figcaption></figure>
+<figure><img src="img/sat-oquyho.jpg" alt="Vệ tinh trên đèo Ô Quy Hồ" width="960" height="540"><figcaption><b>Đèo Ô Quy Hồ, chế độ vệ tinh.</b> Biểu đồ độ cao và thể lực vẫn tính theo độ cao thật.</figcaption></figure>
+</div>
+<div class="grid" style="margin-top:18px">
+<div class="box"><h4>Cách dùng</h4><ul><li>Ở màn chọn bản đồ có mục <b>Hiển thị</b>: Cảnh 3D, Bản đồ 2D, Vệ tinh. Đã thử cả 10 bản đồ, ảnh tải đủ, không lỗi.</li><li>Cùng tuyến, cùng luật chơi; chỉ đổi nền cảnh. Có ghi nguồn ảnh trên màn hình.</li></ul></div>
+<div class="box"><h4>Giới hạn</h4><ul><li>Ảnh vệ tinh là mặt phẳng, nên đường không nhô cao theo địa hình; độ dốc chỉ hiện ở biểu đồ và tính vào thể lực.</li><li>Độ nét phụ thuộc vùng: thành phố nét hơn, vùng núi (Hải Vân, Hạ Long) hơi mờ vì ảnh nguồn thấp hơn.</li><li>Cần mạng để tải ảnh. Giải đấu trên bản đồ có sẵn hiện vẫn chạy cảnh 3D; chưa cho người tổ chức chọn vệ tinh.</li><li>Ảnh Esri và OpenStreetMap công cộng có giới hạn sử dụng; triển khai thật nên đổi nhà cung cấp có khóa API.</li></ul></div>
+</div>
+
 <h2 id="du-lieu">Dữ liệu và API</h2>
 <div class="tbl"><table>
 <thead><tr><th>Bảng SQLite</th><th>Nội dung</th></tr></thead><tbody>
