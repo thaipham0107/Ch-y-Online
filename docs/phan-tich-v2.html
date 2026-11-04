@@ -1,0 +1,583 @@
+<title>Phân tích Chạy Online 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&family=Baloo+2:wght@700;800&display=swap">
+<style>
+/* Bố cục: một cột đọc + các khung màn hình phác thảo (container query) đặt theo lưới tự co */
+:root{
+  --bg:#f1f4f6; --surface:#ffffff; --ink:#16212b; --mut:#566674; --line:#d3dce3; --soft:#e6edf1;
+  --acc:#d2491f; --acc-ink:#ffffff; --teal:#0b6f66; --gold:#c99700; --warn:#b42318; --warn-bg:#fdeceb; --ok-bg:#e3f4ef;
+  --dev:#1a2630;
+  --f-body:"Be Vietnam Pro",system-ui,"Segoe UI",sans-serif; --f-disp:"Baloo 2","Be Vietnam Pro",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e171e; --surface:#15212b; --ink:#e8eff4; --mut:#9db0bf; --line:#2a3b48; --soft:#1c2a35;
+  --acc:#ff7a4d; --acc-ink:#1a0d07; --teal:#35c2b2; --gold:#f0bd27; --warn:#ff8a7e; --warn-bg:#35191a; --ok-bg:#12302b; --dev:#05090c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e171e; --surface:#15212b; --ink:#e8eff4; --mut:#9db0bf; --line:#2a3b48; --soft:#1c2a35;
+  --acc:#ff7a4d; --acc-ink:#1a0d07; --teal:#35c2b2; --gold:#f0bd27; --warn:#ff8a7e; --warn-bg:#35191a; --ok-bg:#12302b; --dev:#05090c; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:1120px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-disp);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,6vw,58px);font-weight:800}
+h2{font-size:clamp(25px,3.6vw,34px);margin-top:64px;padding-top:18px;border-top:2px solid var(--ink)}
+h3{font-size:20px;margin-top:30px}
+p{margin:10px 0;max-width:72ch}
+a{color:var(--acc)}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);font-weight:700}
+header.top{padding-block:44px 8px}
+header.top p{font-size:17px;color:var(--mut)}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:6px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);margin-top:18px}
+nav.toc a{font-size:13px;font-weight:500;text-decoration:none;color:var(--ink);background:var(--soft);padding:4px 11px;border-radius:99px}
+nav.toc a:hover{background:var(--acc);color:var(--acc-ink)}
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));align-items:start}
+.grid.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-width:0}
+.box h4{margin:0 0 6px;font-size:15px}
+.box ul{margin:6px 0 0;padding-left:18px}.box li{margin:3px 0}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);background:var(--soft)}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--soft);color:var(--mut);vertical-align:middle}
+.tag.rec{background:var(--ok-bg);color:var(--teal)}.tag.risk{background:var(--warn-bg);color:var(--warn)}
+.decide{display:grid;gap:10px}
+.decide .d{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--acc);border-radius:8px;padding:12px 16px;min-width:0}
+.decide .d b{display:block}
+.decide .d span{color:var(--mut)}
+.decide .d em{font-style:normal;color:var(--teal);font-weight:700}
+figure{margin:0;min-width:0}
+figcaption{font-size:13px;color:var(--mut);margin-top:8px;max-width:60ch}
+figcaption b{color:var(--ink)}
+pre.mermaid{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;margin:14px 0;text-align:center}
+.legend{counter-reset:k;list-style:none;padding:0;margin:10px 0 0;font-size:13.5px;display:grid;gap:4px}
+.legend li{counter-increment:k;padding-left:30px;position:relative}
+.legend li::before{content:counter(k);position:absolute;left:0;top:1px;width:21px;height:21px;border-radius:50%;background:var(--acc);color:var(--acc-ink);font-size:12px;font-weight:700;display:grid;place-items:center}
+
+/* ---------- khung thiết bị phác thảo ---------- */
+.dev:has(> .port){max-width:318px;margin-inline:auto}
+.dev{background:var(--dev);border-radius:14px;padding:7px;box-shadow:0 8px 24px #0003}
+.frame{position:relative;overflow:hidden;border-radius:8px;container-type:inline-size;background:#fff;color:#16212b;font-family:var(--f-body)}
+.frame.land{aspect-ratio:16/9}.frame.port{aspect-ratio:9/16;max-width:300px;margin:0 auto}
+.frame *{box-sizing:border-box}
+.frame .u{font-size:2.15cqw;line-height:1.25}
+.port .u{font-size:4.6cqw}
+.mk{position:absolute;width:3.2cqw;height:3.2cqw;min-width:17px;min-height:17px;border-radius:50%;background:#d2491f;color:#fff;font-size:max(10px,1.9cqw);font-weight:700;display:grid;place-items:center;z-index:9;border:1.5px solid #fff}
+.port .mk{width:6.5cqw;height:6.5cqw;font-size:max(10px,3.6cqw)}
+
+/* cảnh 3D phác thảo */
+.scene{position:absolute;inset:0;background:linear-gradient(var(--s1),var(--s2) 52%);--s1:#68c3ff;--s2:#e9f7ff;--hill:#8fc7a8;--grd:#8ed160;--rd:#c8553a}
+.scene .hill{position:absolute;left:-5%;right:-5%;top:33%;height:24%;background:var(--hill);clip-path:polygon(0 100%,0 62%,14% 28%,29% 58%,47% 14%,63% 52%,80% 24%,100% 56%,100% 100%)}
+.scene .grd{position:absolute;left:0;right:0;top:50%;bottom:0;background:var(--grd)}
+.scene .rd{position:absolute;left:0;right:0;top:50%;bottom:0;background:var(--rd);clip-path:polygon(46% 0,54% 0,92% 100%,8% 100%)}
+.scene .rd::after{content:"";position:absolute;left:49.2%;width:1.6%;top:6%;bottom:0;background:repeating-linear-gradient(to bottom,#fff9 0 7%,transparent 7% 16%);clip-path:polygon(40% 0,60% 0,100% 100%,0 100%)}
+.scene .sun{position:absolute;right:14%;top:10%;width:8%;aspect-ratio:1;border-radius:50%;background:#fff3b0}
+.s-desert{--s1:#ffb05a;--s2:#ffe8bd;--hill:#d9a45f;--grd:#e8c27a;--rd:#b98a52}
+.s-italy{--s1:#7fb2ff;--s2:#fde7c8;--hill:#c98a62;--grd:#b9a98a;--rd:#6d6a68}
+.s-night{--s1:#0b1030;--s2:#3b2a6b;--hill:#241c4f;--grd:#14122c;--rd:#2a2a3a}
+.s-night .sun{background:#e6ecff}
+.s-sat{--s1:#7da0c9;--s2:#c9d9e6;--hill:#4b6b3f;--grd:#5d7a43;--rd:#8a8576}
+.bld{position:absolute;bottom:50%;background:#e9c9a3;border-radius:2px}
+.runner{position:absolute;left:50%;bottom:8%;width:13%;transform:translateX(-50%)}
+.pill{display:inline-block;background:#0ea5e9;color:#fff;font-weight:700;border-radius:99px;padding:.1em .7em;white-space:nowrap}
+.hud{position:absolute;background:#ffffffee;border-radius:1.6cqw;padding:.7cqw 1.4cqw;color:#16212b}
+.bar{height:1.4cqw;background:#0002;border-radius:9px;overflow:hidden;min-height:5px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#a3e635)}
+.bar.o i{background:linear-gradient(90deg,#fb923c,#f43f5e)}
+.bar.b i{background:linear-gradient(90deg,#38bdf8,#22c55e)}
+.slot{width:6.4cqw;height:6.4cqw;background:#ffffffee;border-radius:1.4cqw;display:grid;place-items:center;font-size:3.6cqw;position:relative;border:.3cqw solid #0002}
+.slot small{position:absolute;right:.5cqw;bottom:.1cqw;font-size:1.6cqw;font-weight:700}
+.slot.sel{border-color:#d2491f}
+.btn{background:#d2491f;color:#fff;font-weight:700;border-radius:1.6cqw;padding:.8cqw 2cqw;text-align:center;white-space:nowrap}
+.btn.g{background:#e6edf1;color:#16212b}.btn.k{background:#16212b}
+.chip{display:inline-block;border:.25cqw solid #16212b30;border-radius:99px;padding:.05em .7em;background:#fff}
+.chip.on{background:#16212b;color:#fff}
+.card{background:#f4f7f9;border:.25cqw solid #16212b18;border-radius:1.4cqw;padding:1.2cqw}
+.row{display:flex;gap:1.2cqw;align-items:center}
+.col{display:flex;flex-direction:column;gap:1cqw}
+.fld{background:#fff;border:.3cqw solid #16212b30;border-radius:1cqw;padding:.7cqw 1.2cqw;color:#16212b}
+.fld small{display:block;color:#6b7886;font-size:.8em}
+.fill{position:absolute;inset:0;padding:2cqw}
+.mapbg{position:absolute;inset:0;background:#e9eef0;background-image:linear-gradient(#fff 0 0),linear-gradient(#fff 0 0);background-size:100% .8cqw,.8cqw 100%;background-position:0 30%,22% 0}
+.mapbg::before{content:"";position:absolute;inset:0;background:
+  linear-gradient(100deg,transparent 0 18%,#fff 18% 19.6%,transparent 19.6% 46%,#fff 46% 47.2%,transparent 47.2% 78%,#fff 78% 79.2%,transparent 79.2%),
+  linear-gradient(8deg,transparent 0 30%,#fff 30% 31.2%,transparent 31.2% 62%,#fff 62% 63.4%,transparent 63.4%),
+  radial-gradient(circle at 78% 70%,#bfe3c6 0 11%,transparent 11.5%),radial-gradient(circle at 20% 22%,#b7d9f2 0 9%,transparent 9.5%)}
+.sat{position:absolute;inset:0;background:radial-gradient(circle at 30% 40%,#58733f 0 18%,transparent 19%),radial-gradient(circle at 75% 30%,#6c8350 0 14%,transparent 15%),radial-gradient(circle at 60% 78%,#7a6f58 0 16%,transparent 17%),radial-gradient(circle at 15% 80%,#4a6538 0 12%,transparent 13%),#6a7d4c}
+.pin{position:absolute;width:3cqw;height:3cqw;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#d2491f;border:.4cqw solid #fff}
+.pin.b{background:#0b6f66}
+.medal{display:block}
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,1fr);gap:3px}
+.heat i{aspect-ratio:1;border-radius:2px;background:#e1e8ec;display:block}
+.heat i[data-l="1"]{background:#c7e6d6}.heat i[data-l="2"]{background:#86c9a6}.heat i[data-l="3"]{background:#3da57b}.heat i[data-l="4"]{background:#0b6f66}
+.dim{color:#6b7886}
+.red{color:#b42318}.grn{color:#0b6f66}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Tài liệu phân tích · trước khi lập trình</div>
+  <h1>Chạy Online 3D</h1>
+  <p>Bản phân tích giao diện và luật chơi cho phiên bản mới: cảnh 3D, km tích lũy từ bước chạy, vật phẩm và thể lực, chó đuổi, hai kiểu tài khoản, giải đấu có huy chương riêng, chế độ tự động và chế độ GPS dùng bản đồ Google. Phần cuối là các điểm cần bạn chốt, mỗi điểm đều có đề xuất mặc định.</p>
+  <nav class="toc" aria-label="Mục lục">
+    <a href="#chot">Cần chốt</a><a href="#tong-quan">Sơ đồ màn hình</a><a href="#luat">Luật chơi</a><a href="#man-hinh">Màn hình chính</a>
+    <a href="#du-lieu">Tài khoản &amp; khách</a><a href="#giai">Giải đấu</a><a href="#gps">GPS</a><a href="#canh">Bản đồ giả lập</a><a href="#ky-thuat">Kỹ thuật &amp; lộ trình</a>
+  </nav>
+</header>
+
+<!-- ============ CẦN CHỐT ============ -->
+<h2 id="chot">Những điểm cần bạn chốt trước khi làm</h2>
+<p>Yêu cầu của bạn đủ rõ để dựng, nhưng có 10 chỗ mỗi cách hiểu cho ra một game khác nhau. Mình ghi sẵn cách hiểu mình sẽ dùng nếu bạn không nói gì thêm.</p>
+<div class="decide">
+  <div class="d"><b>1. Strava còn trong game không?</b><span>Bạn nói km chỉ lấy từ giờ chơi, không còn dấu tự khai. Bản đầu có đăng nhập Strava và nhiệm vụ "chạy thật hôm nay".</span> <em>Đề xuất: gỡ Strava khỏi sức mạnh và huy hiệu. Km trên đầu nhân vật là tổng km tích lũy trong game.</em></div>
+  <div class="d"><b>2. Một bước bằng bao nhiêu mét?</b><span>Quyết định tốc độ toàn game (xem bảng ở mục Luật chơi).</span> <em>Đề xuất: 1 bước = 2,0 m, tức 500 bước = 1 km. Tự động 1 bước/giây ra 7,2 km/h, pace 8:20/km. Con số nằm trong file cấu hình để chỉnh sau.</em></div>
+  <div class="d"><b>3. Space là bước hay là nhảy?</b><span>Bạn viết "space hoặc nhảy". Nếu chỉ có một nút thì nhảy qua chướng ngại bằng cách nào?</span> <em>Đề xuất: Space = 1 bước và là một nhịp nhún nhỏ. Bước đúng lúc ở vùng cảnh báo trước chướng ngại thì nhún thành cú nhảy qua.</em></div>
+  <div class="d"><b>4. Chế độ tự động có tự nhảy qua chướng ngại không?</b><span>Bạn chỉ nói người dùng vẫn bấm được vật phẩm.</span> <em>Đề xuất: tự nhảy qua chướng ngại tĩnh (đá, vũng nước). Chó đuổi vẫn phải xử lý bằng vật phẩm, nên tự động không thành "bật rồi đi ngủ".</em></div>
+  <div class="d"><b>5. Giải đấu công bằng giữa bấm tay và tự động</b><span>Bấm tay tối đa 4 bước/giây (28,8 km/h), tự động cố định 1 bước/giây. Hai kiểu nhanh chậm rất khác nhau.</span> <em>Đề xuất: người tổ chức chọn "Cả hai (hai bảng xếp hạng riêng)", "Chỉ bấm tay" hoặc "Chỉ tự động". Mặc định là hai bảng riêng.</em></div>
+  <div class="d"><b>6. Chế độ GPS là chạy ảo trên đường thật hay theo dõi bạn chạy ngoài đời?</b><span>Bạn mô tả nhập điểm đi, điểm đến, hiển thị 3D vệ tinh hoặc 2D. Mình hiểu là chạy ảo dọc tuyến đường thật. Theo dõi GPS chạy ngoài trời là một tính năng khác.</span> <em>Đề xuất: làm chạy ảo dọc tuyến. Theo dõi chạy thật bằng GPS điện thoại để giai đoạn sau nếu bạn muốn.</em></div>
+  <div class="d"><b>7. Google Maps cần khóa API và thanh toán</b><span>Hình 3D vệ tinh (Photorealistic 3D Tiles), Directions và Places đều tính phí theo lượt và cần tài khoản thanh toán. Độ phủ 3D phụ thuộc từng khu vực, cần thử với địa điểm bạn quan tâm.</span> <em>Đề xuất: bạn tạo khóa Google, mình làm sẵn phương án dự phòng 2D bằng OpenStreetMap khi thiếu khóa hoặc hết hạn mức.</em></div>
+  <div class="d"><b>8. Bản đồ giống Counter-Strike (Italy) và Need for Speed</b><span>Bản đồ, tên map và hình ảnh của các game này có bản quyền, không nên dùng nguyên.</span> <em>Đề xuất: làm bản đồ lấy cảm hứng bằng đồ họa tự dựng: "Phố cổ Ý", "Sa mạc", "Phố đua đêm" và các tuyến theo địa danh thật (đèo Prenn, vịnh Hạ Long, phố cổ Hà Nội).</em></div>
+  <div class="d"><b>9. Khách có được vào giải đấu không?</b><span>Dữ liệu khách nằm trên máy, nhưng kết quả giải phải nằm trên server mới so sánh được.</span> <em>Đề xuất: khách vào giải bằng link với một tên hiển thị. Kết quả giải lưu server gắn với mã thiết bị. Khách có thể nâng lên tài khoản để giữ huy chương lâu dài, dữ liệu cũ được nhập vào.</em></div>
+  <div class="d"><b>10. Nền tảng lưu trữ</b><span>Bản hiện tại lưu bằng một file JSON. Giải đấu, huy chương, lịch sử từng ngày cần truy vấn và ghi đồng thời.</span> <em>Đề xuất: chuyển sang SQLite (đủ cho nhóm nhỏ), có thể đổi sang Postgres khi đông người, chạy sau HTTPS.</em></div>
+</div>
+
+<!-- ============ TỔNG QUAN ============ -->
+<h2 id="tong-quan">Sơ đồ màn hình</h2>
+<p>Có ba cửa vào: tài khoản, khách và link mời giải đấu. Mọi đường đều dẫn tới cùng một màn hình thiết lập chuyến chạy, nên chế độ tự động, giải đấu và GPS dùng chung một luồng.</p>
+<pre class="mermaid">
+flowchart LR
+  A["Cổng vào"] --> B["Đăng nhập / Tạo tài khoản"]
+  A --> C["Chơi khách"]
+  A --> D["Dán link giải đấu"]
+  B --> E["Trang chủ"]
+  C --> E
+  D --> F["Trang giải đấu"]
+  E --> G["Thiết lập chuyến chạy"]
+  F --> G
+  G --> H1["Giả lập 3D: chọn cảnh"]
+  G --> H2["GPS: chọn tuyến"]
+  H1 --> I["Chạy: Thủ công hoặc Tự động"]
+  H2 --> I
+  I --> J["Tổng kết chuyến chạy"]
+  J --> K["Hồ sơ: lịch sử, vật phẩm, huy chương"]
+  E --> L["Giải đấu: tạo / tham gia"]
+  L --> F
+</pre>
+
+<!-- ============ LUẬT CHƠI ============ -->
+<h2 id="luat">Luật chơi: bước, km, thể lực, vật phẩm, chướng ngại</h2>
+
+<h3>Quy đổi bước thành km và tốc độ</h3>
+<p>Mỗi lần Space là một bước. Tốc độ phụ thuộc số bước mỗi giây và độ dài bước. Tia sét kéo dài bước từ 2,0 m lên 3,0 m trong 8 giây. Bảng dưới là đề xuất, chỉnh được trong cấu hình.</p>
+<div class="tbl"><table>
+<thead><tr><th>Cách chạy</th><th class="n">Bước/giây</th><th class="n">Độ dài bước</th><th class="n">Tốc độ</th><th class="n">Pace</th><th class="n">5 km mất</th></tr></thead>
+<tbody>
+<tr><td>Tự động</td><td class="n">1</td><td class="n">2,0 m</td><td class="n">7,2 km/h</td><td class="n">8:20 /km</td><td class="n">41:40</td></tr>
+<tr><td>Tự động + tia sét</td><td class="n">1</td><td class="n">3,0 m</td><td class="n">10,8 km/h</td><td class="n">5:33 /km</td><td class="n">27:46</td></tr>
+<tr><td>Bấm tay vừa</td><td class="n">2</td><td class="n">2,0 m</td><td class="n">14,4 km/h</td><td class="n">4:10 /km</td><td class="n">20:50</td></tr>
+<tr><td>Bấm tay tối đa (giới hạn chống macro)</td><td class="n">4</td><td class="n">2,0 m</td><td class="n">28,8 km/h</td><td class="n">2:05 /km</td><td class="n">10:25</td></tr>
+</tbody></table></div>
+<p>Server tính km từ chuỗi bước kèm mốc thời gian. Client chỉ báo "tôi bước", không báo "tôi đã chạy 3 km". Nhịp bước nhanh hơn 4/giây bị bỏ qua, và nhịp đều như máy trong thời gian dài bị đánh dấu nghi dùng công cụ bấm tự động.</p>
+
+<h3>Thể lực</h3>
+<div class="grid">
+  <div class="box"><h4>Tiêu hao</h4><ul><li>Thang 0 đến 100.</li><li>Mỗi bước trừ 0,15. Khi có tia sét trừ 0,25.</li><li>Một thanh đầy đủ chạy khoảng 1,3 km nếu không ăn gì.</li></ul></div>
+  <div class="box"><h4>Hết thể lực</h4><ul><li>Về 0 thì nhân vật dừng lại, bước không còn tính.</li><li>Tự hồi 2 điểm/giây khi đứng, chạy lại khi đạt 15.</li><li>Dùng vật phẩm lúc đang kiệt sức hồi ngay, không phải chờ.</li></ul></div>
+  <div class="box"><h4>Ghi chú cân bằng</h4><ul><li>Các con số là điểm xuất phát, sẽ chỉnh sau khi chơi thử.</li><li>Cứ khoảng 150 m xuất hiện một vật phẩm hồi sức để chạy 5 km không bị kẹt.</li></ul></div>
+</div>
+
+<h3>Vật phẩm trên đường</h3>
+<p>Chạm vào vật phẩm là nhặt vào túi đồ 5 ô, mỗi ô xếp tối đa 3 cái cùng loại. Dùng bằng cách bấm vào ô hoặc phím 1 đến 5. Ở chế độ tự động người chơi vẫn bấm được, đây là phần chơi chủ động còn lại.</p>
+<div class="tbl"><table>
+<thead><tr><th>Vật phẩm</th><th class="n">Hồi thể lực</th><th>Hiệu ứng thêm</th><th>Độ hiếm</th></tr></thead>
+<tbody>
+<tr><td>💧 Nước</td><td class="n">+15</td><td>Không</td><td>Phổ biến</td></tr>
+<tr><td>🍌 Chuối</td><td class="n">+25</td><td>Không</td><td>Phổ biến vừa</td></tr>
+<tr><td>🍉 Dưa hấu</td><td class="n">+35</td><td>Không</td><td>Ít gặp</td></tr>
+<tr><td>🧂 Điện giải</td><td class="n">+50</td><td>Xóa trạng thái chậm do chó cắn</td><td>Hiếm</td></tr>
+<tr><td>⚡ Tia sét</td><td class="n">0</td><td>Bước dài 3,0 m trong 8 giây, tốn thể lực gấp rưỡi. Dùng để bỏ chạy khỏi chó</td><td>Hiếm</td></tr>
+</tbody></table></div>
+
+<h3>Chướng ngại ngẫu nhiên và chó đuổi</h3>
+<p>Chướng ngại sinh theo một hạt giống (seed) cho mỗi chuyến chạy, nên mỗi lần chơi khác nhau. Trong giải đấu mọi người dùng chung một seed để công bằng.</p>
+<div class="grid">
+  <div class="box"><h4>Chướng ngại thường</h4><ul><li>Đồng quê: đá, vũng nước, trâu.</li><li>Sa mạc: xương rồng, hố cát.</li><li>Phố cổ Ý: xe Vespa, chậu hoa, bàn ghế quán cà phê.</li><li>Phố đua đêm: cọc tiêu, xe đỗ, hố ga.</li><li>Vấp phải: trừ 10 thể lực, chậm lại 1 giây.</li></ul></div>
+  <div class="box"><h4>Chó đuổi (sự kiện ngẫu nhiên)</h4><ul><li>Cảnh báo "Gâu!" 2 giây, chó xuất hiện phía sau.</li><li>Chó đuổi 8 giây với tốc độ bằng 1,2 lần tốc độ tự động.</li><li>Thoát bằng tia sét, hoặc bấm tay nhanh trên 3 bước/giây.</li><li>Bị cắn: trừ 20 thể lực và chậm một nửa trong 4 giây. Điện giải xóa trạng thái chậm.</li></ul></div>
+</div>
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Chay
+  Chay --> CanhBao: "Sự kiện chó ngẫu nhiên"
+  CanhBao --> ChoDuoi: "Sau 2 giây"
+  ChoDuoi --> Chay: "Thoát: tia sét hoặc trên 3 bước/giây"
+  ChoDuoi --> BiCan: "Chó chạm tới"
+  BiCan --> Cham: "Trừ 20 thể lực"
+  Cham --> Chay: "Sau 4 giây hoặc dùng điện giải"
+</pre>
+
+<!-- ============ MÀN HÌNH CHÍNH ============ -->
+<h2 id="man-hinh">Màn hình chính</h2>
+<p>Các khung dưới là bản phác bố cục, không phải đồ họa cuối. Số trong vòng tròn đỏ khớp với danh sách bên dưới mỗi khung.</p>
+
+<h3>1. Màn hình chạy 3D</h3>
+<div class="grid wide">
+<figure><div class="dev"><div class="frame land">
+  <div class="scene">
+    <span class="sun"></span><span class="hill"></span><span class="grd"></span><span class="rd"></span>
+    <span class="bld" style="left:6%;width:6%;height:16%;background:#8b5a2b;bottom:50%"></span>
+    <span class="bld" style="left:84%;width:7%;height:12%;background:#d9480f;bottom:50%"></span>
+    <svg class="runner" viewBox="0 0 60 110" aria-hidden="true"><ellipse cx="30" cy="104" rx="20" ry="5" fill="#0003"/><rect x="14" y="52" width="10" height="46" rx="5" fill="#1b2438"/><rect x="34" y="52" width="10" height="46" rx="5" fill="#2b3550"/><rect x="12" y="22" width="36" height="40" rx="12" fill="#d2491f"/><rect x="4" y="26" width="9" height="30" rx="4" fill="#f2c9a0"/><rect x="47" y="26" width="9" height="30" rx="4" fill="#f2c9a0"/><circle cx="30" cy="14" r="12" fill="#222"/><rect x="20" y="30" width="20" height="14" rx="3" fill="#fff" opacity=".85"/></svg>
+    <span style="position:absolute;left:30%;bottom:6%;font-size:6cqw" aria-hidden="true">🐕</span>
+  </div>
+  <div class="hud u" style="left:2cqw;top:2cqw"><b>Minh Anh</b> <span class="pill u">🏃 128,4 km</span></div>
+  <div class="hud u" style="left:34%;top:2cqw;width:32%;text-align:center"><b>2,35 / 5 km</b> · 18:42<div class="bar o"><i style="width:47%"></i></div></div>
+  <div class="hud u" style="right:2cqw;top:2cqw;text-align:right">7,2 km/h · 8:20/km<br>1.176 bước · <span class="chip on u">TỰ ĐỘNG</span></div>
+  <div class="hud u" style="left:2cqw;top:20%;width:11%">Thể lực <b>64</b><div class="bar"><i style="width:64%"></i></div></div>
+  <div class="hud u" style="left:28%;top:36%;background:#b42318ee;color:#fff;font-weight:700">🐕 CHÓ ĐUỔI! Dùng ⚡ hoặc bấm nhanh</div>
+  <div class="row" style="position:absolute;left:50%;bottom:2cqw;transform:translateX(-50%)">
+    <div class="slot">💧<small>1</small></div><div class="slot">🍌<small>2</small></div><div class="slot">🍉<small>3</small></div><div class="slot sel">⚡<small>4</small></div><div class="slot" style="opacity:.5">·<small>5</small></div>
+  </div>
+  <div class="col u" style="position:absolute;right:2cqw;bottom:2cqw;align-items:flex-end"><div class="btn u" style="padding:1.4cqw 4cqw">BƯỚC (Space)</div></div>
+  <div class="hud u" style="left:2cqw;bottom:2cqw;width:20%"><div class="bar b"><i style="width:47%"></i></div>0 km · 5 km</div>
+  <span class="mk" style="left:12%;top:2%">1</span><span class="mk" style="left:50%;top:0">2</span><span class="mk" style="right:2%;top:12%">3</span>
+  <span class="mk" style="left:13%;top:34%">4</span><span class="mk" style="left:60%;top:35%">5</span><span class="mk" style="left:45%;bottom:16%">6</span>
+  <span class="mk" style="right:2%;bottom:16%">7</span><span class="mk" style="left:2%;bottom:16%">8</span>
+</div></div>
+<figcaption><b>Góc nhìn sau lưng nhân vật</b>, camera bám theo, đường chạy tiến về phía trước. Cảnh đồng quê, chế độ tự động, đang bị chó đuổi.</figcaption></figure>
+<div>
+<ol class="legend">
+<li><b>Tên + km tích lũy</b> trên huy hiệu hạng. Không còn dấu tự khai, vì km chỉ đến từ bước chạy.</li>
+<li><b>Tiến độ cự ly</b> và thời gian của chuyến chạy.</li>
+<li><b>Tốc độ, pace, tổng bước</b> và chế độ đang dùng (tự động hoặc thủ công).</li>
+<li><b>Thể lực</b> dạng thanh, đổi màu khi dưới 25 và nháy khi kiệt sức.</li>
+<li><b>Cảnh báo sự kiện</b> (chó đuổi, vấp, hết thể lực), hiện giữa màn hình vài giây.</li>
+<li><b>Nút Bước</b>. Ở chế độ tự động nút này đổi thành nhãn "Tự động 1 bước/giây", vẫn bấm được vật phẩm.</li>
+<li><b>Túi đồ 5 ô</b>, bấm hoặc phím 1 đến 5. Ô đang dùng được tô viền.</li>
+<li><b>Tiến độ nhỏ</b> hiện vị trí bạn và những người cùng phòng.</li>
+</ol>
+<p style="font-size:13.5px;color:var(--mut)">Trên điện thoại: màn hình ngang, nút Bước ở góc phải dưới cho ngón cái, túi đồ ở giữa dưới. Bên người chơi khác hiện tên và km tích lũy trên đầu giống bản hiện tại.</p>
+</div></div>
+
+<h3>2. Cổng vào và chọn chế độ chơi</h3>
+<div class="grid">
+<figure><div class="dev"><div class="frame port">
+  <div class="scene s-field" style="opacity:.55"><span class="hill"></span><span class="grd"></span></div>
+  <div class="fill col" style="justify-content:center;gap:3cqw;padding:7cqw">
+    <div style="font-family:var(--f-disp);font-size:9cqw;font-weight:800;color:#16212b;text-align:center;line-height:1">Chạy<br>Online</div>
+    <div class="card u" style="background:#fff"><b>Đăng nhập / Tạo tài khoản</b><div class="dim">Nhân vật lưu trên server, chơi mọi thiết bị, vào giải đấu.</div><div class="btn u" style="margin-top:2cqw">Tiếp tục</div></div>
+    <div class="card u" style="background:#fff"><b>Chơi khách</b><div class="dim">Dữ liệu lưu trên máy này, lần sau vào lại vẫn còn.</div><div class="btn g u" style="margin-top:2cqw">Chơi ngay</div></div>
+    <div class="fld u"><small>Có link giải đấu?</small>Dán link vào đây…</div>
+  </div>
+  <span class="mk" style="left:1.5%;top:40%">1</span><span class="mk" style="left:1.5%;top:60%">2</span><span class="mk" style="left:1.5%;top:78%">3</span>
+</div></div>
+<figcaption><b>Cổng vào.</b> Chọn lần đầu, nhớ lựa chọn cho các lần sau.</figcaption></figure>
+<figure><div class="dev"><div class="frame land" style="background:#f1f4f6">
+  <div class="fill u" style="display:grid;grid-template-columns:1fr 1fr;gap:2cqw">
+    <div class="col">
+      <div class="row"><span class="chip on">Giả lập</span><span class="chip">GPS</span></div>
+      <div class="row" style="flex-wrap:wrap;gap:1.2cqw">
+        <div class="card" style="width:46%;padding:0;overflow:hidden;position:relative;aspect-ratio:16/10;outline:.5cqw solid #d2491f"><div class="scene s-field"><span class="hill"></span><span class="grd"></span><span class="rd"></span></div><b style="position:absolute;left:1cqw;bottom:.5cqw;color:#fff;text-shadow:0 1px 2px #000">Đồng quê</b></div>
+        <div class="card" style="width:46%;padding:0;overflow:hidden;position:relative;aspect-ratio:16/10"><div class="scene s-desert"><span class="hill"></span><span class="grd"></span><span class="rd"></span></div><b style="position:absolute;left:1cqw;bottom:.5cqw;color:#fff;text-shadow:0 1px 2px #000">Sa mạc</b></div>
+        <div class="card" style="width:46%;padding:0;overflow:hidden;position:relative;aspect-ratio:16/10"><div class="scene s-italy"><span class="hill"></span><span class="grd"></span><span class="rd"></span></div><b style="position:absolute;left:1cqw;bottom:.5cqw;color:#fff;text-shadow:0 1px 2px #000">Phố cổ Ý</b></div>
+        <div class="card" style="width:46%;padding:0;overflow:hidden;position:relative;aspect-ratio:16/10"><div class="scene s-night"><span class="hill"></span><span class="grd"></span><span class="rd"></span></div><b style="position:absolute;left:1cqw;bottom:.5cqw;color:#fff;text-shadow:0 1px 2px #000">Phố đua đêm</b></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card"><b>Cách chạy</b><div class="row" style="margin-top:1cqw"><span class="chip">Thủ công</span><span class="chip on">Tự động</span></div><div class="dim">Tự động: 1 bước/giây, vẫn dùng được vật phẩm.</div></div>
+      <div class="card"><b>Cự ly</b><div class="row" style="margin-top:1cqw;flex-wrap:wrap"><span class="chip">1 km</span><span class="chip">3 km</span><span class="chip on">5 km</span><span class="chip">10 km</span><span class="chip">Tự do</span></div></div>
+      <div class="card"><b>Tóm tắt</b><div class="dim">5 km · khoảng 41:40 ở tốc độ tự động</div></div>
+      <div class="btn" style="padding:1.4cqw">Bắt đầu chạy</div>
+    </div>
+  </div>
+  <span class="mk" style="left:1%;top:6%">4</span><span class="mk" style="left:94%;top:5%">5</span><span class="mk" style="left:92%;top:88%">6</span>
+</div></div>
+<figcaption><b>Thiết lập chuyến chạy</b>, dùng chung cho chạy tự do, giải đấu và GPS. Với giải đấu, cảnh, cự ly và quy định cách chạy do người tổ chức khóa sẵn.</figcaption></figure>
+</div>
+<ol class="legend" style="column-gap:30px">
+<li>Đăng nhập: lưu server. Mỗi người một tài khoản.</li>
+<li>Chơi khách: lưu trên trình duyệt này, vào lại tự nhận ra.</li>
+<li>Ô dán link: mở thẳng trang giải đấu.</li>
+<li>Chọn cảnh giả lập, hoặc chuyển sang tab GPS.</li>
+<li>Cách chạy và cự ly. Cự ly giải đấu bị khóa.</li>
+<li>Bắt đầu: đếm ngược 3, 2, 1 rồi vào cảnh.</li>
+</ol>
+
+<!-- ============ DỮ LIỆU ============ -->
+<h2 id="du-lieu">Tài khoản, chế độ khách và lịch sử</h2>
+<div class="grid">
+  <div class="box"><h4>Đăng nhập (lưu trên server)</h4><ul><li>Hồ sơ nhân vật, tổng km, túi đồ, huy chương, lịch sử đều ở server.</li><li>Đăng nhập thiết bị nào cũng thấy cùng dữ liệu.</li><li>Có bảng xếp hạng chung và tham gia giải đấu bằng tài khoản.</li></ul></div>
+  <div class="box"><h4>Chơi khách (lưu trên máy)</h4><ul><li>Dữ liệu lưu trong IndexedDB của trình duyệt.</li><li>Lần sau vào lại, nhân vật, tổng km và lịch sử tự hiện.</li><li>Có nút Xuất và Nhập file sao lưu, vì xóa dữ liệu trình duyệt sẽ mất hồ sơ.</li><li>Khách không lên bảng xếp hạng chung. Vào giải đấu bằng link thì được (xem mục Cần chốt, điểm 9).</li></ul></div>
+  <div class="box"><h4>Nâng cấp khách lên tài khoản</h4><ul><li>Một nút "Lưu nhân vật lên server" khi tạo tài khoản.</li><li>Hồ sơ, lịch sử và huy chương trên máy được gộp vào tài khoản mới.</li></ul></div>
+</div>
+
+<h3>3. Hồ sơ: lịch sử từng ngày, vật phẩm, huy chương</h3>
+<div class="grid wide">
+<figure><div class="dev"><div class="frame land" style="background:#f1f4f6">
+  <div class="fill u" style="display:grid;grid-template-columns:1.35fr 1fr;gap:2cqw">
+    <div class="col">
+      <div class="row"><b style="font-size:1.3em">Minh Anh</b><span class="pill u">🏃 128,4 km</span><span class="chip u">Khách · lưu trên máy</span></div>
+      <div class="card"><b>12 tuần gần đây</b><div class="heat" id="heat" style="margin-top:1cqw"></div><div class="dim" style="margin-top:.8cqw">Mỗi ô là một ngày, đậm hơn là chạy nhiều km hơn.</div></div>
+      <div class="card"><b>Thứ Ba, 03/11</b>
+        <table style="min-width:0;font-size:inherit;margin-top:.6cqw"><tr><td class="dim" style="padding:.3cqw 0;border:0">Quãng đường</td><td style="padding:.3cqw 0;border:0"><b>7,4 km</b> (3.700 bước)</td></tr>
+        <tr><td class="dim" style="padding:.3cqw 0;border:0">Thời gian chạy</td><td style="padding:.3cqw 0;border:0">52:10 · 2 chuyến</td></tr>
+        <tr><td class="dim" style="padding:.3cqw 0;border:0">Vật phẩm nhặt</td><td style="padding:.3cqw 0;border:0">💧9 🍌4 🍉2 🧂1 ⚡2</td></tr>
+        <tr><td class="dim" style="padding:.3cqw 0;border:0">Sự kiện</td><td style="padding:.3cqw 0;border:0">Chó đuổi 3 lần, bị cắn 1</td></tr></table></div>
+    </div>
+    <div class="col">
+      <div class="card"><b>Huy chương</b><div class="row" style="margin-top:1cqw;flex-wrap:wrap"><span class="medal" data-m="gold" data-g="🏆" style="width:9cqw"></span><span class="medal" data-m="finisher" data-g="🏃" style="width:9cqw"></span><span class="medal" data-m="silver" data-g="🥈" style="width:9cqw"></span></div></div>
+      <div class="card"><b>Tổng vật phẩm đã nhặt</b><div style="margin-top:.6cqw">💧 214 · 🍌 96 · 🍉 41 · 🧂 18 · ⚡ 33</div></div>
+      <div class="card"><b>Chuyến gần nhất</b><div class="dim">Đồng quê · 5 km · 41:12 · Tự động</div></div>
+    </div>
+  </div>
+  <span class="mk" style="left:58%;top:3%">1</span><span class="mk" style="left:53%;top:18%">2</span><span class="mk" style="left:3%;top:48%">3</span><span class="mk" style="right:3%;top:10%">4</span><span class="mk" style="right:3%;top:52%">5</span>
+</div></div>
+<figcaption><b>Hồ sơ</b> cho cả hai kiểu tài khoản. Bấm vào một ngày để xem chi tiết các chuyến chạy của ngày đó.</figcaption></figure>
+<ol class="legend">
+<li>Huy hiệu hạng theo tổng km tích lũy. Nhãn "Khách" cho biết dữ liệu đang lưu trên máy.</li>
+<li>Bản đồ nhiệt 12 tuần: mỗi ô là km của một ngày.</li>
+<li>Chi tiết ngày được chọn: km, số bước, thời gian, vật phẩm, sự kiện.</li>
+<li>Kệ huy chương thu được từ các giải.</li>
+<li>Tổng vật phẩm đã nhặt để xem lại.</li>
+</ol></div>
+
+<div class="tbl" style="margin-top:18px"><table>
+<thead><tr><th>Bản ghi</th><th>Nội dung chính</th><th>Nơi lưu</th></tr></thead>
+<tbody>
+<tr><td>Chuyến chạy</td><td>Cảnh hoặc tuyến, seed, cách chạy, số bước, km, thời gian, vật phẩm dùng và nhặt, số lần chó cắn</td><td>Server (tài khoản) hoặc máy (khách)</td></tr>
+<tr><td>Thống kê ngày</td><td>Km, bước, thời gian, vật phẩm, tính từ các chuyến chạy theo giờ Việt Nam</td><td>Cùng nơi với chuyến chạy</td></tr>
+<tr><td>Hồ sơ nhân vật</td><td>Tên, mũ, tổng km, hạng, túi đồ</td><td>Cùng nơi với chuyến chạy</td></tr>
+<tr><td>Kết quả giải đấu</td><td>Người tham gia, cự ly, thời gian, thứ hạng, huy chương</td><td>Luôn trên server, kể cả của khách</td></tr>
+</tbody></table></div>
+
+<!-- ============ GIẢI ĐẤU ============ -->
+<h2 id="giai">Giải đấu</h2>
+<p>Một người tổ chức tạo giải với thời gian bắt đầu và kết thúc, một hay nhiều cự ly, thiết kế huy chương cho nhất, nhì, ba và phong trào, rồi gửi link mời. Người chơi chạy cùng lúc (nhìn thấy nhau) hoặc chạy vào lúc khác (kết quả được ghi lại để so sánh).</p>
+
+<h3>Vòng đời giải</h3>
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Nhap
+  Nhap --> MoDangKy: "Xuất bản, có link mời"
+  MoDangKy --> DangDienRa: "Đến giờ bắt đầu"
+  DangDienRa --> KetThuc: "Đến giờ kết thúc"
+  KetThuc --> TongKet: "Server khóa kết quả, phát huy chương"
+  TongKet --> [*]
+</pre>
+<div class="grid">
+  <div class="box"><h4>Hai cách thi đấu trong cùng một giải</h4><ul><li><b>Giờ G (cùng lúc):</b> người tổ chức đặt một giờ xuất phát. Mọi người vào phòng chờ, đếm ngược, xuất phát cùng nhau và nhìn thấy nhau.</li><li><b>Cửa sổ mở (khác giờ):</b> chạy lúc nào cũng được trong khoảng bắt đầu đến kết thúc. Kết quả được ghi lại và so sánh, có thể đua với "bóng ma" của người dẫn đầu.</li><li>Một giải có thể có cả hai: có giờ G và vẫn cho chạy bù đến hết hạn.</li></ul></div>
+  <div class="box"><h4>Cách xếp hạng</h4><ul><li>Hoàn thành cự ly: xếp theo thời gian ngắn nhất.</li><li>Chưa hoàn thành: xếp sau, theo số km đã chạy.</li><li>Mỗi người được chạy nhiều lần, tính lần tốt nhất (người tổ chức có thể giới hạn số lần).</li><li>Giải có nhiều cự ly (ví dụ 3 km, 5 km, 10 km): mỗi cự ly một bảng.</li><li>Có thể tách bảng Bấm tay và Tự động, xem Cần chốt, điểm 5.</li></ul></div>
+  <div class="box"><h4>Công bằng và chống gian lận</h4><ul><li>Mọi người trong giải dùng cùng seed chướng ngại và vật phẩm.</li><li>Server tính thời gian và km từ chuỗi bước, giới hạn 4 bước/giây.</li><li>Người tổ chức không sửa được kết quả. Quy định chỉ sửa được trước giờ bắt đầu.</li><li>Kết quả bị đánh dấu "cần xem lại" khi nhịp bước bất thường.</li></ul></div>
+</div>
+
+<h3>4. Tạo giải và thiết kế huy chương</h3>
+<div class="grid wide">
+<figure><div class="dev"><div class="frame land" style="background:#f1f4f6">
+  <div class="fill u">
+    <div class="row" style="margin-bottom:1.4cqw"><span class="chip">1 Thông tin</span><span class="chip">2 Thể thức</span><span class="chip on">3 Huy chương</span><span class="chip">4 Mời</span></div>
+    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:2cqw">
+      <div class="card"><div class="row" style="justify-content:space-around;align-items:flex-end">
+        <div style="text-align:center;width:16%"><span class="medal" data-m="gold" data-g="🏃" data-t="HẠNG 1"></span><div class="dim">Nhất</div></div>
+        <div style="text-align:center;width:16%"><span class="medal" data-m="silver" data-g="🏃" data-t="HẠNG 2"></span><div class="dim">Nhì</div></div>
+        <div style="text-align:center;width:16%"><span class="medal" data-m="bronze" data-g="🏃" data-t="HẠNG 3"></span><div class="dim">Ba</div></div>
+        <div style="text-align:center;width:16%"><span class="medal" data-m="finisher" data-g="🌿" data-t="VỀ ĐÍCH"></span><div class="dim">Phong trào</div></div>
+      </div></div>
+      <div class="col">
+        <div class="fld"><small>Huy chương đang sửa</small>Giải Nhất</div>
+        <div class="row"><span class="chip on">Tròn</span><span class="chip">Khiên</span><span class="chip">Sao</span><span class="chip">Lục giác</span></div>
+        <div class="row">Màu <i style="width:3cqw;height:3cqw;background:#e0a800;border-radius:50%;display:inline-block"></i><i style="width:3cqw;height:3cqw;background:#c0c7cf;border-radius:50%;display:inline-block"></i><i style="width:3cqw;height:3cqw;background:#c27a3a;border-radius:50%;display:inline-block"></i><i style="width:3cqw;height:3cqw;background:#0b6f66;border-radius:50%;display:inline-block"></i> Dây đeo <i style="width:3cqw;height:3cqw;background:#d2491f;border-radius:50%;display:inline-block"></i></div>
+        <div class="fld"><small>Biểu tượng ở giữa</small>🏃 🏆 🌿 ⭐ 🔥 + tải logo</div>
+        <div class="fld"><small>Chữ khắc (tối đa 12 ký tự)</small>HẠNG 1</div>
+      </div>
+    </div>
+  </div>
+  <span class="mk" style="left:3%;top:20%">1</span><span class="mk" style="left:55%;top:24%">2</span><span class="mk" style="left:55%;top:70%">3</span>
+</div></div>
+<figcaption><b>Trình thiết kế huy chương</b>, bước 3 của việc tạo giải. Xem trước bốn huy chương cùng lúc, sửa từng cái.</figcaption></figure>
+<div>
+<ol class="legend">
+<li>Bốn huy chương: nhất, nhì, ba và phong trào (chỉ cần hoàn thành cự ly trong thời hạn).</li>
+<li>Chọn hình dáng, màu huy chương, màu dây đeo, biểu tượng giữa và chữ khắc. Có thể tải logo riêng của giải.</li>
+<li>Bốn bước tạo giải: Thông tin, Thể thức, Huy chương, Mời.</li>
+</ol>
+<div class="box" style="margin-top:14px"><h4>Các bước tạo giải</h4><ul>
+<li><b>Thông tin:</b> tên giải, mô tả, ảnh bìa, thời gian bắt đầu và kết thúc.</li>
+<li><b>Thể thức:</b> cảnh giả lập hoặc tuyến GPS, các cự ly, giờ G (tùy chọn), quy định cách chạy, số lần được chạy.</li>
+<li><b>Huy chương:</b> thiết kế bốn loại như hình.</li>
+<li><b>Mời:</b> link, mã QR, nút chia sẻ, danh sách đã tham gia. Giải ở trạng thái Nháp cho đến khi bấm Xuất bản.</li>
+</ul></div>
+<p style="font-size:13.5px;color:var(--mut)">Huy chương được vẽ bằng SVG từ các lựa chọn (hình dáng, màu, biểu tượng, chữ). Logo tải lên chỉ nhận ảnh nhỏ, qua kiểm tra kích thước và định dạng, và người tổ chức chịu trách nhiệm về nội dung.</p>
+</div></div>
+
+<h3>5. Mời, phòng chờ, kết quả</h3>
+<div class="grid">
+<figure><div class="dev"><div class="frame land" style="background:#f1f4f6">
+  <div class="fill u col">
+    <b style="font-size:1.4em">Giải Chạy Cuối Tuần · 5 km</b>
+    <div class="dim">Tổ chức bởi Minh Anh · 07/11 20:00 đến 09/11 22:00 · Đồng quê</div>
+    <div class="fld"><small>Link mời</small>chayonline.vn/g/K7QX2M</div>
+    <div class="row"><span class="btn u">Sao chép link</span><span class="btn g u">Mã QR</span><span class="btn g u">Chia sẻ</span></div>
+    <div class="card"><b>Phòng chờ giờ G · 07/11 20:00</b><div style="font-size:2.4em;font-family:var(--f-disp);font-weight:800;line-height:1.1">00:04:37</div><div class="dim">12 người đã vào phòng · bạn là người tổ chức</div></div>
+  </div>
+  <span class="mk" style="left:3%;top:46%">1</span><span class="mk" style="left:3%;top:74%">2</span>
+</div></div>
+<figcaption><b>Trang mời và phòng chờ.</b> Link mở thẳng trang giải; chưa đăng nhập thì chọn khách hoặc tài khoản rồi quay lại đúng giải.</figcaption></figure>
+<figure><div class="dev"><div class="frame land" style="background:#f1f4f6">
+  <div class="fill u" style="display:grid;grid-template-columns:1fr 1.25fr;gap:2cqw">
+    <div class="col">
+      <b>Tổng kết · Bảng Bấm tay</b>
+      <div class="row" style="align-items:flex-end;justify-content:center;gap:2cqw">
+        <div style="text-align:center;width:22%"><span class="medal" data-m="silver" data-g="🏃"></span><b>Lan</b><div class="dim">20:11</div></div>
+        <div style="text-align:center;width:26%"><span class="medal" data-m="gold" data-g="🏃"></span><b>Quang</b><div class="dim">18:42</div></div>
+        <div style="text-align:center;width:22%"><span class="medal" data-m="bronze" data-g="🏃"></span><b>Mai</b><div class="dim">21:05</div></div>
+      </div>
+      <div class="card dim">34 người tham gia · 29 về đích · 29 huy chương phong trào</div>
+    </div>
+    <div class="col">
+      <div class="card"><b>So sánh quãng đường theo thời gian</b>
+        <svg id="pace" viewBox="0 0 330 200" style="width:100%;display:block" role="img" aria-label="Biểu đồ quãng đường theo thời gian của ba người chơi"></svg>
+      </div>
+    </div>
+  </div>
+  <span class="mk" style="left:3%;top:10%">3</span><span class="mk" style="right:3%;top:10%">4</span>
+</div></div>
+<figcaption><b>Tổng kết sau khi giải kết thúc.</b> Server khóa kết quả, phát huy chương, chuyển giải sang trạng thái Tổng kết.</figcaption></figure>
+</div>
+<ol class="legend" style="column-gap:30px">
+<li>Link mời, mã QR và nút chia sẻ nằm ngay đầu trang giải.</li>
+<li>Phòng chờ giờ G đếm ngược; ai vào phòng đều thấy nhau trước khi xuất phát.</li>
+<li>Bục nhất, nhì, ba kèm huy chương do người tổ chức thiết kế, và số người nhận huy chương phong trào.</li>
+<li>Biểu đồ so sánh người chạy khác giờ: trục ngang là thời gian, trục dọc là km. Đường dốc hơn là nhanh hơn.</li>
+</ol>
+
+<!-- ============ GPS ============ -->
+<h2 id="gps">Chế độ GPS</h2>
+<p>Người chơi nhân vật chạy dọc một tuyến đường thật trên bản đồ, mỗi bước đi dọc tuyến theo độ dài bước đã quy đổi. Người dùng chọn hình ảnh 3D vệ tinh hoặc đồ họa 2D trước khi bắt đầu. Cả chạy tự do, tự động và giải đấu đều dùng được chế độ này.</p>
+<pre class="mermaid">
+flowchart LR
+  A["Chọn kiểu hiển thị: 3D vệ tinh hoặc 2D"] --> B["Điểm xuất phát"]
+  B --> B1["Vị trí thực"]
+  B --> B2["Gõ địa chỉ"]
+  B --> B3["Chọn trên bản đồ"]
+  B1 --> C["Điểm đến"]
+  B2 --> C
+  B3 --> C
+  C --> D["Tính tuyến đi bộ và tổng km"]
+  D --> E["Xem trước và bắt đầu chạy"]
+</pre>
+<div class="grid">
+  <div class="box"><h4>Điểm xuất phát</h4><ul><li>Vị trí thực: xin quyền định vị, đổi ra địa chỉ để hiển thị.</li><li>Không lấy được vị trí (từ chối, lỗi, trong nhà): tự chuyển sang chọn bằng ô địa chỉ hoặc ghim trên bản đồ.</li><li>Vị trí chỉ dùng một lần để chọn điểm xuất phát, không theo dõi liên tục và không lưu lên server.</li></ul></div>
+  <div class="box"><h4>Điểm đến và tuyến</h4><ul><li>Gõ địa chỉ có gợi ý, hoặc ghim trên bản đồ.</li><li>Tuyến là đường đi bộ do dịch vụ chỉ đường trả về, hiển thị tổng km. Nhân vật di chuyển dọc đường đó.</li><li>Tuyến quá dài (vượt giới hạn do mình đặt, ví dụ 100 km) thì báo và gợi ý chọn điểm gần hơn.</li></ul></div>
+  <div class="box"><h4>Trong giải đấu GPS</h4><ul><li>Người tổ chức đặt điểm xuất phát, điểm đến và tuyến; mọi người chạy đúng tuyến đó.</li><li>Người chơi không cần cho phép vị trí và không đổi được tuyến.</li><li>Cự ly giải chính là chiều dài tuyến.</li></ul></div>
+</div>
+
+<h3>6. Thiết lập GPS và màn hình chạy</h3>
+<div class="grid">
+<figure><div class="dev"><div class="frame land">
+  <div class="mapbg"></div>
+  <svg viewBox="0 0 160 90" style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true"><path d="M92 66 C 100 52, 112 58, 120 42 S 134 26, 146 20" fill="none" stroke="#d2491f" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="4 3"/></svg>
+  <span class="pin" style="left:55%;top:68%"></span><span class="pin b" style="left:90%;top:20%"></span>
+  <div class="hud u col" style="left:2cqw;top:2cqw;bottom:2cqw;width:36%;gap:1cqw">
+    <b>Chạy GPS</b>
+    <div class="row"><span class="chip on">3D vệ tinh</span><span class="chip">2D</span></div>
+    <div class="fld"><small>Điểm xuất phát</small>📍 Vị trí của bạn · 12 Hàng Bài <span class="dim">(đổi)</span></div>
+    <div class="fld"><small>Điểm đến</small>Hồ Gươm, Hoàn Kiếm</div>
+    <div class="card"><b>Tuyến 3,8 km</b><div class="dim">Đi bộ · khoảng 27:20 ở tốc độ tự động</div></div>
+    <div class="btn">Bắt đầu chạy</div>
+  </div>
+  <span class="mk" style="left:2%;top:11%">1</span><span class="mk" style="left:2%;top:25%">2</span><span class="mk" style="left:2%;top:41%">3</span><span class="mk" style="left:60%;top:72%">4</span>
+</div></div>
+<figcaption><b>Thiết lập.</b> Bản đồ để chỉnh ghim, bảng bên trái nhập địa chỉ.</figcaption></figure>
+<figure><div class="dev"><div class="frame land">
+  <div class="scene s-sat"><span class="hill" style="opacity:.55"></span><span class="grd"></span><span class="rd"></span></div>
+  <svg class="runner" viewBox="0 0 60 110" aria-hidden="true" style="width:11%"><ellipse cx="30" cy="104" rx="20" ry="5" fill="#0003"/><rect x="14" y="52" width="10" height="46" rx="5" fill="#1b2438"/><rect x="34" y="52" width="10" height="46" rx="5" fill="#2b3550"/><rect x="12" y="22" width="36" height="40" rx="12" fill="#d2491f"/><circle cx="30" cy="14" r="12" fill="#222"/></svg>
+  <div class="hud u" style="left:2cqw;top:2cqw"><b>Hàng Bài → Hồ Gươm</b><div class="bar o"><i style="width:36%"></i></div>1,4 / 3,8 km</div>
+  <div class="hud u" style="right:2cqw;top:2cqw;padding:0;overflow:hidden;width:22%;aspect-ratio:1"><div class="mapbg"></div><span class="pin" style="left:38%;top:48%;width:6cqw;height:6cqw"></span></div>
+  <div class="hud u" style="right:2cqw;bottom:2cqw"><span class="chip on u">3D</span> <span class="chip u">2D</span></div>
+  <span class="mk" style="left:24%;top:4%">5</span><span class="mk" style="right:1%;top:2%">6</span><span class="mk" style="right:1%;bottom:2%">7</span>
+</div></div>
+<figcaption><b>Chạy.</b> Cùng HUD với chế độ giả lập (thể lực, túi đồ, nút Bước), thay nền bằng hình ảnh thật; bản đồ nhỏ góc phải cho biết vị trí trên tuyến.</figcaption></figure>
+</div>
+<ol class="legend" style="column-gap:30px">
+<li>Chọn kiểu hiển thị trước khi bắt đầu: 3D vệ tinh hoặc 2D.</li>
+<li>Điểm xuất phát: vị trí thực, địa chỉ hoặc ghim.</li>
+<li>Điểm đến, hiển thị tổng km và thời gian ước tính.</li>
+<li>Kéo ghim trên bản đồ để chỉnh điểm đi, điểm đến.</li>
+<li>Tên tuyến và tiến độ km.</li>
+<li>Bản đồ nhỏ theo dõi vị trí nhân vật trên tuyến.</li>
+<li>Đổi 3D và 2D ngay trong lúc chạy.</li>
+</ol>
+<div class="box" style="margin-top:14px"><h4>Giới hạn cần biết về Google</h4><ul>
+<li>3D vệ tinh dùng Photorealistic 3D Tiles; 2D dùng Maps JavaScript API; tuyến dùng Directions; gợi ý địa chỉ dùng Places. Tất cả cần khóa API, giới hạn theo tên miền, và tài khoản thanh toán.</li>
+<li>Phải hiển thị ghi nguồn Google và tuân thủ điều khoản sử dụng. Không lưu hay sao chép dữ liệu bản đồ.</li>
+<li>Khu vực chưa có 3D thì tự hạ xuống vệ tinh 2D. Hết hạn mức thì dùng bản đồ OpenStreetMap miễn phí để vẫn chơi được.</li>
+</ul></div>
+
+<!-- ============ CẢNH ============ -->
+<h2 id="canh">Các bản đồ giả lập</h2>
+<p>Bản đầu có hai cảnh để kiểm tra cơ chế, sau đó thêm dần. Cảnh dựng bằng mô hình low-poly tự tạo, giữ nhẹ để chạy được trên điện thoại.</p>
+<div class="grid">
+  <figure><div class="dev"><div class="frame land"><div class="scene"><span class="sun"></span><span class="hill"></span><span class="grd"></span><span class="rd"></span></div></div></div><figcaption><b>Đồng quê.</b> Ruộng lúa, dừa, nhà ngói, trâu. Cảnh có sẵn từ bản hiện tại, dựng lại bằng 3D.</figcaption></figure>
+  <figure><div class="dev"><div class="frame land"><div class="scene s-desert"><span class="sun"></span><span class="hill"></span><span class="grd"></span><span class="rd"></span></div></div></div><figcaption><b>Sa mạc.</b> Cồn cát, xương rồng, đá, bão cát làm chậm tầm nhìn.</figcaption></figure>
+  <figure><div class="dev"><div class="frame land"><div class="scene s-italy"><span class="sun"></span><span class="hill"></span><span class="grd"></span><span class="rd"></span><span class="bld" style="left:4%;width:12%;height:22%;background:#e8b889"></span><span class="bld" style="left:17%;width:9%;height:28%;background:#d99a74"></span><span class="bld" style="left:76%;width:11%;height:25%;background:#e6c28f"></span><span class="bld" style="left:88%;width:10%;height:30%;background:#d98f6a"></span></div></div></div><figcaption><b>Phố cổ Ý</b> (lấy cảm hứng, không dùng map của game nào). Ngõ lát đá, nhà gạch đỏ, quán cà phê, xe Vespa.</figcaption></figure>
+  <figure><div class="dev"><div class="frame land"><div class="scene s-night"><span class="sun"></span><span class="hill"></span><span class="grd"></span><span class="rd"></span><span class="bld" style="left:5%;width:9%;height:30%;background:#4b3f8c"></span><span class="bld" style="left:16%;width:7%;height:20%;background:#6b5bd0"></span><span class="bld" style="left:78%;width:8%;height:34%;background:#4b3f8c"></span><span class="bld" style="left:88%;width:9%;height:24%;background:#6b5bd0"></span></div></div></div><figcaption><b>Phố đua đêm.</b> Đèn neon, đường nhựa ướt, theo địa danh thật: Hà Nội, Sài Gòn, đèo Prenn, vịnh Hạ Long.</figcaption></figure>
+</div>
+
+<!-- ============ KỸ THUẬT ============ -->
+<h2 id="ky-thuat">Kỹ thuật và lộ trình</h2>
+<div class="grid">
+  <div class="box"><h4>3D</h4><ul><li>Dùng three.js. Nhân vật, cây, nhà, vật phẩm dạng low-poly tự dựng, nhóm bằng instancing để nhẹ.</li><li>Camera đuổi sau lưng, mục tiêu 60 khung hình/giây trên máy tính và 30 trở lên trên điện thoại.</li><li>Tự hạ chất lượng (bớt vật thể, tắt bóng) khi khung hình thấp.</li></ul></div>
+  <div class="box"><h4>Server</h4><ul><li>Giữ Express và WebSocket. Thêm SQLite cho tài khoản, chuyến chạy, giải đấu, huy chương.</li><li>Client gửi từng bước kèm thời gian; server tính km, thể lực, vật phẩm và sự kiện chó bằng cùng seed.</li><li>Phòng thi đấu cùng lúc dùng WebSocket như hiện tại.</li></ul></div>
+  <div class="box"><h4>Khách</h4><ul><li>IndexedDB cho hồ sơ, lịch sử, túi đồ.</li><li>Xuất và nhập file sao lưu, gộp vào tài khoản khi nâng cấp.</li></ul></div>
+</div>
+
+<h3>Lộ trình đề xuất</h3>
+<div class="tbl"><table>
+<thead><tr><th>Giai đoạn</th><th>Nội dung</th><th>Kết quả thấy được</th><th>Quy mô</th></tr></thead>
+<tbody>
+<tr><td>1. Lõi chơi 3D</td><td>Engine 3D, bước và km, thể lực, 5 vật phẩm, chướng ngại, chó đuổi, chế độ tự động, hai cảnh (Đồng quê, Sa mạc)</td><td>Chơi một mình, cảm giác của game</td><td>Lớn</td></tr>
+<tr><td>2. Tài khoản và lịch sử</td><td>Đăng nhập, khách lưu trên máy, hồ sơ, bản đồ nhiệt, vật phẩm, nâng cấp khách lên tài khoản</td><td>Dữ liệu còn nguyên khi vào lại</td><td>Vừa</td></tr>
+<tr><td>3. Giải đấu</td><td>Tạo giải, trình thiết kế huy chương, link mời, chạy khác giờ, tổng kết, phòng chờ giờ G và nhìn thấy nhau</td><td>Tổ chức một giải thật với bạn bè</td><td>Lớn</td></tr>
+<tr><td>4. Thêm cảnh</td><td>Phố cổ Ý, Phố đua đêm, các tuyến địa danh</td><td>Nhiều lựa chọn hơn</td><td>Vừa</td></tr>
+<tr><td>5. GPS 2D</td><td>Chọn điểm đi và đến, tuyến, chạy ảo trên bản đồ 2D, dự phòng OpenStreetMap, giải GPS</td><td>Chạy dọc đường thật</td><td>Lớn</td></tr>
+<tr><td>6. GPS 3D vệ tinh</td><td>Hình ảnh 3D thật, đổi 2D và 3D lúc chạy</td><td>Chạy trên hình ảnh vệ tinh 3D</td><td>Lớn</td></tr>
+</tbody></table></div>
+<p>Mình đề xuất làm theo thứ tự này để mỗi giai đoạn đều chơi được. Nếu giải đấu là ưu tiên của bạn, giai đoạn 3 có thể đẩy lên ngay sau giai đoạn 1.</p>
+<p><b>Bạn trả lời giúp</b> các điểm ở mục "Cần chốt" (nói "đồng ý đề xuất" cho cả 10 điểm cũng được), và cho mình biết có muốn đổi thứ tự giai đoạn không. Mình sẽ bắt đầu giai đoạn 1 sau đó.</p>
+</div>
+
+<script>
+(function(){
+  // bản đồ nhiệt mẫu (dữ liệu minh họa)
+  var h=document.getElementById('heat');
+  if(h){var s=7;for(var i=0;i<84;i++){s=(s*1103515245+12345)&0x7fffffff;var r=(s>>8)%10;var l=r<3?0:r<5?1:r<7?2:r<9?3:4;var c=document.createElement('i');if(l)c.dataset.l=l;h.appendChild(c);}}
+  // huy chương SVG
+  var P={gold:['#f6d65c','#c99700'],silver:['#e3e8ee','#97a3b0'],bronze:['#e0a46c','#a4672c'],finisher:['#7fd1c4','#0b6f66']};
+  document.querySelectorAll('.medal').forEach(function(el){
+    var k=P[el.dataset.m]||P.gold,g=el.dataset.g||'🏃',t=el.dataset.t||'';
+    var id='g'+Math.random().toString(36).slice(2,8);
+    el.innerHTML='<svg viewBox="0 0 80 110" style="width:100%;display:block" role="img" aria-label="Huy chương"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="'+k[0]+'"/><stop offset="1" stop-color="'+k[1]+'"/></linearGradient></defs><path d="M22 0 L40 34 L58 0 L68 0 L48 42 L32 42 L12 0Z" fill="#d2491f"/><circle cx="40" cy="70" r="32" fill="url(#'+id+')" stroke="'+k[1]+'" stroke-width="2"/><circle cx="40" cy="70" r="25" fill="none" stroke="#ffffff90" stroke-width="1.5"/><text x="40" y="'+(t?72:78)+'" text-anchor="middle" font-size="22" font-family="system-ui,sans-serif">'+g+'</text>'+(t?'<text x="40" y="88" text-anchor="middle" font-size="7" font-weight="700" fill="#3a2a00" font-family="system-ui,sans-serif">'+t+'</text>':'')+'</svg>';
+  });
+  // biểu đồ so sánh, vẽ theo đúng tỉ lệ: x là phút (0-45), y là km (0-5)
+  var pc=document.getElementById('pace');
+  if(pc){
+    var L=36,R=320,T=10,B=150,X=function(m){return L+m/45*(R-L)},Y=function(k){return B-k/5*(B-T)};
+    var ink='#16212b',g='';
+    for(var k=0;k<=5;k++){g+='<line x1="'+L+'" x2="'+R+'" y1="'+Y(k)+'" y2="'+Y(k)+'" stroke="#16212b22"/><text x="'+(L-5)+'" y="'+(Y(k)+3)+'" text-anchor="end" font-size="8" fill="'+ink+'">'+k+'</text>';}
+    for(var m=0;m<=45;m+=15){g+='<text x="'+X(m)+'" y="'+(B+12)+'" text-anchor="middle" font-size="8" fill="'+ink+'">'+m+'</text>';}
+    g+='<text x="'+((L+R)/2)+'" y="'+(B+24)+'" text-anchor="middle" font-size="8" fill="'+ink+'">phút</text><text x="8" y="'+(T+4)+'" font-size="8" fill="'+ink+'">km</text>';
+    var lines=[['Quang','#d2491f',[[0,0],[18.7,5]]],['Mai','#0b6f66',[[0,0],[21.1,5]]],['Tự động','#7a6bd0',[[0,0],[41.7,5]]],['Chưa về đích','#9aa6b1',[[0,0],[45,3.2]]]];
+    lines.forEach(function(ln,i){
+      var d=ln[2].map(function(p,j){return (j?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)}).join(' ');
+      var e=ln[2][1];
+      g+='<path d="'+d+'" fill="none" stroke="'+ln[1]+'" stroke-width="2"'+(i==3?' stroke-dasharray="4 3"':'')+'/><circle cx="'+X(e[0])+'" cy="'+Y(e[1])+'" r="3" fill="'+ln[1]+'"/>';
+    });
+    // chú thích
+    var lx=L+6;lines.forEach(function(ln,i){g+='<rect x="'+(L+6+i*74)+'" y="188" width="8" height="3" fill="'+ln[1]+'"/><text x="'+(L+18+i*74)+'" y="193" font-size="7.5" fill="'+ink+'">'+ln[0]+'</text>';});
+    pc.innerHTML=g;
+  }
+})();
+</script>
