@@ -2,71 +2,98 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Chạy Online</title>
 <link rel="stylesheet" href="style.css">
+<script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
 </head>
 <body>
-<canvas id="game"></canvas>
+<canvas id="c"></canvas>
 
-<div id="hud" hidden>
-  <div id="me-card">
-    <div class="row"><b id="me-name">…</b><span id="me-coins" title="Xu">🪙 0</span></div>
-    <div id="me-badge" class="pill"></div>
-    <div class="small" id="me-mult"></div>
-    <div class="bar"><i id="stam"></i></div>
-  </div>
-  <div id="dist-card">
-    <div class="small" id="dist-text">Còn 3000 m tới chùa</div>
-    <div class="bar wide"><i id="dist-bar"></i></div>
-  </div>
-  <button id="menu-btn" aria-label="Menu">☰</button>
-
-  <aside id="panel">
-    <nav id="tabs">
-      <button data-tab="quests" class="on">🎯 Nhiệm vụ</button>
-      <button data-tab="board">🏆 Xếp hạng</button>
-      <button data-tab="chat">💬 Chat</button>
-      <button data-tab="profile">👤 Hồ sơ</button>
-    </nav>
-    <section id="tab-quests"></section>
-    <section id="tab-board" hidden></section>
-    <section id="tab-chat" hidden>
-      <div id="chatlog"></div>
-      <div id="emotes"><button>👏</button><button>🔥</button><button>💪</button><button>😂</button><button>Cố lên!</button></div>
-      <form id="chatform"><input id="chatinput" maxlength="80" placeholder="Nhắn gì đó…" autocomplete="off"><button>Gửi</button></form>
-    </section>
-    <section id="tab-profile" hidden></section>
-  </aside>
-
-  <canvas id="mm"></canvas>
-  <div id="help">␣/↑ nhảy · Shift nước rút · R nghỉ</div>
-  <div id="controls">
-    <button id="b-rest">⏸</button>
-    <button id="b-sprint">⚡</button>
-    <button id="b-jump">⬆</button>
-  </div>
-  <div id="toast"></div>
-</div>
-
-<div id="login">
-  <div class="card">
+<!-- ===== Màn vào: tài khoản / khách ===== -->
+<section id="scr-entry" class="screen">
+  <div class="panel narrow">
     <h1>🏃 Chạy Online</h1>
-    <p class="sub">Cùng chạy lên chùa! Số km Strava của bạn là <b>sức mạnh</b> hiển thị trên đầu nhân vật — càng nhiều km càng chạy nhanh, càng oai.</p>
+    <p class="sub">Chạy cùng mọi người trên các cung đường nổi tiếng Việt Nam. Mỗi bước bạn chạy là một phần của quãng đường.</p>
+    <div class="seg" id="entry-tabs"><button data-t="login" class="on">Đăng nhập</button><button data-t="register">Tạo tài khoản</button><button data-t="guest">Chơi khách</button></div>
     <div id="err" class="err" hidden></div>
-    <a id="strava-btn" class="strava" href="/auth/strava">Kết nối với Strava</a>
-    <div id="mock-note" class="small" hidden>⚠ Chế độ DEMO: dữ liệu Strava là dữ liệu giả.</div>
-    <div class="or"><span>hoặc chơi khách</span></div>
-    <form id="guest-form">
-      <input id="g-name" maxlength="16" placeholder="Tên của bạn" required>
-      <input id="g-km" type="number" min="0" max="20000" step="0.1" placeholder="Số km đã chạy (tự khai)">
-      <button class="go">Vào game</button>
+    <form id="f-login" class="form">
+      <input id="l-user" placeholder="Tên đăng nhập" autocomplete="username" required>
+      <input id="l-pass" type="password" placeholder="Mật khẩu" autocomplete="current-password" required>
+      <button class="primary">Đăng nhập</button>
+      <p class="hint">Nhân vật, lịch sử và huy chương được lưu trên server.</p>
     </form>
-    <p class="small">Km <b>tự khai</b> hiện dấu ✎; chỉ km lấy từ Strava mới có dấu ✓ xác thực.</p>
+    <form id="f-register" class="form" hidden>
+      <input id="r-name" maxlength="16" placeholder="Tên hiển thị" required>
+      <input id="r-user" placeholder="Tên đăng nhập (chữ thường, số)" autocomplete="username" required>
+      <input id="r-pass" type="password" placeholder="Mật khẩu (tối thiểu 6 ký tự)" autocomplete="new-password" required>
+      <button class="primary">Tạo tài khoản</button>
+      <p class="hint">Tài khoản có thể kết nối Strava để thêm km chạy ngoài đời vào bảng xếp hạng.</p>
+    </form>
+    <form id="f-guest" class="form" hidden>
+      <input id="g-name" maxlength="16" placeholder="Tên của bạn" required>
+      <button class="primary">Vào chơi</button>
+      <p class="hint">Dữ liệu lưu ngay trên máy này; lần sau vào lại vẫn còn. Khách không có bảng xếp hạng và không kết nối Strava.</p>
+    </form>
   </div>
-</div>
+</section>
 
-<script src="/tiers.js"></script>
-<script src="game.js"></script>
+<!-- ===== Sảnh: chọn bản đồ ===== -->
+<section id="scr-lobby" class="screen" hidden>
+  <header class="lobbybar">
+    <div class="who"><b id="who-name">…</b> <span id="who-tier" class="pill"></span></div>
+    <div class="stats" id="who-stats"></div>
+    <nav class="navbtns"><button data-open="history">📖 Lịch sử</button><button data-open="board">🏆 Xếp hạng</button><button data-open="profile">👤 Hồ sơ</button></nav>
+  </header>
+  <div class="goal" id="goal"></div>
+  <div class="lobbymain">
+    <div class="mapgrid" id="mapgrid"></div>
+    <aside class="setup panel">
+      <h2 id="s-name"></h2><p class="sub" id="s-desc"></p><div id="s-ref" class="hint"></div>
+      <canvas id="s-prof" width="360" height="90"></canvas>
+      <div class="kv" id="s-kv"></div>
+      <label class="lbl">Cự ly</label><div class="seg" id="s-dist"></div>
+      <label class="lbl">Cách chạy</label>
+      <div class="seg" id="s-mode"><button data-m="manual" class="on">Thủ công</button><button data-m="auto">Tự động</button></div>
+      <p class="hint" id="s-modehint"></p>
+      <button class="primary big" id="s-go">Bắt đầu chạy</button>
+    </aside>
+  </div>
+</section>
+
+<!-- ===== HUD khi chạy ===== -->
+<section id="hud" hidden>
+  <div class="tl"><div class="online"><i></i><span id="h-online">1 đang online</span></div><div id="ticker" class="ticker"></div></div>
+  <div class="topc panel">
+    <div class="row"><b id="h-map"></b><span id="h-time">00:00</span></div>
+    <div class="bar"><i id="h-prog"></i></div>
+    <div class="row sm"><span id="h-dist">0 / 0 km</span><span id="h-speed">0 km/h</span><span id="h-grade">0%</span></div>
+    <canvas id="h-elev" width="300" height="46"></canvas>
+  </div>
+  <div class="rightcol" id="rightcol">
+    <button data-open="quest" title="Mục tiêu hôm nay">🎯</button>
+    <button data-open="history" title="Lịch sử">📖</button>
+    <button data-open="board" title="Xếp hạng">🏆</button>
+    <button data-open="tour" title="Giải đấu (sắp có)">🏅</button>
+    <button id="b-tilt" title="Đổi góc nhìn (T)">🎥</button>
+    <button id="b-exit" title="Thoát chuyến chạy">⏏</button>
+  </div>
+  <div class="zoom"><button id="z-in">+</button><button id="z-out">−</button></div>
+  <div class="stamwrap"><div class="stamlbl">Thể lực <b id="h-stam">100</b></div><div class="bar stam"><i id="h-stambar"></i></div><div id="h-status" class="status"></div></div>
+  <div id="banner" class="banner" hidden></div>
+  <div class="inv" id="inv"></div>
+  <div class="actions">
+    <label class="auto"><input type="checkbox" id="h-auto"><span>Tự động</span></label>
+    <button id="b-jump" class="act">NHẢY<small>J</small></button>
+    <button id="b-step" class="act main">BƯỚC<small>Space</small></button>
+  </div>
+</section>
+
+<!-- ===== Hộp thoại ===== -->
+<div id="modal" class="modal" hidden><div class="panel mbox"><button class="x" id="m-x" aria-label="Đóng">×</button><div id="m-body"></div></div></div>
+<div id="toast" class="toast"></div>
+
+<script src="/maps.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

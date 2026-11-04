@@ -1,0 +1,238 @@
+import { Store, api, dayOf } from './store.js';
+import { Game } from './game.js';
+const S = window.Shared, MAPS = S.MAPS, R = S.RULES;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = new Store();
+let cfg = { strava: false, mock: false }, game = null, ws = null, wsTimer = 0, flushTimer = 0, posTimer = 0;
+let sel = { map: MAPS[0], dist: 5000, mode: 'manual' };
+const GOAL_KM = 5;
+
+let toastT;
+function toast(t, ms = 2000) { const e = $('#toast'); e.textContent = t; e.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('show'), ms); }
+const fmtTime = (s) => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(ss).padStart(2, '0'); };
+const fmtPace = (p) => (p > 0 && p < 60 ? Math.floor(p) + ':' + String(Math.round((p % 1) * 60) % 60).padStart(2, '0') : '--:--');
+const tierPill = (km, tier) => { const T = S.TIERS[tier]; return `<span class="pill" style="background:${T.color}">${T.icon} ${T.name}</span>`; };
+const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+const ITEM_ICON = (items = {}) => Object.entries(S.ITEMS).filter(([k]) => items[k]).map(([k, v]) => v.icon + items[k]).join(' ') || '–';
+
+// ---------- màn hình ----------
+function show(name) { for (const id of ['scr-entry', 'scr-lobby']) $('#' + id).hidden = id !== 'scr-' + name; $('#hud').hidden = name !== 'game'; }
+function showErr(m) { const e = $('#err'); e.hidden = !m; e.textContent = m || ''; }
+
+// ----- đăng nhập / khách -----
+$('#entry-tabs').onclick = (e) => {
+  const t = e.target.dataset.t; if (!t) return; showErr('');
+  document.querySelectorAll('#entry-tabs button').forEach((b) => b.classList.toggle('on', b === e.target));
+  for (const k of ['login', 'register', 'guest']) $('#f-' + k).hidden = k !== t;
+};
+$('#f-login').onsubmit = async (e) => { e.preventDefault(); showErr(''); try { await store.login($('#l-user').value, $('#l-pass').value, false); enterLobby(); } catch (er) { showErr(er.message); } };
+$('#f-register').onsubmit = async (e) => { e.preventDefault(); showErr(''); try { await store.login($('#r-user').value, $('#r-pass').value, true, $('#r-name').value); enterLobby(); } catch (er) { showErr(er.message); } };
+$('#f-guest').onsubmit = (e) => { e.preventDefault(); store.startGuest($('#g-name').value); enterLobby(); };
+
+// ----- sảnh -----
+function drawElev(cv, map, cur) {
+  const x = cv.getContext('2d'), w = cv.width, h = cv.height, L = map.km * 1000, pad = 4;
+  x.clearRect(0, 0, w, h);
+  let lo = Infinity, hi = -Infinity; for (let s = 0; s <= L; s += L / 80) { const e = S.elevAt(map, s); lo = Math.min(lo, e); hi = Math.max(hi, e); }
+  const span = Math.max(30, hi - lo), X = (s) => pad + s / L * (w - 2 * pad), Y = (e) => h - pad - (e - lo) / span * (h - 2 * pad - 6);
+  x.beginPath(); x.moveTo(X(0), h); for (let s = 0; s <= L; s += L / 80) x.lineTo(X(s), Y(S.elevAt(map, s))); x.lineTo(X(L), h); x.closePath();
+  x.fillStyle = '#e0752f55'; x.fill(); x.strokeStyle = '#ffb257'; x.lineWidth = 2; x.beginPath(); for (let s = 0; s <= L; s += L / 80) { const f = s ? x.lineTo : x.moveTo; f.call(x, X(s), Y(S.elevAt(map, s))); } x.stroke();
+  if (cur != null) { x.fillStyle = '#fff'; x.beginPath(); x.arc(X(Math.min(cur, L)), Y(S.elevAt(map, cur)), 4.5, 0, 7); x.fill(); }
+}
+const SKY = { hanoi: ['#9fd0f0', '#8cc96b'], saigon: ['#a9cbe4', '#8dc46a'], danang: ['#7cc5f0', '#3d9fc9'], halong: ['#a6dcea', '#4aa3c4'], trangan: ['#cfe0b8', '#9ed066'], mocchau: ['#c5dccb', '#7cbf5c'], haivan: ['#a5c7e0', '#7db561'], prenn: ['#b6c8c4', '#2f7a49'], oquyho: ['#b9cde0', '#78b05a'], mapileng: ['#d4d4c8', '#a79a84'] };
+function renderLobby() {
+  const p = store.profile();
+  $('#who-name').textContent = p.name; $('#who-tier').outerHTML = `<span id="who-tier">${tierPill(p.totals.totalKm, p.tier ?? S.tierIndex(p.totals.totalKm))}</span>`;
+  $('#who-stats').innerHTML = `<div class="stat"><b>${p.totals.gameKm.toFixed(1)}</b>km trong game</div><div class="stat real"><b>${p.totals.realKm.toFixed(1)}</b>km ngoài đời 👟</div><div class="stat tot"><b>${p.totals.totalKm.toFixed(1)}</b>tổng km</div>`;
+  const g = p.today.gameKm, r = p.today.realKm, tot = g + r, pct = (v) => Math.min(100, v / GOAL_KM * 100);
+  $('#goal').innerHTML = `<b>Mục tiêu hôm nay: ${tot.toFixed(1)} / ${GOAL_KM} km</b> ${tot >= GOAL_KM ? '✅' : ''}
+    <div class="gb"><i class="g" style="width:${pct(g)}%"></i><i class="r" style="width:${Math.min(pct(r), 100 - pct(g))}%"></i></div>
+    <span style="color:var(--acc)">■</span> trong game ${g.toFixed(1)} km &nbsp; <span style="color:var(--ok)">■</span> chạy ngoài đời ${r.toFixed(1)} km
+    ${p.mode === 'guest' ? '<div class="hint">Khách: km ngoài đời = 0. Tạo tài khoản và kết nối Strava để cộng km chạy thật vào xếp hạng.</div>'
+      : !p.stravaLinked ? '<div class="hint">Chưa kết nối Strava nên km ngoài đời = 0. Vào Hồ sơ để kết nối, chạy ngoài đời để lên hạng nhanh hơn.</div>' : ''}`;
+}
+function renderMaps() {
+  $('#mapgrid').innerHTML = MAPS.map((m) => `<button class="mcard ${m === sel.map ? 'on' : ''}" data-id="${m.id}"><canvas class="thumb" width="420" height="156" data-id="${m.id}"></canvas>
+    <span class="info"><b>${esc(m.name)}</b><span>${esc(m.place)} · ${m.km} km</span><br><span class="stars">${stars(m.diff)}</span></span></button>`).join('');
+  document.querySelectorAll('.thumb').forEach((cv) => {
+    const m = MAPS.find((x) => x.id === cv.dataset.id), x = cv.getContext('2d'), c = SKY[m.theme];
+    const g = x.createLinearGradient(0, 0, 0, 156); g.addColorStop(0, c[0]); g.addColorStop(0.55, c[0]); g.addColorStop(0.56, c[1]); g.addColorStop(1, c[1]); x.fillStyle = g; x.fillRect(0, 0, 420, 156);
+    x.fillStyle = '#ffffff55'; x.beginPath(); x.moveTo(0, 156); x.lineTo(0, 100); for (let i = 0; i <= 20; i++) x.lineTo(i * 21, 100 - Math.max(0, (S.elevAt(m, i / 20 * m.km * 1000) - S.elevAt(m, 0)) / Math.max(40, S.stats(m).gain) * 60) - 10 * Math.sin(i * 1.7)); x.lineTo(420, 156); x.fill();
+    x.strokeStyle = '#4b4d55'; x.lineWidth = 26; x.lineCap = 'round'; x.beginPath(); x.moveTo(-10, 140); x.bezierCurveTo(120, 120, 150, 70, 250, 78); x.bezierCurveTo(330, 84, 360, 40, 440, 30); x.stroke();
+    x.strokeStyle = '#f2c230'; x.lineWidth = 3; x.setLineDash([14, 12]); x.stroke(); x.setLineDash([]);
+  });
+}
+function renderSetup() {
+  const m = sel.map, st = S.stats(m);
+  $('#s-name').textContent = `${m.name} · ${m.place}`; $('#s-desc').textContent = m.desc; $('#s-ref').textContent = m.ref + '. Dữ liệu độ cao là xấp xỉ.';
+  drawElev($('#s-prof'), m);
+  $('#s-kv').innerHTML = `<div>Độ khó<b class="stars">${stars(m.diff)}</b></div><div>Dài<b>${m.km} km</b></div><div>Tổng leo<b>${st.gain} m</b></div><div>Dốc tối đa<b>${st.maxGrade}%</b></div><div>Độ cao<b>${Math.round(S.elevAt(m, 0))}–${Math.round(Math.max(...m.elev.map((e) => e[1])))} m</b></div><div>Đỉnh<b>${Math.round(Math.max(...m.elev.map((e) => e[1])))} m</b></div>`;
+  const opts = [1, 3, 5, 10].filter((d) => d < m.km).concat([m.km]);
+  if (!opts.includes(sel.dist / 1000)) sel.dist = opts.includes(5) ? 5000 : opts[opts.length - 1] * 1000;
+  $('#s-dist').innerHTML = opts.map((d) => `<button data-d="${d}" class="${d * 1000 === sel.dist ? 'on' : ''}">${d === m.km ? 'Cả cung ' + d : d} km</button>`).join('');
+  document.querySelectorAll('#s-mode button').forEach((b) => b.classList.toggle('on', b.dataset.m === sel.mode));
+  const secAuto = sel.dist / (R.STRIDE * R.AUTO_STEPS_PER_SEC);
+  $('#s-modehint').textContent = sel.mode === 'auto' ? `Tự động: 1 bước/giây (7,2 km/h), tự nhảy qua chướng ngại. Mất khoảng ${fmtTime(secAuto)} cho cự ly này. Vẫn dùng được vật phẩm.`
+    : 'Thủ công: bấm Space mỗi bước, phím J để nhảy. Tối đa 4 bước/giây. Có thể chuyển sang Tự động bất cứ lúc nào.';
+}
+$('#mapgrid').onclick = (e) => { const b = e.target.closest('.mcard'); if (!b) return; sel.map = MAPS.find((m) => m.id === b.dataset.id); renderMaps(); renderSetup(); };
+$('#s-dist').onclick = (e) => { const d = e.target.dataset.d; if (d) { sel.dist = +d * 1000; renderSetup(); } };
+$('#s-mode').onclick = (e) => { const m = e.target.dataset.m; if (m) { sel.mode = m; renderSetup(); } };
+function enterLobby() { show('lobby'); renderLobby(); renderMaps(); renderSetup(); }
+$('#s-go').onclick = () => startRun();
+
+// ----- chạy -----
+function ensureGame() {
+  if (game) return game;
+  game = new Game($('#c'), {
+    onHud: updateHud,
+    onEvent: (text, ms = 2000) => { const t = $('#ticker'); t.textContent = text; clearTimeout(t._t); t._t = setTimeout(() => { t.textContent = ''; }, ms + 2000); if (/Chó|Gâu/.test(text)) banner(text, ms); else if (/Hết thể lực/.test(text)) banner(text, ms); },
+    onInventory: (inv) => { renderInv(inv); store.saveInventory(inv); },
+    onFinish: (sum) => finishRun(sum)
+  });
+  return game;
+}
+let bannerT; function banner(t, ms) { const b = $('#banner'); b.textContent = t; b.hidden = false; clearTimeout(bannerT); bannerT = setTimeout(() => { b.hidden = true; }, ms); }
+async function startRun() {
+  const g = ensureGame(); $('#s-go').disabled = true;
+  await store.startRun(sel.map.id, sel.dist, sel.mode);
+  show('game'); $('#c').hidden = false;
+  g.load(sel.map, sel.dist, sel.mode, store.profile());
+  $('#h-map').textContent = `${sel.map.name}`; $('#h-auto').checked = sel.mode === 'auto'; renderInv(g.inv);
+  $('#ticker').textContent = ''; $('#banner').hidden = true; $('#s-go').disabled = false;
+  connectWs(); clearInterval(flushTimer); flushTimer = setInterval(doFlush, 15000);
+}
+async function doFlush(done) { if (!game || !game.st) return; store.record(game.takeDelta()); await store.flush(done); }
+function stopRun() { clearInterval(flushTimer); clearInterval(posTimer); clearTimeout(wsTimer); if (ws) { ws.onclose = null; ws.close(); ws = null; } if (game) game.dispose(); }
+async function exitRun() { await doFlush(false); stopRun(); enterLobby(); }
+async function finishRun(sum) {
+  await doFlush(true);
+  const p = store.profile();
+  openModal(`<h2>🎉 Về đích!</h2><p class="sub">${esc(sum.map.name)} · ${(sum.dist / 1000).toFixed(1)} km</p>
+    <div class="sumgrid"><div>Thời gian<b>${fmtTime(sum.time)}</b></div><div>Số bước<b>${sum.steps}</b></div><div>Pace TB<b>${fmtPace(sum.time / 60 / (sum.dist / 1000))}/km</b></div><div>Nhảy qua<b>${sum.jumps}</b></div><div>Bị chó cắn<b>${sum.bites}</b></div><div>Vật phẩm<b style="font-size:15px">${ITEM_ICON(sum.items)}</b></div></div>
+    <p class="hint">Tổng km tích lũy của bạn: <b>${p.totals.totalKm.toFixed(1)} km</b> (game ${p.totals.gameKm.toFixed(1)} + ngoài đời ${p.totals.realKm.toFixed(1)}).</p>
+    <div class="seg"><button id="again" class="on">Chạy lại</button><button id="tolobby">Về sảnh</button></div>`);
+  $('#again').onclick = () => { closeModal(); stopRun(); startRun(); };
+  $('#tolobby').onclick = () => { closeModal(); stopRun(); enterLobby(); };
+}
+function renderInv(inv) {
+  $('#inv').innerHTML = Array.from({ length: R.INV_SLOTS }, (_, i) => { const s = inv[i]; return `<button class="slot ${s ? 'has' : ''}" data-i="${i}" title="${s ? S.ITEMS[s.k].name : 'Ô trống'}"><small>${i + 1}</small>${s ? S.ITEMS[s.k].icon + '<b>' + s.n + '</b>' : ''}</button>`; }).join('');
+}
+$('#inv').addEventListener('pointerdown', (e) => { const b = e.target.closest('.slot'); if (b && game) { e.preventDefault(); game.useItem(+b.dataset.i); } });
+function updateHud(h) {
+  $('#h-time').textContent = fmtTime(h.time);
+  $('#h-prog').style.width = (h.s / h.dist * 100).toFixed(1) + '%';
+  $('#h-dist').textContent = `${(h.s / 1000).toFixed(2)} / ${(h.dist / 1000).toFixed(1)} km`;
+  $('#h-speed').textContent = `${h.kmh.toFixed(1)} km/h · ${fmtPace(h.pace)}/km`;
+  $('#h-grade').textContent = `${h.grade >= 0 ? '+' : ''}${h.grade.toFixed(1)}% · ${Math.round(h.elev)} m`;
+  $('#h-stam').textContent = Math.round(h.stam); $('#h-stambar').style.width = h.stam + '%'; $('.stam').classList.toggle('low', h.stam < 25);
+  $('#h-status').textContent = h.exhausted ? '😮‍💨 Kiệt sức — chờ hồi sức hoặc dùng đồ ăn' : h.boltT > 0 ? `⚡ Tăng tốc ${Math.ceil(h.boltT)}s` : h.slowT > 0 ? `🐕 Chậm lại ${Math.ceil(h.slowT)}s` : h.dog === 'chase' ? '🐕 Chó đang đuổi!' : '';
+  $('#h-online').textContent = `${h.online} đang online`;
+  $('#h-auto').checked = h.mode === 'auto';
+  drawElev($('#h-elev'), game.map, h.s);
+}
+// điều khiển
+const typing = () => /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+const modalOpen = () => !$('#modal').hidden;
+addEventListener('keydown', (e) => {
+  if (!game || !game.running || $('#hud').hidden || typing()) return;
+  if (modalOpen()) { if (e.key === 'Escape') closeModal(); return; }
+  if (e.code === 'Space') { e.preventDefault(); game.step(); }
+  else if (e.key === 'j' || e.key === 'J') game.jump();
+  else if (/^[1-5]$/.test(e.key)) game.useItem(+e.key - 1);
+  else if (e.key === 'a' || e.key === 'A') toggleAuto();
+  else if (e.key === '+' || e.key === '=') game.zoom(-4);
+  else if (e.key === '-') game.zoom(4);
+  else if (e.key === 't' || e.key === 'T') game.tilt();
+});
+function toggleAuto() { game.setMode(game.mode === 'auto' ? 'manual' : 'auto'); sel.mode = game.mode; toast(game.mode === 'auto' ? '▶ Chạy tự động (1 bước/giây)' : '✋ Chạy thủ công', 1200); }
+$('#h-auto').onchange = () => toggleAuto();
+$('#b-step').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.step(); });
+$('#b-jump').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.jump(); });
+$('#z-in').onclick = () => game.zoom(-4); $('#z-out').onclick = () => game.zoom(4);
+$('#b-tilt').onclick = () => game.tilt(); $('#b-exit').onclick = () => exitRun();
+addEventListener('beforeunload', () => { if (game && game.st && store.mode === 'guest') { store.record(game.takeDelta()); store.flush(false); } });
+
+// ----- nhiều người chơi -----
+function connectWs() {
+  clearTimeout(wsTimer); if (ws) { ws.onclose = null; ws.close(); }
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  const p = store.profile();
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', map: sel.map.id, name: p.name, km: p.totals.totalKm }));
+  ws.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch { return; } if (!game) return;
+    if (m.t === 'welcome') game.setOthers(m.players.map((o) => ({ ...o, name: o.name })));
+    else if (m.t === 'join') { game.addOther(m.p); $('#ticker').textContent = `${m.p.name} vừa vào cung đường`; }
+    else if (m.t === 'leave') game.removeOther(m.id);
+    else if (m.t === 'snap') game.snap(m.p);
+  };
+  ws.onclose = () => { wsTimer = setTimeout(() => { if (game && game.running) connectWs(); }, 3000); };
+  clearInterval(posTimer);
+  posTimer = setInterval(() => { if (ws && ws.readyState === 1 && game && game.st) ws.send(JSON.stringify({ t: 'pos', s: +game.st.s.toFixed(1), j: game.st.jumpT > 0 ? 1 : 0, mv: game.st.speed > 0.3 ? 1 : 0 })); }, 250);
+}
+
+// ----- hộp thoại: lịch sử, xếp hạng, hồ sơ -----
+function openModal(html) { $('#m-body').innerHTML = html; $('#modal').hidden = false; }
+function closeModal() { $('#modal').hidden = true; }
+$('#m-x').onclick = closeModal; $('#modal').onclick = (e) => { if (e.target.id === 'modal') closeModal(); };
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-open]'); if (b) openPanel(b.dataset.open); });
+
+async function openPanel(kind) {
+  if (kind === 'history') {
+    openModal('<h2>📖 Lịch sử</h2><p class="sub">Đang tải…</p>');
+    const rows = await store.history().catch(() => []);
+    const byDay = new Map(rows.map((r) => [r.day, r])), cells = [];
+    const today = new Date(dayOf() + 'T00:00:00Z'), dow = (today.getUTCDay() + 6) % 7;
+    for (let i = 16 * 7 + dow; i >= 0; i--) { const d = new Date(today - i * 864e5).toISOString().slice(0, 10), km = (byDay.get(d) || {}).totalKm || 0; cells.push(`<i title="${d}: ${km} km" data-l="${km <= 0 ? 0 : km < 2 ? 1 : km < 5 ? 2 : km < 10 ? 3 : 4}"></i>`); }
+    $('#m-body').innerHTML = `<h2>📖 Lịch sử từng ngày</h2><div class="heat">${cells.join('')}</div>
+      <p class="hint">Mỗi ô là một ngày (tổng km = trong game + ngoài đời). Cột <b style="color:var(--ok)">Ngoài đời</b> lấy từ Strava; chưa kết nối thì bằng 0.</p>
+      <div class="tw"><table><thead><tr><th>Ngày</th><th>Game</th><th>Ngoài đời 👟</th><th>Tổng</th><th>Bước</th><th>Thời gian</th><th>Vật phẩm</th></tr></thead><tbody>
+      ${rows.length ? rows.map((r) => `<tr><td>${r.day.slice(8)}/${r.day.slice(5, 7)}</td><td class="g">${r.gameKm.toFixed(1)}</td><td class="r">${r.realKm.toFixed(1)}</td><td class="t">${r.totalKm.toFixed(1)}</td><td>${r.steps}</td><td>${fmtTime(r.secs)}</td><td>${ITEM_ICON(r.items)}</td></tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--mut)">Chưa có chuyến chạy nào</td></tr>'}</tbody></table></div>`;
+  } else if (kind === 'board') {
+    const render = async (period) => {
+      if (store.mode !== 'account') { $('#m-body').innerHTML = '<h2>🏆 Xếp hạng</h2><p class="sub">Xếp hạng dành cho tài khoản. Tạo tài khoản để lên bảng, và kết nối Strava để cộng thêm km chạy ngoài đời.</p>'; return; }
+      const j = await store.leaderboard(period).catch(() => ({ rows: [] }));
+      $('#m-body').innerHTML = `<h2>🏆 Xếp hạng</h2><div class="seg" id="lb-tabs">${[['today', 'Hôm nay'], ['week', '7 ngày'], ['all', 'Tất cả']].map(([k, n]) => `<button data-p="${k}" class="${k === period ? 'on' : ''}">${n}</button>`).join('')}</div>
+        <div class="tw"><table><thead><tr><th>#</th><th>Tên</th><th>Game</th><th>Ngoài đời 👟</th><th>Tổng</th></tr></thead><tbody>
+        ${j.rows.length ? j.rows.map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td>${i + 1}</td><td>${S.TIERS[r.tier].icon} ${esc(r.name)} ${r.strava ? '<span title="Đã kết nối Strava">🟧</span>' : ''}</td><td class="g">${r.gameKm.toFixed(1)}</td><td class="r">${r.realKm.toFixed(1)}</td><td class="t">${r.totalKm.toFixed(1)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--mut)">Chưa có dữ liệu</td></tr>'}</tbody></table></div>
+        <p class="hint">Xếp theo <b>tổng km</b> = km trong game + km chạy ngoài đời. Chạy thật ngoài đời để vượt lên! Người chưa kết nối Strava có cột Ngoài đời = 0.</p>`;
+      $('#lb-tabs').onclick = (e) => { if (e.target.dataset.p) render(e.target.dataset.p); };
+    };
+    openModal('<h2>🏆 Xếp hạng</h2><p class="sub">Đang tải…</p>'); render('week');
+  } else if (kind === 'profile') {
+    const p = store.profile();
+    const strava = p.mode !== 'account' ? '<p class="hint">Khách không kết nối Strava được. Tạo tài khoản để cộng km chạy ngoài đời.</p>'
+      : p.stravaLinked ? `<p>🟧 Đã kết nối Strava · đồng bộ lần cuối ${p.lastSync ? new Date(p.lastSync).toLocaleString('vi-VN') : '—'}</p><div class="seg"><button id="p-sync">🔄 Đồng bộ</button><button id="p-unlink">Ngắt kết nối</button></div>`
+      : cfg.strava ? `<p class="hint">Kết nối để thêm km chạy ngoài đời vào lịch sử và xếp hạng.${cfg.mock ? ' (DEMO: dữ liệu giả)' : ''}</p><a class="primary" style="display:block;text-align:center;text-decoration:none" href="/auth/strava">Kết nối Strava</a>`
+      : '<p class="hint">Server chưa cấu hình Strava.</p>';
+    openModal(`<h2>👤 ${esc(p.name)}</h2>${tierPill(p.totals.totalKm, p.tier ?? S.tierIndex(p.totals.totalKm))}
+      <div class="sumgrid"><div>Trong game<b>${p.totals.gameKm.toFixed(1)} km</b></div><div>Ngoài đời<b>${p.totals.realKm.toFixed(1)} km</b></div><div>Tổng<b>${p.totals.totalKm.toFixed(1)} km</b></div><div>Số bước<b>${p.totals.steps}</b></div><div>Vật phẩm<b style="font-size:15px">${ITEM_ICON(p.totals.items)}</b></div></div>
+      <h3>Strava (tùy chọn)</h3>${strava}
+      <h3>Tài khoản</h3><div class="seg">${p.mode === 'guest' ? '<button id="p-export">Sao lưu dữ liệu (file)</button>' : ''}<button id="p-out">Đăng xuất</button></div>
+      ${p.mode === 'guest' ? '<p class="hint">Dữ liệu khách nằm trên trình duyệt này; xóa dữ liệu trình duyệt sẽ mất.</p>' : ''}`);
+    const on = (id, fn) => { const b = $('#' + id); if (b) b.onclick = fn; };
+    on('p-sync', async () => { try { await api('/api/strava/sync', {}); await store.refresh(); toast('Đã đồng bộ ✓'); openPanel('profile'); renderLobby(); } catch (er) { toast(er.message); } });
+    on('p-unlink', async () => { await api('/api/strava/unlink', {}); await store.refresh(); openPanel('profile'); renderLobby(); });
+    on('p-out', async () => { await store.logout(); closeModal(); stopRun(); show('entry'); });
+    on('p-export', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([store.exportGuest()], { type: 'application/json' })); a.download = 'chay-online-khach.json'; a.click(); });
+  } else if (kind === 'quest') {
+    const p = store.profile(), g = p.today.gameKm, r = p.today.realKm;
+    openModal(`<h2>🎯 Mục tiêu hôm nay</h2><div class="sumgrid"><div>Trong game<b>${g.toFixed(1)} km</b></div><div>Ngoài đời 👟<b>${r.toFixed(1)} km</b></div><div>Tổng / ${GOAL_KM} km<b>${(g + r).toFixed(1)}</b></div></div><p class="hint">Chạy thật ngoài đời được tính vào tổng km và xếp hạng. Chưa kết nối Strava thì km ngoài đời bằng 0.</p>`);
+  } else if (kind === 'tour') {
+    openModal('<h2>🏅 Giải đấu</h2><p class="sub">Tính năng giải đấu (tạo giải, huy chương riêng, link mời công khai/riêng tư) đang được phát triển ở giai đoạn tiếp theo.</p>');
+  }
+}
+
+// ----- khởi động -----
+(async function boot() {
+  try { cfg = await api('/api/config'); } catch { /* giữ mặc định */ }
+  const qs = new URLSearchParams(location.search);
+  const msgs = { nostrava: 'Server chưa cấu hình Strava.', denied: 'Bạn đã từ chối quyền Strava.', scope: 'Cần cho phép xem hoạt động để tính km.', state: 'Phiên hết hạn, thử lại nhé.', strava: 'Kết nối Strava thất bại.' };
+  const ok = await store.init();
+  if (ok) enterLobby(); else show('entry');
+  if (qs.get('strava') === 'ok') toast('Đã kết nối Strava ✓ Km ngoài đời đã được cộng vào lịch sử.', 3500);
+  if (qs.get('err') && msgs[qs.get('err')]) toast(msgs[qs.get('err')], 3500);
+  if (location.search) history.replaceState(null, '', '/');
+})();
+window.__app = { store, get game() { return game; }, sel };
