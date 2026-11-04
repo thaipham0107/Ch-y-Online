@@ -11,7 +11,8 @@ npm run demo        # Strava giả lập, mở http://localhost:3000
 Cần Node 22.5 trở lên (dùng SQLite có sẵn của Node). Mở nhiều tab để thấy nhiều người cùng chạy.
 
 ## Luật chơi
-- **Space = 1 bước = 2 m** (tối đa 4 bước/giây), **J = nhảy**, **← →** đổi làn (4 làn), **1–5** dùng vật phẩm, **A** bật/tắt tự động, cuộn/chụm để zoom, kéo (khi zoom xa) để xoay 360°.
+- **Máy tính**: **Space hoặc nhấp chuột = 1 bước = 2 m** (tối đa 4 bước/giây), **J hoặc ↑ = nhảy** (hoặc nút NHẢY), **← →** đổi làn (4 làn), **1–5** dùng vật phẩm, **A** bật/tắt tự động, cuộn để zoom, kéo (khi zoom xa) để xoay 360° (kéo không tính là bước).
+- **Điện thoại/tablet** (không cần bàn phím): **chạm màn hình = 1 bước**, **nút NHẢY** để nhảy, vuốt ngang hoặc nút ◀ ▶ đổi làn, chụm để zoom.
 - **Tự động**: 1 bước/giây, tự nhảy qua chướng ngại trong làn của bạn. Chó đuổi vẫn bắt kịp nếu không dùng ⚡. Đổi giữa thủ công/tự động bất cứ lúc nào.
 - **Thể lực**: hết thì dừng. Nhặt 💧🍌🍉🧂 để hồi, ⚡ để tăng tốc. Lên dốc tốn nhiều hơn.
 - **Xu**: 10 xu/km trong game, 25 xu/km chạy ngoài đời (Strava), nhặt 🪙, +20 xu về đích. Mua mũ, giày, phụ kiện, đồng hồ, hào quang.

@@ -137,10 +137,12 @@ export class Game {
   resize() { const w = innerWidth, h = innerHeight; this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.fov = h > w ? Math.min(78, 48 * Math.pow(h / w, 0.55)) : 48; this.camera.updateProjectionMatrix(); }
   get overview() { return this.camD > 60; }
   bindPointer() {
-    const el = this.canvas, pts = new Map(); let pinch = 0, drag = null, swipe = null;
-    el.addEventListener('pointerdown', (e) => { el.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY]; swipe = [e.clientX, e.clientY, performance.now()]; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
+    const el = this.canvas, pts = new Map(); let pinch = 0, drag = null, swipe = null, tap = null;
+    el.addEventListener('pointerdown', (e) => { el.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY]; swipe = [e.clientX, e.clientY, performance.now()];
+      tap = pts.size === 1 && (e.pointerType !== 'mouse' || e.button === 0) ? { x: e.clientX, y: e.clientY, t: performance.now(), ok: true } : null; if (pts.size > 1 && tap) tap.ok = false; if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
     el.addEventListener('pointermove', (e) => {
       if (!pts.has(e.pointerId)) return; const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (tap && (pts.size > 1 || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10)) tap.ok = false;   // kéo/chụm thì không tính là chạm
       if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) this.camD = clamp(this.camD * pinch / d, 14, 180); pinch = d; return; }
       if (this.overview) this.orbit(e.clientX - prev[0], e.clientY - prev[1]);
     });
@@ -149,6 +151,9 @@ export class Game {
         const dx = e.clientX - swipe[0], dy = e.clientY - swipe[1];
         if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5 && performance.now() - swipe[2] < 600) this.moveLane(dx > 0 ? 1 : -1);
       }
+      // chạm nhanh hoặc nhấp chuột (không kéo) = 1 bước; vuốt ngang/kéo xoay/chụm zoom không tính
+      if (tap && tap.ok && e.type === 'pointerup' && pts.size === 1 && performance.now() - tap.t < 400 && this.running) this.step();
+      tap = null;
       pts.delete(e.pointerId); pinch = 0; swipe = null;
     };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);

@@ -14,6 +14,7 @@ let pendingTour = null;
 const GOAL_KM = 5;
 
 let toastT;
+const TOUCH = matchMedia('(pointer:coarse)').matches;   // điện thoại/tablet: chỉ dùng chạm, không cần bàn phím
 function toast(t, ms = 2000) { const e = $('#toast'); e.textContent = t; e.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('show'), ms); }
 const fmtTime = (s) => { if (s == null) return '--:--'; s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(ss).padStart(2, '0'); };
 const fmtPace = (p) => (p > 0 && p < 60 ? Math.floor(p) + ':' + String(Math.round((p % 1) * 60) % 60).padStart(2, '0') : '--:--');
@@ -103,7 +104,8 @@ function renderSetup() {
   document.querySelectorAll('#s-view button').forEach((b) => b.classList.toggle('on', b.dataset.v === sel.view));
   $('#s-viewhint').textContent = sel.view === '3d' ? 'Cảnh 3D dựng theo đường thật (có độ cao, vách, vực, biển).' : 'Ảnh bản đồ phẳng trải dưới đường chạy; độ dốc và thể lực vẫn tính theo độ cao thật. Cần mạng để tải ảnh bản đồ.';
   $('#s-modehint').textContent = sel.mode === 'auto' ? `Tự động: 1 bước/giây (7,2 km/h), tự nhảy qua chướng ngại trong làn của bạn. Khoảng ${fmtTime(sel.dist / (R.STRIDE * R.AUTO_STEPS_PER_SEC))} cho cự ly này. Vẫn đổi làn, dùng vật phẩm được.`
-    : 'Thủ công: Space = 1 bước, J = nhảy, ←/→ đổi làn. Tối đa 4 bước/giây. Có thể chuyển sang Tự động bất cứ lúc nào.';
+    : TOUCH ? 'Thủ công: chạm màn hình = 1 bước, nút NHẢY = nhảy, vuốt ngang hoặc nút ◀ ▶ để đổi làn. Tối đa 4 bước/giây. Có thể chuyển sang Tự động bất cứ lúc nào.'
+      : 'Thủ công: Space hoặc nhấp chuột = 1 bước, J hoặc ↑ = nhảy, ←/→ đổi làn. Tối đa 4 bước/giây. Có thể chuyển sang Tự động bất cứ lúc nào.';
 }
 $('#mapgrid').onclick = (e) => { const b = e.target.closest('.mcard'); if (!b) return; sel.map = MAPS.find((m) => m.id === b.dataset.id); renderMaps(); renderSetup(); };
 $('#s-dist').onclick = (e) => { const d = e.target.dataset.d; if (d) { sel.dist = +d * 1000; renderSetup(); } };
@@ -180,6 +182,7 @@ async function launch({ course, dist, mode, seed, room, tour, view = '3d' }) {
   $('#h-map').textContent = tour ? `🏅 ${tour.title}` : course.name; $('#h-auto').checked = mode === 'auto'; renderInv(g.inv);
   $('#h-elev').hidden = course.kind === 'gps'; const imgStyle = course.kind === 'gps' ? course.style : g.view; $('#attr').textContent = imgStyle === 'sat' ? cfg.tiles.attrSat : imgStyle === 'road' ? cfg.tiles.attrRoad : '';
   $('#ticker').textContent = ''; $('#banner').hidden = true; $('#h-coins').textContent = '🪙 ' + coinBase;
+  if (mode !== 'auto') toast(TOUCH ? 'Chạm màn hình để chạy · nút NHẢY để nhảy' : 'Space hoặc nhấp chuột để chạy · J hoặc ↑ để nhảy', 3500);
   connectWs(course, room); clearInterval(flushTimer); flushTimer = setInterval(() => doFlush(false), 15000);
 }
 async function doFlush(done, finished) { if (!game || !game.st) return null; store.record(game.takeDelta()); return store.flush(done, finished); }
@@ -222,7 +225,7 @@ addEventListener('keydown', (e) => {
   if (!game || !game.running || $('#hud').hidden || typing()) return;
   if (modalOpen()) { if (e.key === 'Escape') closeModal(); return; }
   if (e.code === 'Space') { e.preventDefault(); game.step(); }
-  else if (e.key === 'j' || e.key === 'J') game.jump();
+  else if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowUp') { if (e.key === 'ArrowUp') e.preventDefault(); game.jump(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); game.moveLane(-1); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); game.moveLane(1); }
   else if (/^[1-5]$/.test(e.key)) game.useItem(+e.key - 1);
@@ -349,3 +352,6 @@ async function profilePanel() {
   if (location.search) history.replaceState(null, '', '/');
 })();
 window.__app = { store, get game() { return game; }, sel, get tours() { return tours; }, get picker() { return picker; } };
+
+// nhãn nút theo thiết bị
+{ const s = $('#b-step small'), j = $('#b-jump small'); if (TOUCH) { s.textContent = 'hoặc chạm màn hình'; j.textContent = ''; } else { s.textContent = 'Space / click'; j.textContent = 'J / ↑'; } }
