@@ -1,0 +1,14 @@
+{
+  "_huongDan": [
+    "1) Vào https://www.strava.com/settings/api để tạo ứng dụng (Create & Manage Your App).",
+    "2) Ô 'Authorization Callback Domain' chỉ điền TÊN MIỀN, không có http:// và không có đường dẫn. Ví dụ: chay.example.com. Chạy thử trên máy thì điền: localhost",
+    "3) Sao chép file này thành strava.config.json (file đó không được commit), rồi điền clientId, clientSecret (trong trang ứng dụng Strava) và baseUrl.",
+    "4) baseUrl là địa chỉ công khai của game, ví dụ https://chay.example.com (chạy thử: http://localhost:3000). Tên miền của baseUrl phải trùng ô Callback Domain.",
+    "5) Chạy: npm run check:strava để kiểm tra, rồi npm start.",
+    "Biến môi trường STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_SCOPE, BASE_URL luôn được ưu tiên hơn file này."
+  ],
+  "clientId": "",
+  "clientSecret": "",
+  "baseUrl": "https://chay.example.com",
+  "scope": "read,activity:read"
+}

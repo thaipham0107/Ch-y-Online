@@ -298,7 +298,7 @@ async function profilePanel() {
     <h3>Tài khoản</h3><div class="seg">${p.mode === 'guest' ? '<button id="p-export">Sao lưu dữ liệu (file)</button>' : ''}<button id="p-out">Đăng xuất</button></div>
     ${p.mode === 'guest' ? '<p class="hint">Dữ liệu khách nằm trên trình duyệt này. Khi tạo tài khoản, bạn sẽ được hỏi có gộp dữ liệu này vào không.</p>' : ''}`);
   const on = (id, fn) => { const b = $('#' + id); if (b) b.onclick = fn; };
-  on('p-sync', async () => { try { await api('/api/strava/sync', {}); await store.refresh(); toast('Đã đồng bộ ✓'); profilePanel(); renderLobby(); } catch (er) { toast(er.message); } });
+  on('p-sync', async () => { try { await api('/api/strava/sync', {}); await store.refresh(); toast('Đã đồng bộ ✓'); profilePanel(); renderLobby(); } catch (er) { toast(er.message, 3500); await store.refresh().catch(() => {}); profilePanel(); renderLobby(); } });
   on('p-unlink', async () => { await api('/api/strava/unlink', {}); await store.refresh(); profilePanel(); renderLobby(); });
   on('p-out', async () => { await store.logout(); closeModal(); stopRun(); show('entry'); });
   on('p-export', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([store.exportGuest()], { type: 'application/json' })); a.download = 'chay-online-khach.json'; a.click(); });
@@ -311,7 +311,7 @@ async function profilePanel() {
   tours = createTournamentUI({ store, cfg, toast, show, toLobby: () => enterLobby(), launchTour, getMode, setMode, fmt: { time: fmtTime } });
   document.querySelectorAll('[data-open]').forEach(() => {});
   const qs = new URLSearchParams(location.search);
-  const msgs = { nostrava: 'Server chưa cấu hình Strava.', denied: 'Bạn đã từ chối quyền Strava.', scope: 'Cần cho phép xem hoạt động để tính km.', state: 'Phiên hết hạn, thử lại nhé.', strava: 'Kết nối Strava thất bại.' };
+  const msgs = { nostrava: 'Server chưa cấu hình Strava.', denied: 'Bạn đã từ chối quyền Strava.', scope: 'Cần cho phép xem hoạt động để tính km.', state: 'Phiên hết hạn, thử lại nhé.', strava: 'Kết nối Strava thất bại.', rate: 'Strava đang giới hạn số lần gọi, thử lại sau ít phút.' };
   const code = (qs.get('t') || '').toUpperCase().slice(0, 6);
   const ok = await store.init();
   if (code) pendingTour = code;

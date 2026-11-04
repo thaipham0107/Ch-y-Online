@@ -20,7 +20,15 @@ Cần Node 22.5 trở lên (dùng SQLite có sẵn của Node). Mở nhiều tab
 ## Tài khoản, khách, Strava
 - **Tài khoản**: lưu trên server (SQLite `data/chay.db`). **Khách**: lưu trong trình duyệt. Khi đăng ký/đăng nhập trên máy có dữ liệu khách, game hỏi có **gộp** vào tài khoản không (một lần; server kiểm tra hợp lý; km gộp không tính vào xếp hạng chung).
 - **Strava (tùy chọn, chỉ tài khoản)**: thêm cột **km chạy ngoài đời** và **tổng** vào lịch sử, xếp hạng. Không kết nối thì ngoài đời = 0.
-  Strava thật: tạo app tại https://www.strava.com/settings/api, `cp .env.example .env`, điền khóa, `npm start`.
+  Strava thật: tạo app tại https://www.strava.com/settings/api. Xem cách kết nối Strava thật bên dưới.
+### Kết nối Strava thật (3 bước)
+1. Tạo ứng dụng tại https://www.strava.com/settings/api. Ô **Authorization Callback Domain** chỉ điền *tên miền* (không có http, không có đường dẫn), ví dụ `chay.example.com`; chạy thử trên máy thì điền `localhost`.
+2. `cp strava.config.example.json strava.config.json` rồi điền **clientId**, **clientSecret** và **baseUrl** (địa chỉ công khai của game, ví dụ `https://chay.example.com`). File `strava.config.json` đã nằm trong `.gitignore`, không commit khóa thật. Biến môi trường (`STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_SCOPE`, `BASE_URL`) luôn được ưu tiên hơn file.
+3. `npm run check:strava` để kiểm tra (in đúng giá trị cần điền vào ô Callback Domain, kiểm tra khóa đúng/sai), rồi `npm start`. Vào **Hồ sơ → Kết nối Strava**.
+
+Game tự đồng bộ nền khi mở (tối đa mỗi 15 phút/người), làm mới token hết hạn, tự ngắt kết nối nếu Strava thu hồi quyền, và nghỉ khi Strava báo hết hạn mức (429). Chỉ tính Run, TrailRun, VirtualRun theo ngày địa phương của buổi chạy. Mặc định chỉ đọc hoạt động công khai; đặt `"scope": "read,activity:read_all"` để tính cả hoạt động riêng tư.
+
+Thử luồng Strava không cần khóa thật: `node tools/fake-strava.mjs 9911` (máy chủ Strava giả), chạy server với `PORT=3555 BASE_URL=http://localhost:3555 STRAVA_CLIENT_ID=test-id STRAVA_CLIENT_SECRET=test-secret STRAVA_OAUTH_URL=http://localhost:9911/oauth STRAVA_API_URL=http://localhost:9911/api/v3 DATA_DIR=<thư mục tạm>`, rồi `node tools/test-strava.cjs <đường dẫn chay.db>` (kiểm thử đầu-cuối bằng Playwright).
 
 ## Giải đấu
 Tạo giải (tài khoản): thông tin, thể thức (bản đồ 3D hoặc tuyến GPS, tối đa 4 cự ly), thiết kế huy chương nhất/nhì/ba/phong trào, xuất bản và gửi link `/?t=MÃ`.

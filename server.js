@@ -11,7 +11,7 @@ const strava = require('./strava');
 
 const { RULES, ITEMS, MAPS, COIN, SHOP, SHOP_DEFAULT } = Shared;
 const PORT = +process.env.PORT || 3000;
-const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+const BASE_URL = (process.env.BASE_URL || strava.FILE_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -178,7 +178,7 @@ const TILES = {
   attrSat: process.env.TILES_SAT_ATTR || 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics'
 };
 app.get('/api/config', (req, res) => res.json({ strava: strava.configured(), mock: strava.MOCK, rules: RULES, tiles: TILES }));
-app.get('/api/me', (req, res) => res.json({ me: req.user ? publicMe(req.user) : null }));
+app.get('/api/me', (req, res) => { if (req.user) autoSync(req.user); res.json({ me: req.user ? publicMe(req.user) : null }); });
 
 app.post('/api/register', (req, res) => {
   if (limited(req)) return res.status(429).json({ error: 'Thử lại sau vài phút' });
@@ -217,36 +217,66 @@ app.get('/auth/strava/callback', need, async (req, res) => {
     res.clearCookie('ostate');
     try { await syncStrava(q.userById.get(req.user.id)); } catch (e) { console.error('sync lỗi', e.message); }
     res.redirect('/?strava=ok');
-  } catch (e) { console.error('oauth lỗi', e.message); res.redirect('/?err=strava'); }
+  } catch (e) { console.error('oauth lỗi', e.message); res.redirect('/?err=' + (e.code === 'rate' ? 'rate' : 'strava')); }
 });
+// Đồng bộ một người: không chạy chồng, tôn trọng hạn mức (429), tự ngắt kết nối khi Strava thu hồi quyền
+const syncing = new Set(); let rateUntil = 0;
 async function syncStrava(u) {
   const s = jparse(u.strava, null); if (!s) return;
-  await strava.ensureToken(s);
-  const days = await strava.fetchDaily(s, Math.floor(Date.parse(dayAgo(60) + 'T00:00:00+07:00') / 1000));
-  const old = new Map(q.getReal.all(u.id).map((r) => [r.day, r]));
-  let coinKm = 0; const recent = dayAgo(3);
-  db.exec('BEGIN');
+  if (syncing.has(u.id)) return; syncing.add(u.id);
   try {
-    db.prepare('DELETE FROM real_daily WHERE user_id=? AND day>=?').run(u.id, dayAgo(60));
-    for (const [d, km] of Object.entries(days)) {
-      const o = old.get(d); let paid = o ? o.paid : 0;
-      if (d >= recent && km > paid) { coinKm += km - paid; paid = km; }   // thưởng xu cho km thật gần đây
-      q.upReal.run(u.id, d, km, paid);
+    let days;
+    try {
+      await strava.ensureToken(s);
+      q.setStrava.run(JSON.stringify(s), u.last_sync, u.id);          // lưu token mới ngay (Strava đổi refresh token mỗi lần làm mới)
+      days = await strava.fetchDaily(s, Math.floor(Date.parse(dayAgo(60) + 'T00:00:00+07:00') / 1000));
+    } catch (e) {
+      if (e.code === 'revoked') { q.setStrava.run(null, 0, u.id); db.prepare('DELETE FROM real_daily WHERE user_id=?').run(u.id); }
+      if (e.code === 'rate') rateUntil = Date.now() + 15 * 60e3;
+      throw e;
     }
-    const fresh = q.userById.get(u.id), tot = (fresh.coin_rem || 0) + coinKm * COIN.PER_KM_REAL;
-    q.setCoins.run(fresh.coins + Math.floor(tot), tot - Math.floor(tot), u.id);
-    q.setStrava.run(JSON.stringify(s), Date.now(), u.id);
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+    const old = new Map(q.getReal.all(u.id).map((r) => [r.day, r]));
+    let coinKm = 0; const recent = dayAgo(3);
+    db.exec('BEGIN');
+    try {
+      db.prepare('DELETE FROM real_daily WHERE user_id=? AND day>=?').run(u.id, dayAgo(60));
+      for (const [d, km] of Object.entries(days)) {
+        const o = old.get(d); let paid = o ? o.paid : 0;
+        if (d >= recent && km > paid) { coinKm += km - paid; paid = km; }   // thưởng xu cho km thật gần đây
+        q.upReal.run(u.id, d, km, paid);
+      }
+      const fresh = q.userById.get(u.id), tot = (fresh.coin_rem || 0) + coinKm * COIN.PER_KM_REAL;
+      q.setCoins.run(fresh.coins + Math.floor(tot), tot - Math.floor(tot), u.id);
+      q.setStrava.run(JSON.stringify(s), Date.now(), u.id);
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+  } finally { syncing.delete(u.id); }
 }
+// tự đồng bộ nền khi mở game (không chặn): tối đa mỗi 15 phút/người, cách nhau 5 phút giữa các lần thử
+const lastTry = new Map();
+function autoSync(u) {
+  if (!u || !u.strava || strava.MOCK) return;
+  const now = Date.now();
+  if (now < rateUntil || now - u.last_sync < 15 * 60e3 || now - (lastTry.get(u.id) || 0) < 5 * 60e3) return;
+  lastTry.set(u.id, now);
+  syncStrava(u).catch((e) => console.error('đồng bộ nền lỗi:', e.message));
+}
+const syncError = (res, e) => {
+  if (e.code === 'revoked') return res.status(409).json({ error: 'Strava đã thu hồi quyền, hãy kết nối lại', revoked: true });
+  if (e.code === 'rate') return res.status(429).json({ error: 'Strava đang giới hạn số lần gọi, thử lại sau ít phút' });
+  return res.status(502).json({ error: 'Không lấy được dữ liệu Strava' });
+};
 app.post('/api/strava/sync', need, async (req, res) => {
   const u = req.user;
   if (!u.strava) return res.status(400).json({ error: 'Chưa kết nối Strava' });
   if (Date.now() - u.last_sync < 60e3) return res.status(429).json({ error: 'Đợi một phút rồi đồng bộ lại nhé' });
-  try { await syncStrava(u); res.json({ me: publicMe(u) }); } catch (e) { res.status(502).json({ error: 'Không lấy được dữ liệu Strava' }); }
+  if (Date.now() < rateUntil) return res.status(429).json({ error: 'Strava đang giới hạn số lần gọi, thử lại sau ít phút' });
+  try { await syncStrava(u); res.json({ me: publicMe(u) }); } catch (e) { console.error('sync lỗi', e.message); syncError(res, e); }
 });
 app.post('/api/strava/unlink', need, (req, res) => {
+  const s = jparse(req.user.strava, null);
   q.setStrava.run(null, 0, req.user.id); db.prepare('DELETE FROM real_daily WHERE user_id=?').run(req.user.id);
+  strava.deauthorize(s);
   res.json({ me: publicMe(req.user) });
 });
 
