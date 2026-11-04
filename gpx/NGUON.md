@@ -25,3 +25,7 @@ Không file nào tải được trực tiếp, công khai và có giấy phép r
 ## Cách tiếp theo
 1. Tải các GPX miễn phí từ tài khoản Komoot/Wikiloc/Strava của bạn (kiểm tra điều khoản), hoặc xin ban tổ chức giải.
 2. Đặt `<id>.gpx` vào thư mục này, chạy `npm run courses:gpx`.
+
+## Đã nhập (2026-11-04)
+GPX tự vẽ trong Komoot (đường nền OpenStreetMap, có độ cao): `trangan` (13,4 km), `danang` (cắt còn 3,3 km: bản gốc đi tới biển rồi quay lại), `saigon` (12,7 km), `mocchau` (23,8 km).
+Chưa dùng: file Hà Nội (xuất phát cách Hồ Gươm ~7 km, không đi qua hồ). Còn thiếu: `hoguom`, `halong`, `haivan`, `prenn`, `oquyho`, `mapileng`. File GPX gốc không commit (`gpx/*.gpx` nằm trong .gitignore), dữ liệu đã dựng nằm ở `public/courses/`.
