@@ -12,9 +12,9 @@
     BOLT_COST_MULT: 1.5,
     STAM_RESUME: 15,
     IDLE_REGEN: 2,
-    BITE_STAM: 20, BITE_SLOW_SECS: 4, BITE_STRIDE_MULT: 0.5,
+    BITE_STAM: 14, BITE_SLOW_SECS: 3, BITE_STRIDE_MULT: 0.5,
     HIT_STAM: 10, HIT_SLOW_SECS: 1,
-    DOG_SPEED: 19, DOG_START_GAP: 10, DOG_SECS: 9, DOG_WARN_SECS: 2,
+    DOG_SPEED: 19, DOG_START_GAP: 10, DOG_SECS: 16, DOG_WARN_SECS: 2,
     INV_SLOTS: 5, INV_STACK: 3
   };
   const ITEMS = {
@@ -22,7 +22,7 @@
     banana: { name: 'Chuối',     icon: '🍌', stam: 25,  w: 25 },
     melon:  { name: 'Dưa hấu',   icon: '🍉', stam: 35,  w: 15 },
     elec:   { name: 'Điện giải', icon: '🧂', stam: 50,  w: 8, cure: true },
-    bolt:   { name: 'Tia sét',   icon: '⚡', stam: 0,   w: 12 }
+    bolt:   { name: 'Tia sét',   icon: '⚡', stam: 0,   w: 30 }
   };
   const TIERS = [
     { min: 0,    name: 'Gà con',      icon: '🐣', color: '#8b95a1' },

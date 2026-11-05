@@ -38,24 +38,32 @@ function addHat(head, id) {
   else if (id === 'neko') for (const z of [-0.3, 0.3]) add(new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.42, 4), L(col)), 0, 0.62, z);
   else if (id === 'crown') { add(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.36, 0.22, 12, 1, true), L(col, { side: THREE.DoubleSide })), 0, 0.58, 0); for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; add(new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.28, 4), L(col)), Math.cos(a) * 0.4, 0.82, Math.sin(a) * 0.4); } }
 }
-function addAcc(body, g, id) {
+function addAcc(body, g, id, headG) {
   const col = itemColor('acc', id); if (!col) return;
-  if (id === 'glasses') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.62), L(col)); m.position.set(0.5, 1.84, 0); body.add(m); }
-  else if (id === 'scarf') { const t = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.11, 6, 16).rotateX(Math.PI / 2), L(col)); t.position.y = 1.36; body.add(t); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.2), L(col)); tail.position.set(-0.45, 1.1, 0.15); body.add(tail); }
-  else if (id === 'backpack') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.75, 0.62), L(col)); m.position.set(-0.6, 0.95, 0); body.add(m); }
-  else if (id === 'cape') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.2, 1.0), L(col, { side: THREE.DoubleSide })); m.position.set(-0.66, 0.95, 0); m.rotation.z = 0.12; body.add(m); g.userData.cape = m; }
+  if (id === 'glasses') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.62), L(col)); m.position.set(0.5, 0.03, 0); headG.add(m); }
+  else if (id === 'scarf') { const t = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.11, 6, 16).rotateX(Math.PI / 2), L(col)); t.position.y = 1.08; body.add(t); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.2), L(col)); tail.position.set(-0.45, 0.85, 0.15); body.add(tail); }
+  else if (id === 'backpack') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.75, 0.62), L(col)); m.position.set(-0.6, 0.78, 0); body.add(m); }
+  else if (id === 'cape') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.2, 1.0), L(col, { side: THREE.DoubleSide })); m.position.set(-0.66, 0.8, 0); m.rotation.z = 0.12; body.add(m); g.userData.cape = m; }
 }
 export function makeRunner(info, me) {
   const eq = { ...S.SHOP_DEFAULT, ...(info.equip || {}) };
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const T = S.TIERS[info.tier || 0];
-  const b = new THREE.Mesh(bellGeo, L(me ? '#e0a43a' : hueColor(info.id || 1))); body.add(b);
-  const sash = new THREE.Mesh(sashGeo, L('#f2c230')); sash.position.y = 0.72; body.add(sash);
-  const skin = L('#f0bf98'), head = new THREE.Mesh(headGeo, skin); head.position.y = 1.82; body.add(head);
-  const hair = new THREE.Mesh(hairGeo, L(['#2a2220', '#4a3020', '#1d1d24', '#6a4a2a'][(info.id || 0) % 4])); hair.position.y = 1.86; body.add(hair);
-  for (const z of [-0.2, 0.2]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), new THREE.MeshBasicMaterial({ color: '#222' })); e.position.set(0.48, 1.8, z); body.add(e); }
-  const hp = new THREE.Group(); hp.position.y = 1.82; body.add(hp); addHat(hp, eq.hat);
-  addAcc(body, g, eq.acc);
+  const b = new THREE.Mesh(bellGeo, L(me ? '#e0a43a' : hueColor(info.id || 1))); b.scale.set(0.92, 0.85, 0.92); body.add(b);
+  const sash = new THREE.Mesh(sashGeo, L('#f2c230')); sash.position.y = 0.62; sash.scale.set(0.92, 1, 0.92); body.add(sash);
+  const skin = L('#f0bf98'), headG = new THREE.Group(); headG.position.y = 1.72; headG.scale.setScalar(1.3); body.add(headG);      // chibi: đầu to gấp 1,3 lần
+  headG.add(new THREE.Mesh(headGeo, skin));
+  const hair = new THREE.Mesh(hairGeo, L(['#2a2220', '#4a3020', '#1d1d24', '#6a4a2a'][(info.id || 0) % 4])); hair.position.y = 0.04; headG.add(hair);
+  const white = new THREE.MeshBasicMaterial({ color: '#fff' }), ink = new THREE.MeshBasicMaterial({ color: '#1d1a1a' }), blush = new THREE.MeshBasicMaterial({ color: '#ff8fa0', transparent: true, opacity: 0.75 });
+  for (const z of [-0.2, 0.2]) {
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), white); w.scale.set(0.5, 1.15, 1); w.position.set(0.42, 0.0, z); headG.add(w);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), ink); e.scale.set(0.6, 1.15, 1); e.position.set(0.47, -0.01, z); headG.add(e);
+    const h = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), white); h.position.set(0.52, 0.05, z + 0.025); headG.add(h);
+    const ch = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), blush); ch.scale.set(0.35, 0.8, 1.3); ch.position.set(0.44, -0.17, z * 1.65); headG.add(ch);
+  }
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.013, 4, 10, Math.PI).rotateZ(Math.PI), ink); mouth.rotation.y = Math.PI / 2; mouth.position.set(0.5, -0.15, 0); headG.add(mouth);
+  const hp = new THREE.Group(); headG.add(hp); addHat(hp, eq.hat);
+  addAcc(body, g, eq.acc, headG);
   // thân nâng lên (BASE) để lộ đôi chân; tay và chân có khớp hông/vai + gối/khuỷu để bước tự nhiên
   const BASE = 0.42, skinMat = skin, cyl = (r, h) => new THREE.CylinderGeometry(r, r * 0.9, h, 8).translate(0, -h / 2, 0);
   const wc = itemColor('watch', eq.watch), shoeCol = itemColor('shoes', eq.shoes) || '#3a2d26';
@@ -67,7 +75,7 @@ export function makeRunner(info, me) {
     const end = new THREE.Mesh(endGeo, endMat); end.position.y = -len2; knee.add(end);
     return { hip, knee, end };
   };
-  const arms = [-1, 1].map((sd) => limb(0.28, 0.26, 0.085, limbGeo.clone().scale(0.8, 0.8, 0.8), skinMat, 1.0, sd * 0.68));
+  const arms = [-1, 1].map((sd) => limb(0.28, 0.26, 0.085, limbGeo.clone().scale(0.8, 0.8, 0.8), skinMat, 0.9, sd * 0.64));
   if (wc) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.26), eq.watch === 'watch_smart' ? new THREE.MeshBasicMaterial({ color: wc }) : L(wc)); w.position.set(0, 0.1, 0); arms[1].knee.add(w); }
   const legs = [-1, 1].map((sd) => limb(0.22, 0.22, 0.1, footGeo.clone().scale(1.15, 0.7, 0.9), L(shoeCol), 0.2, sd * 0.26));
   const feet = legs.map((lg, k) => { lg.end.position.x = 0.08;
@@ -121,20 +129,50 @@ function emojiSprite(ch, size = 2.2) {
   if (!emojiTex[ch]) { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'); x.font = '96px system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(ch, 64, 70); emojiTex[ch] = new THREE.CanvasTexture(cv); emojiTex[ch].colorSpace = THREE.SRGBColorSpace; }
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTex[ch], transparent: true, depthWrite: false })); sp.scale.set(size, size, 1); sp.renderOrder = 6; return sp;   // vẽ sau lớp đường bán trong suốt của chế độ bản đồ
 }
-function obstacleMesh(kind) {
+const rockCache = [];
+function rockGeo(i) {                                   // đá lởm chởm: icosahedron bị xô lệch đỉnh (cố định theo i)
+  if (rockCache[i]) return rockCache[i];
+  const g = new THREE.IcosahedronGeometry(1, 1), p = g.attributes.position, h = (n) => { const x = Math.sin(n * 127.1 + i * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const seen = new Map();
+  for (let k = 0; k < p.count; k++) { const key = p.getX(k).toFixed(3) + p.getY(k).toFixed(3) + p.getZ(k).toFixed(3); if (!seen.has(key)) seen.set(key, 0.78 + h(seen.size + 1) * 0.5); const f = seen.get(key); p.setXYZ(k, p.getX(k) * f, p.getY(k) * f * 0.85, p.getZ(k) * f); }
+  g.computeVertexNormals(); return (rockCache[i] = g);
+}
+function rockCluster(M) {
+  const g = new THREE.Group(), tones = ['#8d8a84', '#7d7a74', '#9b978e'];
+  [[0, 0.62, 0, 1.0, 0], [-0.9, 0.38, 0.55, 0.62, 1], [0.85, 0.33, -0.5, 0.52, 2]].forEach(([x, y, z, sc, k]) => { const m = new THREE.Mesh(rockGeo(k), M(tones[k])); m.position.set(x, y, z); m.scale.setScalar(sc * 1.05); m.rotation.y = k * 1.7; g.add(m); });
+  const moss = new THREE.Mesh(new THREE.SphereGeometry(0.62, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.42), M('#6f9a4a')); moss.position.set(0.05, 0.95, 0.05); moss.scale.set(1, 0.7, 1); g.add(moss);   // rêu trên đỉnh
+  return g;
+}
+function branchMesh(M) {                                // cành cây gãy nằm ngang đường, có cành con và lá
+  const g = new THREE.Group(), bark = M('#6b4a2c'), dark = M('#4e3620');
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.34, 4.6, 7).rotateX(Math.PI / 2), bark); trunk.position.y = 0.42; g.add(trunk);
+  const cut = new THREE.Mesh(new THREE.CircleGeometry(0.34, 7), M('#d9b988')); cut.position.set(0, 0.42, -2.3); cut.rotation.y = Math.PI; g.add(cut);   // mặt cắt gỗ
+  [[-1.3, 0.55, 0.75, 0.4, 1.3], [0.2, 0.62, -0.85, -0.45, 1.1], [1.4, 0.5, 0.6, 0.55, 0.9]].forEach(([z, y, x, rot, len]) => {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.12, len, 5).translate(0, len / 2, 0), dark); t.position.set(0, y - 0.1, z); t.rotation.z = -Math.sign(x) * (1.0 + Math.abs(rot) * 0.3); t.rotation.y = rot; g.add(t);
+    const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 0), M(['#4f8a3a', '#5f9d45', '#3f7a33'][Math.abs(Math.floor(z * 3)) % 3])); leaf.position.set(Math.sign(x) * (0.2 + len * 0.78), y + 0.35, z); leaf.scale.set(1.15, 0.7, 1.15); g.add(leaf);
+  });
+  const tip = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), M('#4f8a3a')); tip.position.set(0, 0.62, 2.35); tip.scale.set(1.2, 0.75, 1); g.add(tip);
+  return g;
+}
+export function obstacleMesh(kind) {
   const g = new THREE.Group(), M = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
-  if (kind === 'rock') { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.9, 0), M('#8d8a84')); m.scale.set(1.2, 0.85, 1.1); m.position.y = 0.6; g.add(m); }
+  if (kind === 'rock') g.add(rockCluster(M));
+  else if (kind === 'branch') g.add(branchMesh(M));
   else if (kind === 'puddle') { const m = new THREE.Mesh(new THREE.CircleGeometry(1.5, 18).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#58a9d8' })); m.scale.set(1, 1, 1.7); m.position.y = 0.06; g.add(m); }
   else if (kind === 'cone') { const m = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.3, 10), M('#ff7a1a')); m.position.y = 0.65; g.add(m); const b = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.37, 0.25, 10), M('#fff')); b.position.y = 0.6; g.add(b); }
   else if (kind === 'crate') { const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 1.4), M('#b98a4f')); m.position.y = 0.6; g.add(m); }
-  else if (kind === 'log') { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 4.6, 8).rotateX(Math.PI / 2), M('#7a5233')); m.position.y = 0.4; g.add(m); }
+  else if (kind === 'log') {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 4.6, 10).rotateX(Math.PI / 2), M('#7a5233')); m.position.y = 0.42; g.add(m);
+    for (const z of [-2.31, 2.31]) { const c = new THREE.Mesh(new THREE.CircleGeometry(0.42, 10), M('#d6b17a')); c.position.set(0, 0.42, z); c.rotation.y = z < 0 ? Math.PI : 0; g.add(c); const r = new THREE.Mesh(new THREE.RingGeometry(0.14, 0.2, 10), M('#a8804e')); r.position.set(0, 0.42, z * 1.001); r.rotation.y = c.rotation.y; g.add(r); }
+    for (const z of [-1.3, 0.5, 1.6]) { const k = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.035, 4, 12), M('#5d3d24')); k.position.set(0, 0.42, z); g.add(k); }
+  }
   else { const b = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 1.1), M('#6c747c')); b.position.y = 1.0; g.add(b); const h = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.8, 0.9), M('#7b848c')); h.position.set(1.4, 1.2, 0); g.add(h); for (const z of [-0.5, 0.5]) { const hn = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.6, 5), M('#e8e1cf')); hn.position.set(1.7, 1.75, z); hn.rotation.z = -0.5; g.add(hn); } for (const x of [-0.8, 0.8]) for (const z of [-0.4, 0.4]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 0.25), M('#4a5258')); l.position.set(x, 0.35, z); g.add(l); } }
   return g;
 }
-const OBST = { hanoi: ['cone', 'crate', 'puddle', 'log'], saigon: ['cone', 'crate', 'puddle'], danang: ['cone', 'puddle', 'rock'], halong: ['rock', 'puddle', 'cone'],
-  trangan: ['buffalo', 'rock', 'puddle'], mocchau: ['rock', 'puddle', 'buffalo', 'log'], haivan: ['rock', 'rock', 'puddle', 'cone'], prenn: ['rock', 'log', 'puddle'],
-  oquyho: ['rock', 'puddle', 'buffalo'], mapileng: ['rock', 'rock', 'cone'], gps: ['cone', 'crate', 'puddle', 'rock', 'log'] };
-const OBST_H = { rock: 1.0, puddle: 0.1, cone: 1.0, crate: 1.1, log: 0.8, buffalo: 1.4 }, OBST_W = { puddle: 2, log: 2 };
+const OBST = { hanoi: ['cone', 'crate', 'puddle', 'log', 'branch'], saigon: ['cone', 'crate', 'puddle'], danang: ['cone', 'puddle', 'rock', 'branch'], halong: ['rock', 'puddle', 'cone', 'branch'],
+  trangan: ['buffalo', 'rock', 'puddle', 'branch'], mocchau: ['rock', 'puddle', 'buffalo', 'branch', 'log'], haivan: ['rock', 'rock', 'puddle', 'cone', 'branch'], prenn: ['rock', 'branch', 'log', 'puddle'],
+  oquyho: ['rock', 'puddle', 'buffalo', 'branch'], mapileng: ['rock', 'rock', 'cone', 'branch'], gps: ['cone', 'crate', 'puddle', 'rock', 'log', 'branch'] };
+const OBST_H = { rock: 1.0, puddle: 0.1, cone: 1.0, crate: 1.1, log: 0.8, branch: 0.9, buffalo: 1.4 }, OBST_W = { puddle: 2, log: 2, branch: 2 };
 export function dogMesh() {
   const g = new THREE.Group(), M = (c) => new THREE.MeshLambertMaterial({ color: c });
   const fur = M('#d08f4f'), dark = M('#8b5a2b'), light = M('#f6e6c8'), pink = M('#e8788a'), ink = new THREE.MeshBasicMaterial({ color: '#1b1210' });
@@ -171,6 +209,31 @@ export function dogAnimate(g, t, run) {
   u.rig.position.y = Math.abs(Math.sin(w + 0.6)) * 0.2 * run; u.rig.rotation.z = Math.sin(w + 1.2) * 0.08 * run;
   u.head.rotation.z = -0.08 + Math.sin(w + 0.4) * 0.1 * run; u.jaw.rotation.z = -(0.18 + 0.2 * (0.5 + 0.5 * Math.sin(t * 15))) * run;
   u.tongue.position.y = -0.05 - Math.abs(Math.sin(t * 15)) * 0.05; u.tail.rotation.y = Math.sin(t * 24) * 0.7;
+}
+
+// ---------- xe máy đi ngược chiều ----------
+const BIKE_COL = ['#d93a3a', '#2f7fd8', '#19a974', '#f2b420', '#8e5bd9', '#ef7d2d'];
+export function bikeMesh(hue) {
+  const g = new THREE.Group(), M = (c) => new THREE.MeshLambertMaterial({ color: c, flatShading: true }), col = BIKE_COL[hue % BIKE_COL.length];
+  const wheels = [];
+  for (const x of [-0.72, 0.74]) {
+    const w = new THREE.Group(); w.position.set(x, 0.38, 0); g.add(w);
+    w.add(new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.16, 14).rotateX(Math.PI / 2), M('#222')));
+    w.add(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.18, 8).rotateX(Math.PI / 2), M('#c9ccd1')));
+    const sp = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.04, 0.04), M('#888')); w.add(sp); wheels.push(w);
+  }
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.38, 0.34), M(col)); body.position.set(0, 0.72, 0); g.add(body);
+  const tank = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.38), M(col)); tank.position.set(0.28, 0.98, 0); g.add(tank);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.12, 0.34), M('#2b2b30')); seat.position.set(-0.3, 0.98, 0); g.add(seat);
+  const fork = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.1), M('#bfc3c8')); fork.position.set(0.74, 0.78, 0); fork.rotation.z = 0.28; g.add(fork);
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.78, 6).rotateX(Math.PI / 2), M('#1f1f24')); bar.position.set(0.62, 1.2, 0); g.add(bar);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff7b0' })); lamp.position.set(0.9, 1.05, 0); g.add(lamp);
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(0.7, 14), new THREE.MeshBasicMaterial({ color: '#fff3a0', transparent: true, opacity: 0.35, depthWrite: false })); glow.position.set(1.1, 1.05, 0); glow.rotation.y = Math.PI / 2; g.add(glow);   // chùm đèn pha: dễ thấy từ xa
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.62, 8), M('#33557a')); torso.position.set(-0.22, 1.42, 0); torso.rotation.z = -0.25; g.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), M('#f0bf98')); head.position.set(-0.02, 1.9, 0); g.add(head);
+  const helm = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), M(col)); helm.position.set(-0.02, 1.95, 0); g.add(helm);
+  for (const z of [-0.3, 0.3]) { const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.6, 6), M('#33557a')); arm.position.set(0.25, 1.38, z); arm.rotation.z = -1.0; g.add(arm); }
+  g.scale.setScalar(1.3); g.userData.wheels = wheels; return g;
 }
 
 // ---------- Game ----------
@@ -254,11 +317,16 @@ export class Game {
       let lane = Math.floor(rng() * 4); for (let t = 0; t < 4 && hasObst(s, lane); t++) lane = (lane + 1) % 4;
       addItem(s, lane, key, emojiSprite(S.ITEMS[key].icon));
     }
+    for (let s = 90; s < this.total - 40; s += 190 + rng() * 150) {     // thêm tia sét ⚡ rải đều để người chơi hay được tăng tốc
+      let lane = Math.floor(rng() * 4); for (let t = 0; t < 4 && hasObst(s, lane); t++) lane = (lane + 1) % 4;
+      addItem(s, lane, 'bolt', emojiSprite(S.ITEMS.bolt.icon));
+    }
     for (let s = 55; s < this.total - 20; s += 38 + rng() * 60) {      // hàng xu ở một làn
       const lane = Math.floor(rng() * 4), n = 3 + Math.floor(rng() * 3);
       for (let i = 0; i < n; i++) if (!hasObst(s + i * 2.4, lane)) addItem(s + i * 2.4, lane, 'coin', emojiSprite(S.COIN.ICON, 1.4), 1.0);
     }
     this.items.sort((a, b) => a.s - b.s);
+    this.bikes = []; this.bikeEvents = []; for (let s = 140 + rng() * 120; s < this.total - 150; s += (230 + rng() * 170) / hard) this.bikeEvents.push({ s, lane: Math.floor(rng() * 4), v: 9 + rng() * 5, hue: Math.floor(rng() * 6) }); this.bikeIdx = 0;
     this.dogEvents = []; for (let s = 260 + rng() * 300; s < this.total - 120; s += 420 + rng() * 600) this.dogEvents.push(s);
     this.dogIdx = 0; this.dog = null; this.hold.clear();
     this.me = makeRunner({ id: 0, name: profile.name, km: profile.totals.totalKm, tier: profile.tier, equip: profile.equip }, true); this.scene.add(this.me.group);
@@ -356,8 +424,29 @@ export class Game {
       slot.n++; it.taken = true; this.dyn.remove(it.sp); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1;
       sfx.pickup(); this.float(`${S.ITEMS[it.key].icon} ${S.ITEMS[it.key].name}`, '#fff'); this.hooks.onInventory && this.hooks.onInventory(this.inv);
     }
+    this.bikeLogic(dt, prev);
     this.dogLogic(dt);
     if (st.target >= this.total && st.s >= this.total - 0.05) { st.finished = true; st.s = st.target = this.total; sfx.finish(); this.hold.clear(); this.hooks.onFinish && this.hooks.onFinish(this.summary()); }
+  }
+  bikeLogic(dt, prevS) {
+    const st = this.st;
+    while (this.bikeIdx < this.bikeEvents.length && st.s >= this.bikeEvents[this.bikeIdx].s) {         // xe máy xuất hiện cách người chơi ~170 m, chạy ngược về phía bạn
+      const e = this.bikeEvents[this.bikeIdx++], m = bikeMesh(e.hue); m.visible = true; this.dyn.add(m);
+      this.bikes.push({ m, s: st.s + 170, ps: st.s + 170, lane: e.lane, v: e.v, done: false, near: false }); sfx.honk(); this.float('Xe máy ngược chiều! 🏍️', '#ffd27a');
+    }
+    for (const b of this.bikes) {
+      b.ps = b.s; b.s -= b.v * dt;
+      if (this.mode === 'auto' && !b.done && b.lane === st.lane && b.s > st.s) {                                       // tự động: tránh sang làn trống khi xe sắp tới
+        const ttc = (b.s - st.s) / Math.max(1, st.speed + b.v);
+        if (ttc < 1.7) { const cands = [st.lane - 1, st.lane + 1].filter((l) => l >= 0 && l < S.LANES.COUNT && !this.bikes.some((o) => !o.done && o !== b && o.lane === l && Math.abs(o.s - st.s) < 60)); if (cands.length) this.moveLane(cands[Math.floor(Math.random() * cands.length)] - st.lane); }
+      }
+      if (!b.done && b.ps - prevS > 0 && b.s - st.s <= 0) {                                                            // hai bên vừa đi qua nhau
+        b.done = true; const dl = Math.abs(st.lat - LX[b.lane]);
+        if (dl < 1.5) { st.stam = Math.max(0, st.stam - 15); st.slowT = Math.max(st.slowT, 1.5); st.shake = 0.5; this.float('Đụng xe máy! -15', '#ff7a6a'); sfx.hit(); if (st.stam <= 0) st.exhausted = true; }
+        else if (dl < 3.8) { this.float('Suýt va! 😅', '#ffe27a'); sfx.swoosh(); }
+      }
+    }
+    this.bikes = this.bikes.filter((b) => { if (b.s < st.s - 60) { this.dyn.remove(b.m); return false; } return true; });
   }
   dogLogic(dt) {
     const st = this.st;
@@ -370,8 +459,9 @@ export class Game {
     else if (d.phase === 'chase') {
       d.s += R.DOG_SPEED * dt; d.lat += (st.lat - d.lat) * Math.min(1, dt * 3);
       if ((d.bark -= dt) <= 0) { d.bark = 1.8; sfx.bark(); }
-      if (st.s - d.s <= 0.9) { st.stam = Math.max(0, st.stam - R.BITE_STAM); st.slowT = R.BITE_SLOW_SECS; st.bites++; this.unsent.bites++; st.shake = 0.5; this.float(`Bị cắn! -${R.BITE_STAM}`, '#ff7a6a'); sfx.bite(); if (st.stam <= 0) st.exhausted = true; d.phase = 'leave'; d.t = 2; }
-      else if (d.t <= 0) { d.phase = 'leave'; d.t = 2; this.float('Thoát chó rồi 😅', '#9ef0b0'); }
+      d.cool = (d.cool || 0) - dt;
+      if (st.s - d.s <= 0.9 && d.cool <= 0) { st.stam = Math.max(0, st.stam - R.BITE_STAM); st.slowT = R.BITE_SLOW_SECS; st.bites++; this.unsent.bites++; st.shake = 0.5; this.float(`Bị cắn! -${R.BITE_STAM}`, '#ff7a6a'); sfx.bite(); if (st.stam <= 0) st.exhausted = true; d.cool = 3.5; d.s = st.s - R.DOG_START_GAP * 0.8; d.bitten = true; }   // cắn xong lùi lại rồi lại đuổi tiếp tới hết giờ
+      else if (d.t <= 0) { d.phase = 'leave'; d.t = 2; this.float(d.bitten ? 'Chó bỏ cuộc 😮‍💨' : 'Thoát chó rồi 😅', '#9ef0b0'); }
     } else if (d.phase === 'leave') { d.lat += (d.lat < 0 ? -1 : 1) * 6 * dt; d.s += 2 * dt; if (d.t <= 0) { this.dyn.remove(d.m); this.dog = null; return; } }
     if (d.m.visible) { const P = this.world.posAt(d.s), [x, z] = this.world.off(P, d.lat); d.m.position.set(x, P.y, z); d.m.rotation.y = -P.h - (d.phase === 'leave' ? 1.2 : 0); }
   }
@@ -416,6 +506,7 @@ export class Game {
     for (const f of this.floaters) { f.t -= dt; f.sp.position.y = f.y + (1.3 - f.t) * 1.6; f.sp.material.opacity = clamp(f.t, 0, 1); }
     this.floaters = this.floaters.filter((f) => { if (f.t <= 0) this.scene.remove(f.sp); return f.t > 0; });
     for (const it of this.items) if (!it.taken) it.sp.position.y = it.y + Math.sin(t * 3 + it.s) * 0.2;
+    for (const b of this.bikes) { const Q = w.posAt(b.s), [x, z] = w.off(Q, LX[b.lane]); b.m.position.set(x, Q.y, z); b.m.rotation.y = -Q.h + Math.PI; for (const wh of b.m.userData.wheels) wh.rotation.z -= b.v * dt / 0.38; b.m.rotation.z = Math.sin(t * 9 + b.s) * 0.02; }
     if (this.dog && this.dog.m.visible) dogAnimate(this.dog.m, t, this.dog.phase === 'leave' ? 0.55 : 1);
     if (st.shake > 0) st.shake -= dt;
     // camera: zoom in -> bám đường (hướng theo đường); zoom out -> toàn cảnh, xoay tự do quanh người chơi

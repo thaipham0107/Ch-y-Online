@@ -137,6 +137,7 @@ function ensureGame() {
     onCoin: (n) => { sessionCoins += n; },
     onFinish: (sum) => finishRun(sum)
   }, cfg);
+  if (window.__chayDebug) window.__game = game;      // chỉ để kiểm thử tự động
   return game;
 }
 let bannerT; function banner(t, ms) { const b = $('#banner'); b.textContent = t; b.hidden = false; clearTimeout(bannerT); bannerT = setTimeout(() => { b.hidden = true; }, ms); }
