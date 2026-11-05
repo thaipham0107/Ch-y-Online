@@ -177,7 +177,7 @@ module.exports = function mountAdmin(app, ctx) {
     const sess = all('SELECT id,start,last,active_s,hits,device,ua,ip,ref FROM vsessions WHERE user_id=? ORDER BY start DESC LIMIT 60', u.id);
     const tot = publicTotals(u.id);
     res.json({
-      user: { ...userRow(u), banReason: u.ban_reason, strava: !!(u.strava && u.strava !== ''), lastSync: u.last_sync, owned: jp(u.owned, []), equip: jp(u.equip, {}), inventory: jp(u.inventory, []), imported: !!u.imported },
+      user: { ...userRow(u), avatar: u.avatar ? `/api/avatar/${u.id}?v=${u.avatar_v}` : null, banReason: u.ban_reason, strava: !!(u.strava && u.strava !== ''), lastSync: u.last_sync, owned: jp(u.owned, []), equip: jp(u.equip, {}), inventory: jp(u.inventory, []), imported: !!u.imported },
       totals: tot,
       usage: one('SELECT COUNT(*) sessions, COALESCE(SUM(active_s),0) activeS, COALESCE(AVG(active_s),0) avgS, MIN(start) first, MAX(last) last, COUNT(DISTINCT ip) ips FROM vsessions WHERE user_id=?', u.id),
       daily: all('SELECT d.day, d.game_m, d.steps, d.secs, d.bites, d.jumps, d.imp, COALESCE(r.km,0) real_km FROM daily d LEFT JOIN real_daily r ON r.user_id=d.user_id AND r.day=d.day WHERE d.user_id=? ORDER BY d.day DESC LIMIT 120', u.id),
@@ -212,6 +212,10 @@ module.exports = function mountAdmin(app, ctx) {
     const next = Math.max(0, u.coins + d);
     db.prepare('UPDATE users SET coins=? WHERE id=?').run(next, u.id);
     alog('coins', u.username, { delta: d, before: u.coins, after: next, note: cleanStr(req.body.note, 80) }); res.json({ ok: true, coins: next });
+  });
+  app.post('/api/admin/users/:id/avatar-clear', guard, (req, res) => {
+    const u = one('SELECT id,username FROM users WHERE id=?', +req.params.id); if (!u) return res.status(404).json({ error: 'Không có người chơi' });
+    db.prepare('UPDATE users SET avatar=NULL, avatar_v=? WHERE id=?').run(Date.now(), u.id); alog('avatar_clear', u.username, null); res.json({ ok: true });
   });
   app.post('/api/admin/users/:id/rename', guard, (req, res) => {
     const u = one('SELECT id,username FROM users WHERE id=?', +req.params.id); if (!u) return res.status(404).json({ error: 'Không có người chơi' });

@@ -1,5 +1,6 @@
 # Changelog
 ## 1.2.0
+- Ảnh đại diện: tải ở Hồ sơ, thay cho đầu nhân vật (tài khoản: server, mọi người thấy; khách: trình duyệt); admin xóa được ảnh vi phạm.
 - Cử chỉ vuốt cho cảm ứng (trái/phải = đổi làn, xuống = trượt, lên = nhảy, chạm/giữ = chạy), nút ảo ẩn mặc định (🎮 để hiện); khung tuyến mờ và gọn; thể lực là vòng tròn cạn ngược chiều kim đồng hồ có cảnh báo nhấp nháy; nhặt vật phẩm mượt hơn.
 - Nhanh hơn: bước dài 4 m, tự động 4,5 bước/giây (5 km ≈ 5 phút), thủ công tối đa 5 bước/giây; chó 19 m/s, đuổi 16 giây và cắn lặp lại có hồi chiêu.
 - Chướng ngại đẹp hơn (đá có rêu, cành cây, khúc gỗ), xe máy ngược chiều, đội cổ vũ 1–5 người với cảm xúc trên đầu nhân vật, nhân vật chibi hơn.

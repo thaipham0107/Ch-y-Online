@@ -79,3 +79,6 @@ Các bạn nữ chibi đứng hai bên đường theo đội 1–5 người (s�
 - **🧲 Nam châm** (10 giây, hút xu ở mọi làn) và **🛡️ Khiên** (8 giây, chặn chướng ngại, xe máy, chó). Túi đầy thì tự dùng.
 - **Tốc độ tăng dần**: bước dài từ 80% lên 100% sau 60% quãng đường, camera mở rộng dần khi nhanh.
 - **Đoạn thưởng xu**: mỗi 1–2 km có một đoạn 130–180 m toàn xu uốn lượn, không chướng ngại.
+
+## Ảnh đại diện
+Hồ sơ → tải ảnh đại diện; ảnh thay cho đầu nhân vật (bảng tròn viền vàng quay về camera). Tài khoản lưu trên server và mọi người thấy; khách lưu trên trình duyệt. Server chỉ nhận JPG/PNG/WebP ≤ 60 KB (trình duyệt tự thu nhỏ). Admin có thể xóa avatar vi phạm. Lưu ý quyền riêng tư: ảnh người dùng tải lên là dữ liệu cá nhân, hãy nêu trong chính sách quyền riêng tư và có quy trình gỡ ảnh.

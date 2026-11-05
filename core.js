@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS awards(tid TEXT NOT NULL, pkey TEXT NOT NULL, cat TEX
 `);
 function addCol(table, col, def) { if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); }
 addCol('users', 'coins', 'INTEGER DEFAULT 0'); addCol('users', 'coin_rem', 'REAL DEFAULT 0'); addCol('users', 'owned', "TEXT DEFAULT '[]'");
-addCol('users', 'equip', "TEXT DEFAULT '{}'"); addCol('users', 'imported', 'INTEGER DEFAULT 0');
+addCol('users', 'equip', "TEXT DEFAULT '{}'"); addCol('users', 'imported', 'INTEGER DEFAULT 0'); addCol('users', 'avatar', 'TEXT'); addCol('users', 'avatar_v', 'INTEGER DEFAULT 0');
 addCol('daily', 'imp', 'REAL DEFAULT 0'); addCol('real_daily', 'paid', 'REAL DEFAULT 0');
 addCol('tournaments', 'view', "TEXT DEFAULT '3d'"); addCol('runs', 'go', 'INTEGER DEFAULT 0'); addCol('runs', 'pkey', 'TEXT'); addCol('runs', 'tid', 'TEXT'); addCol('runs', 'cat', 'TEXT'); addCol('runs', 'seed', 'INTEGER');
 
@@ -123,7 +123,8 @@ function publicMe(u) {
   return {
     id: u.id, username: u.username, name: u.name, stravaLinked: !!u.strava, lastSync: u.last_sync,
     totals: tot, tier: Shared.tierIndex(tot.totalKm), today: { gameKm: r1((dg ? dg.game_m : 0) / 1000), realKm: dr ? dr.km : 0 },
-    inventory: jparse(u.inventory, []), coins: u.coins, owned: [...ownedSet(u)], equip: equipOf(u), imported: !!u.imported
+    inventory: jparse(u.inventory, []), coins: u.coins, owned: [...ownedSet(u)], equip: equipOf(u), imported: !!u.imported,
+    avatar: u.avatar ? `/api/avatar/${u.id}?v=${u.avatar_v}` : null
   };
 }
 
@@ -318,6 +319,29 @@ app.post('/api/inventory', need, (req, res) => {
 });
 
 // ---------- Cửa hàng ----------
+// ---------- Ảnh đại diện (avatar): thu nhỏ ở trình duyệt, server kiểm tra định dạng/kích thước rồi phát lại cho mọi người ----------
+const AV_RE = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/;
+function avatarOk(mime, b64) {
+  if (b64.length > 80000) return false;                                  // ~60 KB sau khi giải mã
+  const b = Buffer.from(b64, 'base64'); if (b.length < 100) return false;
+  if (mime === 'image/jpeg') return b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  if (mime === 'image/png') return b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+  return b.slice(0, 4).toString() === 'RIFF' && b.slice(8, 12).toString() === 'WEBP';
+}
+app.get('/api/avatar/:id', (req, res) => {
+  const u = db.prepare('SELECT avatar FROM users WHERE id=?').get(+req.params.id), m = u && u.avatar && AV_RE.exec(u.avatar);
+  if (!m) return res.status(404).end();
+  res.set({ 'Content-Type': m[1], 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'" });
+  res.end(Buffer.from(m[2], 'base64'));
+});
+app.post('/api/avatar', need, (req, res) => {
+  if (limited(req, 'avatar', 20, 3600e3)) return res.status(429).json({ error: 'Đổi ảnh quá nhiều lần, thử lại sau' });
+  const m = AV_RE.exec(String((req.body || {}).data || ''));
+  if (!m || !avatarOk(m[1], m[2])) return res.status(400).json({ error: 'Ảnh không hợp lệ hoặc quá lớn (tối đa khoảng 60 KB, JPG/PNG/WebP)' });
+  db.prepare('UPDATE users SET avatar=?, avatar_v=? WHERE id=?').run(req.body.data, Date.now(), req.user.id);
+  res.json({ me: publicMe(req.user) });
+});
+app.delete('/api/avatar', need, (req, res) => { db.prepare('UPDATE users SET avatar=NULL, avatar_v=? WHERE id=?').run(Date.now(), req.user.id); res.json({ me: publicMe(req.user) }); });
 app.post('/api/shop/buy', need, (req, res) => {
   const u = q.userById.get(req.user.id), it = Shared.shopItem(String(req.body.cat), String(req.body.id));
   if (!it) return res.status(400).json({ error: 'Không có vật phẩm này' });
@@ -617,12 +641,12 @@ function connect(sock, cookieHeader) {
         if (m.room && /^t:[A-Z0-9]{6}$/.test(String(m.room)) && q.tGet.get(String(m.room).slice(2))) key = String(m.room);
         else if (m.room && /^gps:[a-z0-9,.\-]{1,40}$/.test(String(m.room))) key = String(m.room);
         else { const map = mapById(String(m.map)); if (!map) return; key = map.id; }
-        if (user) { const tot = totalsFor(user.id); p.name = user.name; p.km = tot.totalKm; p.equip = cleanEquip(equipOf(user)); }
+        if (user) { const tot = totalsFor(user.id); p.name = user.name; p.km = tot.totalKm; p.equip = cleanEquip(equipOf(user)); p.av = user.avatar ? `${user.id}.${user.avatar_v}` : null; }
         else { p.name = cleanName(m.name) || 'Khách'; p.km = r1(clamp(+m.km || 0, 0, 20000)); p.equip = cleanEquip(m.equip); }
         p.tier = Shared.tierIndex(p.km);
         let rk; for (let k = 1; ; k++) { rk = key + '#' + k; const set = rooms.get(rk) || new Set(); if (set.size < 30) { rooms.set(rk, set); break; } }
         p.room = rooms.get(rk); p.room.add(p);
-        const info = (o) => ({ id: o.id, name: o.name, km: o.km, tier: o.tier, equip: o.equip, s: o.s, l: o.l, j: o.j, mv: o.mv });
+        const info = (o) => ({ id: o.id, name: o.name, km: o.km, tier: o.tier, equip: o.equip, av: o.av, s: o.s, l: o.l, j: o.j, mv: o.mv });
         send(p, { t: 'welcome', id: p.id, players: [...p.room].filter((o) => o !== p).map(info) });
         bcast(p.room, { t: 'join', p: info(p) }, p);
       } else if (m.t === 'pos' && p.room) {

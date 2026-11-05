@@ -59,7 +59,7 @@ export class Store {
     for (const d of Object.values(g.daily)) { t.gameM += d.gameM; t.steps += d.steps; t.secs += d.secs; for (const k of ITEM_KEYS) t.items[k] = (t.items[k] || 0) + ((d.items || {})[k] || 0); }
     const today = g.daily[dayOf()], gameKm = r1(t.gameM / 1000);
     return { mode: 'guest', name: g.name, stravaLinked: false, lastSync: 0, totals: { gameKm, realKm: 0, totalKm: gameKm, steps: t.steps, secs: t.secs, items: t.items },
-      today: { gameKm: r1((today ? today.gameM : 0) / 1000), realKm: 0 }, inventory: g.inventory || [], coins: g.coins, owned: g.owned, equip: { ...S.SHOP_DEFAULT, ...g.equip } };
+      today: { gameKm: r1((today ? today.gameM : 0) / 1000), realKm: 0 }, inventory: g.inventory || [], coins: g.coins, owned: g.owned, equip: { ...S.SHOP_DEFAULT, ...g.equip }, avatar: g.avatar || null };
   }
 
   // ----- chuyến chạy tự do -----
@@ -101,6 +101,15 @@ export class Store {
     }
     const earn = g.coinRem + a.meters / 1000 * S.COIN.PER_KM_GAME;
     g.coins += Math.floor(earn) + (a.items.coin || 0) + (finished ? S.COIN.FINISH : 0); g.coinRem = earn - Math.floor(earn); safeSet(g);
+  }
+  // ảnh đại diện: tài khoản lưu trên server (mọi người thấy), khách lưu trên trình duyệt (chỉ mình thấy)
+  async setAvatar(dataUrl) {
+    if (this.mode === 'guest') { this.guest.avatar = dataUrl; safeSet(this.guest); return; }
+    const r = await api('/api/avatar', { data: dataUrl }); this.me = r.me;
+  }
+  async clearAvatar() {
+    if (this.mode === 'guest') { delete this.guest.avatar; safeSet(this.guest); return; }
+    const r = await api('/api/avatar', undefined, 'DELETE'); this.me = r.me;
   }
   saveInventory(inv) {
     const clean = inv.map((s) => ({ k: s.k, n: s.n }));

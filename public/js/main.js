@@ -64,7 +64,7 @@ function drawElev(cv, map, cur) {
 const SKY = { hanoi: ['#9fd0f0', '#8cc96b'], saigon: ['#a9cbe4', '#8dc46a'], danang: ['#7cc5f0', '#3d9fc9'], halong: ['#a6dcea', '#4aa3c4'], trangan: ['#cfe0b8', '#9ed066'], mocchau: ['#c5dccb', '#7cbf5c'], haivan: ['#a5c7e0', '#7db561'], prenn: ['#b6c8c4', '#2f7a49'], oquyho: ['#b9cde0', '#78b05a'], mapileng: ['#d4d4c8', '#a79a84'] };
 function renderLobby() {
   const p = store.profile(); coinBase = p.coins || 0;
-  $('#who-name').textContent = p.name; $('#who-tier').innerHTML = tierPill(p.tier ?? S.tierIndex(p.totals.totalKm));
+  $('#who-name').innerHTML = (p.avatar ? `<img class="avs" src="${esc(p.avatar)}" alt="">` : '') + esc(p.name); $('#who-tier').innerHTML = tierPill(p.tier ?? S.tierIndex(p.totals.totalKm));
   $('#who-stats').innerHTML = `<div class="stat"><b>${p.totals.gameKm.toFixed(1)}</b>km trong game</div><div class="stat real"><b>${p.totals.realKm.toFixed(1)}</b>km ngoài đời 👟</div><div class="stat tot"><b>${p.totals.totalKm.toFixed(1)}</b>tổng km</div><div class="stat coin"><b><span class="gc"></span> ${p.coins || 0}</b>xu</div>`;
   const g = p.today.gameKm, r = p.today.realKm, tot = g + r, pct = (v) => Math.min(100, v / GOAL_KM * 100);
   $('#goal').innerHTML = `<b>Mục tiêu hôm nay: ${tot.toFixed(1)} / ${GOAL_KM} km</b> ${tot >= GOAL_KM ? '✅' : ''}
@@ -333,17 +333,39 @@ function shopPanel(cat) {
     } catch (er) { toast(er.message); }
   };
 }
+// cắt vuông giữa ảnh, thu về 160×160, nén JPEG đến khi nhẹ (<~45 KB) để lưu và gửi nhanh
+async function prepareAvatar(file) {
+  if (!/^image\//.test(file.type)) throw new Error('Hãy chọn một file ảnh');
+  if (file.size > 15e6) throw new Error('Ảnh quá lớn (tối đa 15 MB)');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('Không đọc được ảnh (thử JPG hoặc PNG)')); i.src = url; });
+    const S0 = 160, cv = document.createElement('canvas'); cv.width = cv.height = S0; const x = cv.getContext('2d');
+    const side = Math.min(img.naturalWidth, img.naturalHeight), sx = (img.naturalWidth - side) / 2, sy = (img.naturalHeight - side) / 2;
+    x.fillStyle = '#fff'; x.fillRect(0, 0, S0, S0); x.drawImage(img, sx, sy, side, side, 0, 0, S0, S0);
+    for (let q = 0.88; q >= 0.4; q -= 0.12) { const d = cv.toDataURL('image/jpeg', q); if (d.length < 60000) return d; }
+    throw new Error('Không nén được ảnh đủ nhẹ');
+  } finally { URL.revokeObjectURL(url); }
+}
 async function profilePanel() {
   const p = store.profile();
   const strava = p.mode !== 'account' ? '<p class="hint">Khách không kết nối Strava được. Tạo tài khoản để cộng km chạy ngoài đời.</p>'
     : p.stravaLinked ? `<p>🟧 Đã kết nối Strava · đồng bộ lần cuối ${p.lastSync ? new Date(p.lastSync).toLocaleString('vi-VN') : '—'}</p><div class="seg"><button id="p-sync">🔄 Đồng bộ</button><button id="p-unlink">Ngắt kết nối</button></div>`
     : cfg.strava ? `<p class="hint">Kết nối để thêm km chạy ngoài đời vào lịch sử và xếp hạng, và nhận ${S.COIN.PER_KM_REAL} xu/km.${cfg.mock ? ' (DEMO: dữ liệu giả)' : ''}</p><a class="primary" style="display:block;text-align:center;text-decoration:none" href="/auth/strava">Kết nối Strava</a>` : '<p class="hint">Server chưa cấu hình Strava.</p>';
-  openModal(`<h2>👤 ${esc(p.name)}</h2>${tierPill(p.tier ?? S.tierIndex(p.totals.totalKm))}
+  openModal(`<h2>👤 ${esc(p.name)}</h2>
+    <div class="avrow"><div class="avbig">${p.avatar ? `<img src="${esc(p.avatar)}" alt="">` : '<span>🙂</span>'}</div>
+      <div><div class="seg"><button id="p-avpick" class="on">📷 ${p.avatar ? 'Đổi ảnh' : 'Tải ảnh đại diện'}</button>${p.avatar ? '<button id="p-avdel">Xóa</button>' : ''}</div>
+      <p class="hint">Ảnh này thay cho khuôn mặt nhân vật khi chạy.${p.mode === 'guest' ? ' Khách chỉ tự thấy ảnh của mình; tạo tài khoản để mọi người cùng thấy.' : ' Mọi người chơi cùng cung đường sẽ thấy ảnh này.'}</p></div>
+      <input type="file" id="p-avfile" accept="image/*" hidden></div>
+    ${tierPill(p.tier ?? S.tierIndex(p.totals.totalKm))}
     <div class="sumgrid"><div>Trong game<b>${p.totals.gameKm.toFixed(1)} km</b></div><div>Ngoài đời<b>${p.totals.realKm.toFixed(1)} km</b></div><div>Tổng<b>${p.totals.totalKm.toFixed(1)} km</b></div><div>Số bước<b>${p.totals.steps}</b></div><div>Xu<b><span class="gc"></span> ${p.coins || 0}</b></div><div>Vật phẩm<b style="font-size:15px">${ITEM_ICON(p.totals.items)}</b></div></div>
     <div id="my-awards"></div><h3>Strava (tùy chọn)</h3>${strava}
     <h3>Tài khoản</h3><div class="seg">${p.mode === 'guest' ? '<button id="p-export">Sao lưu dữ liệu (file)</button>' : ''}<button id="p-out">Đăng xuất</button></div>
     ${p.mode === 'guest' ? '<p class="hint">Dữ liệu khách nằm trên trình duyệt này. Khi tạo tài khoản, bạn sẽ được hỏi có gộp dữ liệu này vào không.</p>' : ''}`);
   const on = (id, fn) => { const b = $('#' + id); if (b) b.onclick = fn; };
+  on('p-avpick', () => $('#p-avfile').click());
+  { const f = $('#p-avfile'); if (f) f.onchange = async () => { const file = f.files && f.files[0]; if (!file) return; try { toast('Đang xử lý ảnh...', 1500); await store.setAvatar(await prepareAvatar(file)); toast('Đã đổi ảnh đại diện ✓'); profilePanel(); renderLobby(); } catch (er) { toast(er.message || 'Không dùng được ảnh này', 3500); } }; }
+  on('p-avdel', async () => { try { await store.clearAvatar(); toast('Đã xóa ảnh đại diện'); profilePanel(); renderLobby(); } catch (er) { toast(er.message, 3000); } });
   on('p-sync', async () => { try { await api('/api/strava/sync', {}); await store.refresh(); toast('Đã đồng bộ ✓'); profilePanel(); renderLobby(); } catch (er) { toast(er.message, 3500); await store.refresh().catch(() => {}); profilePanel(); renderLobby(); } });
   on('p-unlink', async () => { await api('/api/strava/unlink', {}); await store.refresh(); profilePanel(); renderLobby(); });
   on('p-out', async () => { await store.logout(); closeModal(); stopRun(); show('entry'); });

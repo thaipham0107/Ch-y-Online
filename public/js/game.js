@@ -45,6 +45,23 @@ function addAcc(body, g, id, headG) {
   else if (id === 'backpack') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.75, 0.62), L(col)); m.position.set(-0.6, 0.78, 0); body.add(m); }
   else if (id === 'cape') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.2, 1.0), L(col, { side: THREE.DoubleSide })); m.position.set(-0.66, 0.8, 0); m.rotation.z = 0.12; body.add(m); g.userData.cape = m; }
 }
+const avatarCache = new Map();
+function loadAvatarTex(src, cb) {                       // ảnh đại diện → texture tròn có viền vàng (dùng chung cho mọi nhân vật cùng ảnh)
+  let e = avatarCache.get(src); if (e && e.tex) return cb(e.tex);
+  if (!e) {
+    e = { tex: null, cbs: [] }; avatarCache.set(src, e);
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 256; const x = cv.getContext('2d');
+      x.save(); x.beginPath(); x.arc(128, 128, 118, 0, 7); x.clip(); x.drawImage(img, 0, 0, 256, 256); x.restore();
+      x.lineWidth = 14; x.strokeStyle = '#f2c230'; x.beginPath(); x.arc(128, 128, 118, 0, 7); x.stroke();
+      const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; e.tex = t; e.cbs.forEach((f) => f(t)); e.cbs = [];
+    };
+    img.onerror = () => { avatarCache.delete(src); };
+    img.src = src;
+  }
+  e.cbs.push(cb);
+}
 export function makeRunner(info, me) {
   const eq = { ...S.SHOP_DEFAULT, ...(info.equip || {}) };
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
@@ -52,16 +69,21 @@ export function makeRunner(info, me) {
   const b = new THREE.Mesh(bellGeo, L(me ? '#e0a43a' : hueColor(info.id || 1))); b.scale.set(0.92, 0.85, 0.92); body.add(b);
   const sash = new THREE.Mesh(sashGeo, L('#f2c230')); sash.position.y = 0.62; sash.scale.set(0.92, 1, 0.92); body.add(sash);
   const skin = L('#f0bf98'), headG = new THREE.Group(); headG.position.y = 1.72; headG.scale.setScalar(1.3); body.add(headG);      // chibi: đầu to gấp 1,3 lần
-  headG.add(new THREE.Mesh(headGeo, skin));
-  const hair = new THREE.Mesh(hairGeo, L(['#2a2220', '#4a3020', '#1d1d24', '#6a4a2a'][(info.id || 0) % 4])); hair.position.y = 0.04; headG.add(hair);
+  const faceParts = [], addFace = (m) => { headG.add(m); faceParts.push(m); return m; };
+  addFace(new THREE.Mesh(headGeo, skin));
+  const hair = new THREE.Mesh(hairGeo, L(['#2a2220', '#4a3020', '#1d1d24', '#6a4a2a'][(info.id || 0) % 4])); hair.position.y = 0.04; addFace(hair);
   const white = new THREE.MeshBasicMaterial({ color: '#fff' }), ink = new THREE.MeshBasicMaterial({ color: '#1d1a1a' }), blush = new THREE.MeshBasicMaterial({ color: '#ff8fa0', transparent: true, opacity: 0.75 });
   for (const z of [-0.2, 0.2]) {
-    const w = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), white); w.scale.set(0.5, 1.15, 1); w.position.set(0.42, 0.0, z); headG.add(w);
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), ink); e.scale.set(0.6, 1.15, 1); e.position.set(0.47, -0.01, z); headG.add(e);
-    const h = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), white); h.position.set(0.52, 0.05, z + 0.025); headG.add(h);
-    const ch = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), blush); ch.scale.set(0.35, 0.8, 1.3); ch.position.set(0.44, -0.17, z * 1.65); headG.add(ch);
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), white); w.scale.set(0.5, 1.15, 1); w.position.set(0.42, 0.0, z); addFace(w);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), ink); e.scale.set(0.6, 1.15, 1); e.position.set(0.47, -0.01, z); addFace(e);
+    const h = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), white); h.position.set(0.52, 0.05, z + 0.025); addFace(h);
+    const ch = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), blush); ch.scale.set(0.35, 0.8, 1.3); ch.position.set(0.44, -0.17, z * 1.65); addFace(ch);
   }
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.013, 4, 10, Math.PI).rotateZ(Math.PI), ink); mouth.rotation.y = Math.PI / 2; mouth.position.set(0.5, -0.15, 0); headG.add(mouth);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.013, 4, 10, Math.PI).rotateZ(Math.PI), ink); mouth.rotation.y = Math.PI / 2; mouth.position.set(0.5, -0.15, 0); addFace(mouth);
+  if (info.avatar) {                                              // ảnh đại diện thay cho đầu: bảng tròn luôn hướng về camera, đầu 3D ẩn đi khi ảnh đã tải xong
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true })); sp.scale.set(1.25, 1.25, 1); sp.visible = false; sp.renderOrder = 3; headG.add(sp);
+    loadAvatarTex(info.avatar, (t) => { sp.material.map = t; sp.material.needsUpdate = true; sp.visible = true; for (const f of faceParts) f.visible = false; });
+  }
   const hp = new THREE.Group(); headG.add(hp); addHat(hp, eq.hat);
   addAcc(body, g, eq.acc, headG);
   // thân nâng lên (BASE) để lộ đôi chân; tay và chân có khớp hông/vai + gối/khuỷu để bước tự nhiên
@@ -428,7 +450,7 @@ export class Game {
     this.flyers = [];
     this.squads = []; { const cm = CHEER_MAX[course.theme] || 3; for (let s = 105 + rng() * 80; s < this.total - 50; s += 150 + rng() * 170) this.squads.push({ s, side: rng() < 0.5 ? -1 : 1, n: 1 + Math.floor(rng() * cm), k: Math.floor(rng() * 6), built: false, pass: false, g: null, list: [], parts: [] }); }
     this.emo = null;
-    this.me = makeRunner({ id: 0, name: profile.name, km: profile.totals.totalKm, tier: profile.tier, equip: profile.equip }, true); this.scene.add(this.me.group);
+    this.me = makeRunner({ id: 0, name: profile.name, km: profile.totals.totalKm, tier: profile.tier, equip: profile.equip, avatar: profile.avatar }, true); this.scene.add(this.me.group);
     this.shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1.9, 20, 14), new THREE.MeshBasicMaterial({ color: '#7fdcff', transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false })); this.shieldMesh.position.y = 1.7; this.shieldMesh.visible = false; this.me.group.add(this.shieldMesh);
     this.running = true; this.last = performance.now(); this.camHead = this.world.posAt(0).h; this.camD = 34; this.yaw = this.yawCur = 0; this.pitchO = 1.0; this.pitchCur = this.focusPitch; this.hud(true);
     cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.loop);
@@ -640,7 +662,7 @@ export class Game {
   setOthers(list) { for (const p of list) this.addOther(p); }
   addOther(p) {
     if (this.others.has(p.id)) return;
-    const actor = makeRunner(p, false); this.scene.add(actor.group);
+    const av = p.av ? String(p.av).split('.') : null, actor = makeRunner({ ...p, avatar: av ? `/api/avatar/${av[0]}?v=${av[1]}` : null }, false); this.scene.add(actor.group);
     this.others.set(p.id, { actor, s: p.s || 0, ts: p.s || 0, j: 0, mv: 0, lane: p.l ?? (p.id % 4), lat: LX[p.l ?? (p.id % 4)] });
   }
   removeOther(id) { const o = this.others.get(id); if (o) { this.scene.remove(o.actor.group); this.others.delete(id); } }
