@@ -11,9 +11,9 @@ npm run demo        # Strava giả lập, mở http://localhost:3000
 Cần Node 22.5 trở lên (dùng SQLite có sẵn của Node). Mở nhiều tab để thấy nhiều người cùng chạy.
 
 ## Luật chơi
-- **Máy tính**: **Space hoặc nhấp chuột = 1 bước = 3 m** (tối đa 4 bước/giây), **J hoặc ↑ = nhảy** (hoặc nút NHẢY), **← →** đổi làn (4 làn), **1–5** dùng vật phẩm, **A** bật/tắt tự động, cuộn để zoom, kéo (khi zoom xa) để xoay 360° (kéo không tính là bước). **Giữ** Space, giữ chuột/ngón tay (yên khoảng 0,2 giây) hoặc giữ nút BƯỚC = chạy liên tục ở tốc độ tối đa; **M** bật/tắt âm thanh.
+- **Máy tính**: **Space hoặc nhấp chuột = 1 bước = 4 m** (tối đa 5 bước/giây), **J hoặc ↑ = nhảy** (hoặc nút NHẢY), **← →** đổi làn (4 làn), **1–5** dùng vật phẩm, **A** bật/tắt tự động, cuộn để zoom, kéo (khi zoom xa) để xoay 360° (kéo không tính là bước). **Giữ** Space, giữ chuột/ngón tay (yên khoảng 0,2 giây) hoặc giữ nút BƯỚC = chạy liên tục ở tốc độ tối đa; **M** bật/tắt âm thanh, **F** (nút 🗺) xem toàn tuyến trên bản đồ vệ tinh/2D.
 - **Điện thoại/tablet** (không cần bàn phím): **chạm màn hình = 1 bước**, **nút NHẢY** để nhảy, vuốt ngang hoặc nút ◀ ▶ đổi làn, chụm để zoom.
-- **Tự động**: 2 bước/giây (6 m/s ≈ 21,6 km/h), tự nhảy qua chướng ngại trong làn của bạn. Chó đuổi vẫn bắt kịp nếu không dùng ⚡. Đổi giữa thủ công/tự động bất cứ lúc nào.
+- **Tự động**: 4,2 bước/giây (16,8 m/s: 5 km khoảng 5 phút), tự nhảy qua chướng ngại trong làn của bạn. Chó đuổi vẫn bắt kịp nếu không dùng ⚡. Đổi giữa thủ công/tự động bất cứ lúc nào.
 - **Thể lực**: hết thì dừng. Nhặt 💧🍌🍉🧂 để hồi, ⚡ để tăng tốc. Lên dốc tốn nhiều hơn.
 - **Xu**: 10 xu/km trong game, 25 xu/km chạy ngoài đời (Strava), nhặt 🪙, +20 xu về đích. Mua mũ, giày, phụ kiện, đồng hồ, hào quang.
 - **10 bản đồ**: Hồ Gươm, Nguyễn Huệ, Cầu Rồng – Mỹ Khê, Bãi Cháy – Hạ Long, Tràng An, đồi chè Mộc Châu, đèo Hải Vân, đèo Prenn, đèo Ô Quy Hồ, Mã Pí Lèng (đường chạy thật: xem mục Dữ liệu đường chạy).

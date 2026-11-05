@@ -65,7 +65,7 @@ const SKY = { hanoi: ['#9fd0f0', '#8cc96b'], saigon: ['#a9cbe4', '#8dc46a'], dan
 function renderLobby() {
   const p = store.profile(); coinBase = p.coins || 0;
   $('#who-name').textContent = p.name; $('#who-tier').innerHTML = tierPill(p.tier ?? S.tierIndex(p.totals.totalKm));
-  $('#who-stats').innerHTML = `<div class="stat"><b>${p.totals.gameKm.toFixed(1)}</b>km trong game</div><div class="stat real"><b>${p.totals.realKm.toFixed(1)}</b>km ngoài đời 👟</div><div class="stat tot"><b>${p.totals.totalKm.toFixed(1)}</b>tổng km</div><div class="stat coin"><b>🪙 ${p.coins || 0}</b>xu</div>`;
+  $('#who-stats').innerHTML = `<div class="stat"><b>${p.totals.gameKm.toFixed(1)}</b>km trong game</div><div class="stat real"><b>${p.totals.realKm.toFixed(1)}</b>km ngoài đời 👟</div><div class="stat tot"><b>${p.totals.totalKm.toFixed(1)}</b>tổng km</div><div class="stat coin"><b><span class="gc"></span> ${p.coins || 0}</b>xu</div>`;
   const g = p.today.gameKm, r = p.today.realKm, tot = g + r, pct = (v) => Math.min(100, v / GOAL_KM * 100);
   $('#goal').innerHTML = `<b>Mục tiêu hôm nay: ${tot.toFixed(1)} / ${GOAL_KM} km</b> ${tot >= GOAL_KM ? '✅' : ''}
     <div class="gb"><i class="g" style="width:${pct(g)}%"></i><i class="r" style="width:${Math.min(pct(r), 100 - pct(g))}%"></i></div>
@@ -182,7 +182,8 @@ async function launch({ course, dist, mode, seed, room, tour, view = '3d' }) {
   g.load(course, dist, mode, store.profile(), seed, view);
   $('#h-map').textContent = tour ? `🏅 ${tour.title}` : course.name; $('#h-auto').checked = mode === 'auto'; renderInv(g.inv);
   $('#h-elev').hidden = course.kind === 'gps'; const imgStyle = course.kind === 'gps' ? course.style : g.view; $('#attr').textContent = imgStyle === 'sat' ? cfg.tiles.attrSat : imgStyle === 'road' ? cfg.tiles.attrRoad : '';
-  $('#ticker').textContent = ''; $('#banner').hidden = true; $('#h-coins').textContent = '🪙 ' + coinBase;
+  $('#ticker').textContent = ''; $('#banner').hidden = true; $('#h-coins').innerHTML = '<span class="gc"></span> ' + coinBase;
+  $('#b-map').hidden = !g.world.bbox;
   if (mode !== 'auto') toast(TOUCH ? 'Chạm màn hình để chạy · nút NHẢY để nhảy' : 'Space hoặc nhấp chuột để chạy · J hoặc ↑ để nhảy', 3500);
   connectWs(course, room); clearInterval(flushTimer); flushTimer = setInterval(() => doFlush(false), 15000);
 }
@@ -198,10 +199,12 @@ async function finishRun(sum) {
   const result = t ? `<p class="sub">🏅 ${esc(t.title)} · ${t.km} km</p>${r && r.finished ? `<p>Kết quả ghi nhận: <b>${fmtTime(r.timeS)}</b> (thời gian do server đo từ lúc xuất phát).</p>` : '<p class="hint">Kết quả chưa được ghi nhận (nhịp bước không hợp lệ hoặc mất kết nối).</p>'}` : `<p class="sub">${esc(sum.map.name)} · ${(sum.dist / 1000).toFixed(1)} km</p>`;
   openModal(`<h2>🎉 Về đích!</h2>${result}
     <div class="sumgrid"><div>Thời gian<b>${fmtTime(sum.time)}</b></div><div>Số bước<b>${sum.steps}</b></div><div>Pace TB<b>${fmtPace(sum.time / 60 / (sum.dist / 1000))}/km</b></div><div>Nhảy qua<b>${sum.jumps}</b></div><div>Bị chó cắn<b>${sum.bites}</b></div><div>Vật phẩm<b style="font-size:15px">${ITEM_ICON(sum.items)}</b></div></div>
-    <p class="hint">Tổng km tích lũy: <b>${p.totals.totalKm.toFixed(1)} km</b> · 🪙 ${p.coins || 0} xu (+${S.COIN.FINISH} xu thưởng về đích).</p>
+    <p class="hint">Tổng km tích lũy: <b>${p.totals.totalKm.toFixed(1)} km</b> · <span class="gc"></span> ${p.coins || 0} xu (+${S.COIN.FINISH} xu thưởng về đích).</p>
     <div class="seg">${t ? '<button id="tobr" class="on">Xem bảng xếp hạng</button>' : '<button id="again" class="on">Chạy lại</button>'}<button id="tolobby">Về sảnh</button></div>`);
-  if (t) $('#tobr').onclick = () => { closeModal(); stopRun(); tours.open(t.code); }; else $('#again').onclick = () => { closeModal(); stopRun(); startFree(); };
-  $('#tolobby').onclick = () => { closeModal(); stopRun(); enterLobby(); };
+  // luôn thoát được khỏi bảng kết quả, kể cả khi bước kế tiếp lỗi (mạng yếu...)
+  const safe = (fn) => async () => { try { await fn(); } catch (e) { console.error(e); toast(e.message || 'Có lỗi, về sảnh', 3000); try { stopRun(); } catch { /* bỏ */ } enterLobby(); } };
+  if (t) $('#tobr').onclick = safe(() => { closeModal(); stopRun(); tours.open(t.code); }); else $('#again').onclick = safe(async () => { closeModal(); stopRun(); await startFree(); });
+  $('#tolobby').onclick = safe(() => { closeModal(); stopRun(); enterLobby(); });
 }
 function renderInv(inv) {
   $('#inv').innerHTML = Array.from({ length: R.INV_SLOTS }, (_, i) => { const s = inv[i]; return `<button class="slot ${s ? 'has' : ''}" data-i="${i}" title="${s ? S.ITEMS[s.k].name : 'Ô trống'}"><small>${i + 1}</small>${s ? S.ITEMS[s.k].icon + '<b>' + s.n + '</b>' : ''}</button>`; }).join('');
@@ -216,7 +219,7 @@ function updateHud(h) {
   $('#h-stam').textContent = Math.round(h.stam); $('#h-stambar').style.width = h.stam + '%'; $('.stam').classList.toggle('low', h.stam < 25);
   $('#h-status').textContent = h.exhausted ? '😮‍💨 Kiệt sức — chờ hồi sức hoặc dùng đồ ăn' : h.boltT > 0 ? `⚡ Tăng tốc ${Math.ceil(h.boltT)}s` : h.slowT > 0 ? `🐕 Chậm lại ${Math.ceil(h.slowT)}s` : h.dog === 'chase' ? '🐕 Chó đang đuổi!' : '';
   $('#h-online').textContent = `${h.online} đang online`; $('#h-auto').checked = h.mode === 'auto';
-  $('#h-coins').textContent = '🪙 ' + (coinBase + sessionCoins); $('#viewhint').hidden = !h.overview;
+  $('#h-coins').innerHTML = '<span class="gc"></span> ' + (coinBase + sessionCoins); $('#viewhint').hidden = !h.overview;
   if (game.map.kind !== 'gps') drawElev($('#h-elev'), game.map, h.s);
 }
 // điều khiển
@@ -235,6 +238,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === '-') game.zoom(1);
   else if (e.key === 't' || e.key === 'T') game.tilt();
   else if (e.key === 'm' || e.key === 'M') toggleSound();
+  else if (e.key === 'f' || e.key === 'F') game.fitAll();
 });
 function toggleAuto() { game.setMode(game.mode === 'auto' ? 'manual' : 'auto'); sel.mode = game.mode; toast(game.mode === 'auto' ? `▶ Chạy tự động (${R.AUTO_STEPS_PER_SEC} bước/giây)` : '✋ Chạy thủ công', 1200); }
 $('#h-auto').onchange = () => toggleAuto();
@@ -248,7 +252,7 @@ $('#b-jump').addEventListener('pointerdown', (e) => { e.preventDefault(); game &
 $('#b-left').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.moveLane(-1); });
 $('#b-right').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.moveLane(1); });
 $('#z-in').onclick = () => game.zoom(-1); $('#z-out').onclick = () => game.zoom(1);
-$('#b-tilt').onclick = () => game.tilt(); $('#b-exit').onclick = () => exitRun();
+$('#b-tilt').onclick = () => game.tilt(); $('#b-map').onclick = () => game.fitAll(); $('#b-exit').onclick = () => exitRun();
 addEventListener('beforeunload', () => { if (game && game.st && game.running && store.mode === 'guest' && !(cur && cur.tour)) { store.record(game.takeDelta()); store.flush(false); } });
 
 // ----- nhiều người chơi -----
@@ -308,11 +312,11 @@ async function openPanel(kind) {
 function shopPanel(cat) {
   const p = store.profile(), owned = new Set(p.owned || []), eq = p.equip;
   const items = S.SHOP.filter((x) => x.cat === cat);
-  openModal(`<h2>🛍 Cửa hàng</h2><div class="row between"><div class="seg" id="shop-tabs">${S.SHOP_CATS.map(([k, n]) => `<button data-c="${k}" class="${k === cat ? 'on' : ''}">${n}</button>`).join('')}</div><b class="coinbal">🪙 ${p.coins || 0}</b></div>
+  openModal(`<h2>🛍 Cửa hàng</h2><div class="row between"><div class="seg" id="shop-tabs">${S.SHOP_CATS.map(([k, n]) => `<button data-c="${k}" class="${k === cat ? 'on' : ''}">${n}</button>`).join('')}</div><b class="coinbal"><span class="gc"></span> ${p.coins || 0}</b></div>
     <div class="shopgrid">${items.map((it) => { const has = it.price === 0 || owned.has(cat + ':' + it.id), on = eq[cat] === it.id;
       return `<div class="scard ${on ? 'on' : ''}"><div class="sicon" style="${it.color ? `background:${it.color}33` : ''}">${it.icon}</div><b>${esc(it.name)}</b>
-        ${on ? '<span class="hint">Đang dùng</span>' : has ? `<button class="ghost" data-equip="${it.id}">Dùng</button>` : `<button class="primary" data-buy="${it.id}" ${(p.coins || 0) < it.price ? 'disabled' : ''}>Mua ${it.price} 🪙</button>`}</div>`; }).join('')}</div>
-    <p class="hint">Kiếm xu: ${S.COIN.PER_KM_GAME} xu mỗi km trong game, nhặt 🪙 trên đường, +${S.COIN.FINISH} xu khi về đích, ${S.COIN.PER_KM_REAL} xu mỗi km chạy ngoài đời (Strava). Trang bị hiện trên nhân vật cho mọi người cùng thấy.</p>`);
+        ${on ? '<span class="hint">Đang dùng</span>' : has ? `<button class="ghost" data-equip="${it.id}">Dùng</button>` : `<button class="primary" data-buy="${it.id}" ${(p.coins || 0) < it.price ? 'disabled' : ''}>Mua ${it.price} <span class="gc"></span></button>`}</div>`; }).join('')}</div>
+    <p class="hint">Kiếm xu: ${S.COIN.PER_KM_GAME} xu mỗi km trong game, nhặt <span class="gc"></span> trên đường, +${S.COIN.FINISH} xu khi về đích, ${S.COIN.PER_KM_REAL} xu mỗi km chạy ngoài đời (Strava). Trang bị hiện trên nhân vật cho mọi người cùng thấy.</p>`);
   $('#shop-tabs').onclick = (e) => { if (e.target.dataset.c) shopPanel(e.target.dataset.c); };
   document.querySelector('.shopgrid').onclick = async (e) => {
     const b = e.target.closest('button'); if (!b) return;
@@ -329,7 +333,7 @@ async function profilePanel() {
     : p.stravaLinked ? `<p>🟧 Đã kết nối Strava · đồng bộ lần cuối ${p.lastSync ? new Date(p.lastSync).toLocaleString('vi-VN') : '—'}</p><div class="seg"><button id="p-sync">🔄 Đồng bộ</button><button id="p-unlink">Ngắt kết nối</button></div>`
     : cfg.strava ? `<p class="hint">Kết nối để thêm km chạy ngoài đời vào lịch sử và xếp hạng, và nhận ${S.COIN.PER_KM_REAL} xu/km.${cfg.mock ? ' (DEMO: dữ liệu giả)' : ''}</p><a class="primary" style="display:block;text-align:center;text-decoration:none" href="/auth/strava">Kết nối Strava</a>` : '<p class="hint">Server chưa cấu hình Strava.</p>';
   openModal(`<h2>👤 ${esc(p.name)}</h2>${tierPill(p.tier ?? S.tierIndex(p.totals.totalKm))}
-    <div class="sumgrid"><div>Trong game<b>${p.totals.gameKm.toFixed(1)} km</b></div><div>Ngoài đời<b>${p.totals.realKm.toFixed(1)} km</b></div><div>Tổng<b>${p.totals.totalKm.toFixed(1)} km</b></div><div>Số bước<b>${p.totals.steps}</b></div><div>Xu<b>🪙 ${p.coins || 0}</b></div><div>Vật phẩm<b style="font-size:15px">${ITEM_ICON(p.totals.items)}</b></div></div>
+    <div class="sumgrid"><div>Trong game<b>${p.totals.gameKm.toFixed(1)} km</b></div><div>Ngoài đời<b>${p.totals.realKm.toFixed(1)} km</b></div><div>Tổng<b>${p.totals.totalKm.toFixed(1)} km</b></div><div>Số bước<b>${p.totals.steps}</b></div><div>Xu<b><span class="gc"></span> ${p.coins || 0}</b></div><div>Vật phẩm<b style="font-size:15px">${ITEM_ICON(p.totals.items)}</b></div></div>
     <div id="my-awards"></div><h3>Strava (tùy chọn)</h3>${strava}
     <h3>Tài khoản</h3><div class="seg">${p.mode === 'guest' ? '<button id="p-export">Sao lưu dữ liệu (file)</button>' : ''}<button id="p-out">Đăng xuất</button></div>
     ${p.mode === 'guest' ? '<p class="hint">Dữ liệu khách nằm trên trình duyệt này. Khi tạo tài khoản, bạn sẽ được hỏi có gộp dữ liệu này vào không.</p>' : ''}`);

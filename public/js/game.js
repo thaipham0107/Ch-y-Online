@@ -107,7 +107,17 @@ export function makeRunner(info, me) {
 
 // ---------- hình vật phẩm / chướng ngại ----------
 const emojiTex = {};
+function coinTexture() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+  const g = x.createRadialGradient(48, 44, 6, 64, 64, 58); g.addColorStop(0, '#fff3b0'); g.addColorStop(0.35, '#ffd23a'); g.addColorStop(0.8, '#e0a100'); g.addColorStop(1, '#a86d00');
+  x.fillStyle = g; x.beginPath(); x.arc(64, 64, 56, 0, 7); x.fill();
+  x.lineWidth = 8; x.strokeStyle = '#c98a00'; x.beginPath(); x.arc(64, 64, 52, 0, 7); x.stroke();
+  x.lineWidth = 5; x.strokeStyle = '#ffe27a'; x.beginPath(); x.arc(64, 64, 40, 0, 7); x.stroke();
+  x.fillStyle = '#b87800'; x.font = 'bold 54px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('$', 64, 68);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
 function emojiSprite(ch, size = 2.2) {
+  if (ch === S.COIN.ICON && !emojiTex[ch]) emojiTex[ch] = coinTexture();     // xu vàng tự vẽ (emoji 🪙 trên iPhone ra màu bạc)
   if (!emojiTex[ch]) { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'); x.font = '96px system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(ch, 64, 70); emojiTex[ch] = new THREE.CanvasTexture(cv); emojiTex[ch].colorSpace = THREE.SRGBColorSpace; }
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTex[ch], transparent: true, depthWrite: false })); sp.scale.set(size, size, 1); sp.renderOrder = 6; return sp;   // vẽ sau lớp đường bán trong suốt của chế độ bản đồ
 }
@@ -169,8 +179,8 @@ export class Game {
     this.hooks = hooks; this.canvas = canvas; this.cfg = cfg;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.maxPR = Math.min(2, window.devicePixelRatio || 1); this.pr = Math.min(this.maxPR, 1.5); this.ft = 16; this.fc = 0;   // độ phân giải tự điều chỉnh theo FPS
-    this.renderer.setPixelRatio(this.pr);
-    this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(48, 1, 0.5, 2500);
+    this.renderer.setPixelRatio(this.pr); cfg.aniso = this.renderer.capabilities.getMaxAnisotropy(); this.cfg = cfg;
+    this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(48, 1, 0.5, 2500); this.maxD = 180;
     this.scene.add(new THREE.HemisphereLight('#fff3dc', '#8a7a62', 1.0));
     const sun = new THREE.DirectionalLight('#fff1d2', 1.1); sun.position.set(40, 80, 30); this.scene.add(sun);
     // camera: zoom in = bám đường chạy; zoom out = toàn cảnh, kéo để xoay 360°
@@ -193,7 +203,7 @@ export class Game {
     el.addEventListener('pointermove', (e) => {
       if (!pts.has(e.pointerId)) return; const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
       if (tap && (pts.size > 1 || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10)) { tap.ok = false; if (tap.held) { tap.held = false; this.setHold('ptr', false); } }   // kéo/chụm thì không tính là chạm
-      if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) this.camD = clamp(this.camD * pinch / d, 14, 180); pinch = d; return; }
+      if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) this.camD = clamp(this.camD * pinch / d, 14, this.maxD); pinch = d; return; }
       if (this.overview) this.orbit(e.clientX - prev[0], e.clientY - prev[1]);
     });
     const up = (e) => {
@@ -208,7 +218,7 @@ export class Game {
       pts.delete(e.pointerId); pinch = 0; swipe = null;
     };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
-    el.addEventListener('wheel', (e) => { e.preventDefault(); this.camD = clamp(this.camD * (e.deltaY > 0 ? 1.1 : 0.9), 14, 180); }, { passive: false });
+    el.addEventListener('wheel', (e) => { e.preventDefault(); this.camD = clamp(this.camD * (e.deltaY > 0 ? 1.12 : 0.89), 14, this.maxD); }, { passive: false });
   }
   orbit(dx, dy) { this.yaw += dx * 0.008; this.pitchO = clamp(this.pitchO - dy * 0.006, 0.35, 1.45); }
   resetView() { this.camD = 34; this.yaw = 0; this.pitchO = 1.0; }
@@ -219,6 +229,8 @@ export class Game {
     const imagery = course.kind !== 'gps' && course.route && (view === 'sat' || view === 'road');
     this.world = course.kind === 'gps' ? buildGpsWorld(course, this.scene, this.cfg) : imagery ? buildGpsWorld({ pts: course.route.pts, style: view }, this.scene, this.cfg) : buildWorld(course, this.scene);
     this.view = course.kind === 'gps' ? course.style : imagery ? view : '3d';
+    const bb = this.world.bbox; this.maxD = bb ? clamp(bb.size * 1.1 + 200, 400, 7000) : 180;
+    this.camera.near = bb ? 2 : 0.5; this.camera.far = bb ? 40000 : 2500; this.camera.updateProjectionMatrix();
     this.scene.background = C(this.world.theme.bg); this.scene.fog = new THREE.Fog(this.world.theme.bg, 70, 190);
     this.world.setFinish(this.total);
     this.profile = profile; this.mode = mode; this.seed = seed;
@@ -270,7 +282,7 @@ export class Game {
     const g = S.gradeAt(this.map, st.target); st.grade = g;
     const cost = R.STAM_PER_STEP * S.slopeMult(g) * (st.boltT > 0 ? R.BOLT_COST_MULT : 1);
     let stride = st.boltT > 0 ? R.BOLT_STRIDE : R.STRIDE; if (st.slowT > 0) stride *= R.BITE_STRIDE_MULT;
-    { const gt = now - prevStep, inst = gt > 1.2 ? 3 : Math.min(12, stride / Math.max(0.12, gt)); st.rate += (inst - st.rate) * (gt > 1.2 ? 1 : 0.4); }   // tốc độ chạy ước lượng (m/s) để chuyển động liên tục
+    { const gt = now - prevStep, inst = gt > 1.2 ? stride * 0.8 : Math.min(28, stride / Math.max(0.12, gt)); st.rate += (inst - st.rate) * (gt > 1.2 ? 1 : 0.4); }   // tốc độ chạy ước lượng (m/s) để chuyển động liên tục
     st.stam -= cost; st.target += stride; st.steps++; st.meters += stride; this.unsent.steps++; this.unsent.meters += stride; sfx.step(st.boltT > 0);
     if (st.stam <= 0) { st.stam = 0; st.exhausted = true; sfx.tired(); this.say('😮‍💨 Hết thể lực! Dùng đồ ăn hoặc chờ hồi sức', 2200); }
     return true;
@@ -283,18 +295,24 @@ export class Game {
   releaseHold() { this.hold.clear(); }
   useItem(i) {
     const slot = this.inv[i]; if (!slot || !this.running || this.st.finished) return;
-    const it = S.ITEMS[slot.k], st = this.st;
-    if (slot.k === 'bolt') { st.boltT = Math.min(st.boltT + R.BOLT_SECS, R.BOLT_SECS * 2); st.boltsUsed++; this.unsent.boltsUsed++; this.float('⚡ Tăng tốc!', '#ffe27a'); sfx.bolt(); }
-    else { sfx.eat(); st.stam = Math.min(R.STAM_MAX, st.stam + it.stam); if (it.cure) st.slowT = 0; this.float(`${it.icon} +${it.stam} thể lực`, '#9ef0b0'); if (st.exhausted && st.stam >= R.STAM_RESUME) st.exhausted = false; }
+    this.applyItem(slot.k);
     if (--slot.n <= 0) this.inv.splice(i, 1);
     this.hooks.onInventory && this.hooks.onInventory(this.inv);
+  }
+  applyItem(k) {
+    const it = S.ITEMS[k], st = this.st;
+    if (k === 'bolt') { st.boltT = Math.min(st.boltT + R.BOLT_SECS, R.BOLT_SECS * 2); st.boltsUsed++; this.unsent.boltsUsed++; this.float('⚡ Tăng tốc!', '#ffe27a'); sfx.bolt(); }
+    else { sfx.eat(); st.stam = Math.min(R.STAM_MAX, st.stam + it.stam); if (it.cure) st.slowT = 0; this.float(`${it.icon} +${it.stam} thể lực`, '#9ef0b0'); if (st.exhausted && st.stam >= R.STAM_RESUME) st.exhausted = false; }
   }
   say(text, ms) { this.hooks.onEvent && this.hooks.onEvent(text, ms); }
   float(text, color = '#fff') {
     const sp = textSprite(text, { color, scaleW: 6, w: 512, h: 96, font: 'bold 52px system-ui' }); sp.material.depthTest = false; sp.renderOrder = 30;
     const P = this.world.posAt(this.st.s), [x, z] = this.world.off(P, this.st.lat); sp.position.set(x, P.y + 4.4, z); this.scene.add(sp); this.floaters.push({ sp, t: 1.3, y: P.y + 4.4 });
   }
-  zoom(d) { this.camD = clamp(this.camD * (d < 0 ? 0.8 : 1.25), 14, 180); }
+  zoom(d) { this.camD = clamp(this.camD * (d < 0 ? 0.8 : 1.3), 14, this.maxD); }
+  // xem toàn tuyến (chỉ bản đồ ảnh/GPS): zoom ra vừa khít cả tuyến; bấm lại để về góc chạy
+  fitAll() { if (!this.world.bbox) return false; const fit = this.fitD(); if (this.camD > fit * 0.75) this.resetView(); else { this.camD = fit; this.pitchO = 1.35; } return true; }
+  fitD() { const b = this.world.bbox, asp = this.camera.aspect || 1; return b ? clamp((b.size * 1.05 + 120) * (asp < 1 ? Math.min(2.2, 1 / asp) : 1), 180, this.maxD) : 180; }
   tilt() { if (this.overview) { this.resetView(); return; } this.focusPitch = this.focusPitch > 1.1 ? 0.8 : this.focusPitch > 0.65 ? 0.5 : 1.3; }
 
   // ----- logic (cũng chạy khi tab ẩn) -----
@@ -320,17 +338,21 @@ export class Game {
     if (st.jumpT > 0) { st.jumpT = Math.max(0, st.jumpT - dt); if (st.jumpT === 0) sfx.land(); }
     // tự động: nhảy qua chướng ngại nằm trong làn của mình
     const nextObs = this.obst.find((o) => !o.done && o.s >= prev - 0.5 && o.lanes.includes(st.lane));
-    if (this.mode === 'auto' && nextObs && nextObs.s - st.s < clamp(st.speed * 0.45, 2.8, 6) && nextObs.s - st.s > 0 && st.jumpT <= 0) st.jumpT = 0.7;
+    if (this.mode === 'auto' && nextObs && nextObs.s - st.s < clamp(st.speed * 0.45, 2.8, 9) && nextObs.s - st.s > 0 && st.jumpT <= 0) st.jumpT = 0.7;
     for (const o of this.obst) if (!o.done && prev < o.s && st.s >= o.s) {
       o.done = true; if (!o.lanes.includes(st.lane)) continue;           // né sang làn khác: không va
       if (st.jumpT > 0.08) { st.jumps++; this.unsent.jumps++; this.float('Nhảy qua! 🦘', '#ffe27a'); }
       else { st.stam = Math.max(0, st.stam - R.HIT_STAM); st.slowT = Math.max(st.slowT, R.HIT_SLOW_SECS); st.shake = 0.3; this.float('Vấp rồi! -10', '#ff9d8a'); sfx.hit(); if (st.stam <= 0) st.exhausted = true; }
     }
     for (const it of this.items) {
-      if (it.taken || it.lane !== st.lane || !(prev < it.s + 1.2 && st.s >= it.s - 1.2)) continue;
+      if (it.taken || !(it.lane === st.lane || Math.abs(st.lat - LX[it.lane]) < 1.3) || !(prev < it.s + 1.8 && st.s >= it.s - 1.8)) continue;       // quét cả đoạn vừa đi qua (chạy nhanh/FPS thấp không bị lọt) và chấp nhận khi đã sát làn
       if (it.key === 'coin') { it.taken = true; this.dyn.remove(it.sp); st.items.coin = (st.items.coin || 0) + 1; this.unsent.items.coin = (this.unsent.items.coin || 0) + 1; this.hooks.onCoin && this.hooks.onCoin(1); sfx.coin(); continue; }
       const slot = this.inv.find((x) => x.k === it.key && x.n < R.INV_STACK) || (this.inv.length < R.INV_SLOTS ? (this.inv.push({ k: it.key, n: 0 }), this.inv[this.inv.length - 1]) : null);
-      if (!slot) continue;
+      if (!slot) {                               // túi đầy: dùng luôn nếu có ích, không thì để lại trên đường và báo
+        if (it.key === 'bolt' || st.stam < R.STAM_MAX - 8 || st.slowT > 0) { it.taken = true; this.dyn.remove(it.sp); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1; sfx.pickup(); this.applyItem(it.key); }
+        else if (!it.warned) { it.warned = true; this.float('Túi đầy! 🎒', '#ffb27a'); }
+        continue;
+      }
       slot.n++; it.taken = true; this.dyn.remove(it.sp); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1;
       sfx.pickup(); this.float(`${S.ITEMS[it.key].icon} ${S.ITEMS[it.key].name}`, '#fff'); this.hooks.onInventory && this.hooks.onInventory(this.inv);
     }
@@ -371,6 +393,7 @@ export class Game {
   loop(now) {
     this.raf = requestAnimationFrame(this.loop); if (!this.running) return;
     const dt = clamp(((now - this.rl) || 16) / 1000, 0, 0.1); this.rl = now;
+    if (this.st.finished) { this.fin = (this.fin || 0) + dt; if (this.fin > 1.2) return; } else this.fin = 0;      // về đích: dừng vẽ sau 1,2 giây để nhường máy cho bảng thống kê
     if (!document.hidden) this.advance(dt);
     this.render(dt);
     if (!document.hidden && ++this.fc > 90) {          // bỏ 90 khung đầu (biên dịch shader), sau đó tự giảm/tăng độ nét để giữ FPS mượt
@@ -385,7 +408,7 @@ export class Game {
   render(dt) {
     const st = this.st, w = this.world, t = this.t;
     const P = w.posAt(st.s), [mx, mz] = w.off(P, st.lat), jh = st.jumpT > 0 ? Math.sin((1 - st.jumpT / 0.7) * Math.PI) * 1.7 : 0;
-    this.me.group.position.set(mx, P.y, mz); this.me.group.rotation.y = -P.h; this.me.animate(dt, Math.min(12, st.speed), jh, t);
+    this.me.group.position.set(mx, P.y, mz); this.me.group.rotation.y = -P.h; this.me.animate(dt, Math.min(20, st.speed), jh, t);
     for (const o of this.others.values()) {
       o.s += (o.ts - o.s) * Math.min(1, dt * 6); o.lat += (LX[o.lane] - o.lat) * Math.min(1, dt * 8);
       const Q = w.posAt(o.s), [x, z] = w.off(Q, o.lat); o.actor.group.position.set(x, Q.y, z); o.actor.group.rotation.y = -Q.h; o.actor.animate(dt, o.mv ? 4 : 0, o.j ? 1 : 0, t);
@@ -401,7 +424,9 @@ export class Game {
     this.yawCur += ((ov ? this.yaw : 0) - this.yawCur) * Math.min(1, dt * 5); if (!ov) this.yaw = this.yawCur;
     this.pitchCur += ((ov ? this.pitchO : this.focusPitch) - this.pitchCur) * Math.min(1, dt * 4);
     const H = this.camHead + this.yawCur, back = this.camD * Math.cos(this.pitchCur), up = this.camD * Math.sin(this.pitchCur), sx = st.shake > 0 ? (Math.random() - 0.5) * 0.4 : 0;
-    const tx = ov ? mx : look.x, tz = ov ? mz : look.z, ty = look.y;
+    let tx = ov ? mx : look.x, tz = ov ? mz : look.z; const ty = look.y;
+    if (w.bbox && ov) { const fd = this.fitD(), k = clamp((this.camD - 120) / Math.max(1, fd * 0.8 - 120), 0, 1); tx += (w.bbox.cx - tx) * k; tz += (w.bbox.cz - tz) * k; }   // zoom ra xa thì dần nhìn vào tâm cả tuyến
+    if (w.setOverview) w.setOverview(this.camD > 130, mx, mz);
     this.camera.position.set(tx - Math.cos(H) * back + sx, ty + up, tz - Math.sin(H) * back); this.camera.lookAt(tx, ty, tz);
     if (this.scene.fog) { this.scene.fog.near = this.camD * 1.6; this.scene.fog.far = this.camD * 7 + 160; }
     w.update(P.x, P.z, this.camD * 1.5); this.renderer.render(this.scene, this.camera);
