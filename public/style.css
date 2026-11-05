@@ -192,3 +192,9 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
 .gc{display:inline-block;width:1.05em;height:1.05em;border-radius:50%;vertical-align:-.17em;margin-right:.1em;background:radial-gradient(circle at 35% 30%,#fff3b0 0 18%,#ffd23a 40%,#e0a100 78%,#b87800 100%);box-shadow:inset 0 0 0 .1em #c98a00,inset 0 0 0 .17em #ffe27a,0 .05em .12em #0006;position:relative}
 .gc::after{content:"";position:absolute;inset:27%;border-radius:50%;border:.08em solid #b87800;opacity:.75}
 button,select,.seg button,.slot{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#b-slide{font-size:13px}
+@media (max-width:520px) and (min-height:521px){
+  .stamwrap{width:min(36vw,150px)}
+  .act{width:52px;height:52px;font-size:12px}.act.main{width:80px;height:80px}.act.sm{width:52px;height:52px}
+  .actions{gap:6px}
+}

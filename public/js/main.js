@@ -218,7 +218,8 @@ function updateHud(h) {
   $('#h-speed').textContent = `${h.kmh.toFixed(1)} km/h · ${fmtPace(h.pace)}/km`;
   $('#h-grade').textContent = game.map.kind === 'gps' ? 'GPS' : `${h.grade >= 0 ? '+' : ''}${h.grade.toFixed(1)}% · ${Math.round(h.elev)} m`;
   $('#h-stam').textContent = Math.round(h.stam); $('#h-stambar').style.width = h.stam + '%'; $('.stam').classList.toggle('low', h.stam < 25);
-  $('#h-status').textContent = h.exhausted ? '😮‍💨 Kiệt sức — chờ hồi sức hoặc dùng đồ ăn' : h.boltT > 0 ? `⚡ Tăng tốc ${Math.ceil(h.boltT)}s` : h.slowT > 0 ? `🐕 Chậm lại ${Math.ceil(h.slowT)}s` : h.dog === 'chase' ? '🐕 Chó đang đuổi!' : '';
+  { const fx = []; if (h.shieldT > 0) fx.push(`🛡️ Khiên ${Math.ceil(h.shieldT)}s`); if (h.magT > 0) fx.push(`🧲 Nam châm ${Math.ceil(h.magT)}s`); if (h.boltT > 0) fx.push(`⚡ Tăng tốc ${Math.ceil(h.boltT)}s`); if (h.slowT > 0) fx.push(`🐕 Chậm lại ${Math.ceil(h.slowT)}s`); if (!fx.length && h.dog === 'chase') fx.push('🐕 Chó đang đuổi!');
+    $('#h-status').textContent = h.exhausted ? '😮‍💨 Kiệt sức — chờ hồi sức hoặc dùng đồ ăn' : fx.join(' · '); }
   $('#h-online').textContent = `${h.online} đang online`; $('#h-auto').checked = h.mode === 'auto';
   $('#h-coins').innerHTML = '<span class="gc"></span> ' + (coinBase + sessionCoins); $('#viewhint').hidden = !h.overview;
   if (game.map.kind !== 'gps') drawElev($('#h-elev'), game.map, h.s);
@@ -230,6 +231,7 @@ addEventListener('keydown', (e) => {
   if (!game || !game.running || $('#hud').hidden || typing()) return;
   if (modalOpen()) { if (e.key === 'Escape') closeModal(); return; }
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) { game.step(); game.setHold('key', true); } }
+  else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') { if (e.key === 'ArrowDown') e.preventDefault(); game.slide(); }
   else if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowUp') { if (e.key === 'ArrowUp') e.preventDefault(); game.jump(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); game.moveLane(-1); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); game.moveLane(1); }
@@ -250,6 +252,7 @@ addEventListener('keyup', (e) => { if (e.code === 'Space' && game) game.setHold(
 addEventListener('blur', () => game && game.releaseHold());
 document.addEventListener('visibilitychange', () => { if (document.hidden && game) game.releaseHold(); });
 $('#b-jump').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.jump(); });
+$('#b-slide').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.slide(); });
 $('#b-left').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.moveLane(-1); });
 $('#b-right').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.moveLane(1); });
 $('#z-in').onclick = () => game.zoom(-1); $('#z-out').onclick = () => game.zoom(1);
@@ -366,7 +369,7 @@ async function profilePanel() {
 window.__app = { store, get game() { return game; }, sel, get tours() { return tours; }, get picker() { return picker; } };
 
 // nhãn nút theo thiết bị
-{ const s = $('#b-step small'), j = $('#b-jump small'); if (TOUCH) { s.textContent = 'hoặc chạm màn hình'; j.textContent = ''; } else { s.textContent = 'Space / click'; j.textContent = 'J / ↑'; } }
+{ const s = $('#b-step small'), j = $('#b-jump small'), sl = $('#b-slide small'); if (TOUCH) { s.textContent = 'hoặc chạm màn hình'; j.textContent = ''; sl.textContent = ''; } else { s.textContent = 'Space / click'; j.textContent = 'J / ↑'; sl.textContent = 'S / ↓'; } }
 
 // âm thanh
 const soundIcon = () => { $('#b-sound').textContent = sfx.muted ? '🔇' : '🔊'; };

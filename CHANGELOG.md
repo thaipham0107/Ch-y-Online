@@ -1,4 +1,9 @@
 # Changelog
+## 1.2.0
+- Nhanh hơn: bước dài 4 m, tự động 4,5 bước/giây (5 km ≈ 5 phút), thủ công tối đa 5 bước/giây; chó 19 m/s, đuổi 16 giây và cắn lặp lại có hồi chiêu.
+- Chướng ngại đẹp hơn (đá có rêu, cành cây, khúc gỗ), xe máy ngược chiều, đội cổ vũ 1–5 người với cảm xúc trên đầu nhân vật, nhân vật chibi hơn.
+- Kiểu Temple Run: trượt dưới chướng ngại cao, 🧲 nam châm, 🛡️ khiên, tốc độ tăng dần, đoạn thưởng xu, thêm tia sét.
+- Xu vàng tự vẽ (iPhone), nhặt vật phẩm chắc hơn + xử lý túi đầy, ảnh vệ tinh nét hơn (z19) và nút xem toàn tuyến, chuyển động mượt hơn, độ nét tự điều chỉnh theo FPS.
 ## 1.1.0
 - Nhân vật có chân/tay khớp hông-gối-vai-khuỷu, bước chạy tự nhiên (không còn như nhảy); chó vẽ lại và có hoạt họa phi; âm thanh tổng hợp (bước, nhảy, xu, vật phẩm, chó sủa, cắn, về đích...) với nút bật/tắt; giữ Space/chuột/chạm/nút BƯỚC để chạy tốc độ tối đa; chuyển động mượt hơn.
 - Chạy dịch vụ nền trên máy cá nhân (Windows/Linux/macOS) + Cloudflare Tunnel, `npm run doctor`, lấy IP thật qua CF-Connecting-IP, `npm run demo` chạy được trên Windows.
