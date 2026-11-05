@@ -104,7 +104,7 @@ function renderSetup() {
   const canView = !gps && c.real; $('#s-viewbox').hidden = !canView; if (!canView) sel.view = '3d';
   document.querySelectorAll('#s-view button').forEach((b) => b.classList.toggle('on', b.dataset.v === sel.view));
   $('#s-viewhint').textContent = sel.view === '3d' ? 'Cảnh 3D dựng theo đường thật (có độ cao, vách, vực, biển).' : 'Ảnh bản đồ phẳng trải dưới đường chạy; độ dốc và thể lực vẫn tính theo độ cao thật. Cần mạng để tải ảnh bản đồ.';
-  $('#s-modehint').textContent = sel.mode === 'auto' ? `Tự động: 1 bước/giây (7,2 km/h), tự nhảy qua chướng ngại trong làn của bạn. Khoảng ${fmtTime(sel.dist / (R.STRIDE * R.AUTO_STEPS_PER_SEC))} cho cự ly này. Vẫn đổi làn, dùng vật phẩm được.`
+  $('#s-modehint').textContent = sel.mode === 'auto' ? `Tự động: ${R.AUTO_STEPS_PER_SEC} bước/giây (${(R.STRIDE * R.AUTO_STEPS_PER_SEC * 3.6).toFixed(1).replace('.', ',')} km/h), tự nhảy qua chướng ngại trong làn của bạn. Khoảng ${fmtTime(sel.dist / (R.STRIDE * R.AUTO_STEPS_PER_SEC))} cho cự ly này. Vẫn đổi làn, dùng vật phẩm được.`
     : TOUCH ? 'Thủ công: chạm màn hình = 1 bước, nút NHẢY = nhảy, vuốt ngang hoặc nút ◀ ▶ để đổi làn. Tối đa 4 bước/giây. Có thể chuyển sang Tự động bất cứ lúc nào.'
       : 'Thủ công: Space hoặc nhấp chuột = 1 bước, J hoặc ↑ = nhảy, ←/→ đổi làn. Tối đa 4 bước/giây. Có thể chuyển sang Tự động bất cứ lúc nào.';
 }
@@ -236,7 +236,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === 't' || e.key === 'T') game.tilt();
   else if (e.key === 'm' || e.key === 'M') toggleSound();
 });
-function toggleAuto() { game.setMode(game.mode === 'auto' ? 'manual' : 'auto'); sel.mode = game.mode; toast(game.mode === 'auto' ? '▶ Chạy tự động (1 bước/giây)' : '✋ Chạy thủ công', 1200); }
+function toggleAuto() { game.setMode(game.mode === 'auto' ? 'manual' : 'auto'); sel.mode = game.mode; toast(game.mode === 'auto' ? `▶ Chạy tự động (${R.AUTO_STEPS_PER_SEC} bước/giây)` : '✋ Chạy thủ công', 1200); }
 $('#h-auto').onchange = () => toggleAuto();
 const stepBtn = $('#b-step');
 stepBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); stepBtn.setPointerCapture(e.pointerId); if (game) { game.step(); game.setHold('btn', true); } });   // giữ nút = chạy liên tục tốc độ tối đa

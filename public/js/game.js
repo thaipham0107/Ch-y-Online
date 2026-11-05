@@ -87,7 +87,7 @@ export function makeRunner(info, me) {
     animate(dt, speed, jumpH, t) {
       this.sp += (speed - this.sp) * Math.min(1, dt * 10);
       const mv = clamp((this.sp - 0.4) / 1.2, 0, 1), amp = mv * clamp(0.6 + this.sp / 10, 0.6, 1), air = clamp(jumpH / 1.1, 0, 1), g1 = 1 - air;
-      if (mv > 0) this.phase += dt * (6 + this.sp * 0.9);            // nhịp chân theo tốc độ thật
+      if (mv > 0) this.phase += dt * (6 + this.sp * 0.7);            // nhịp chân theo tốc độ thật
       const p = this.phase, A = 0.8 * amp, sn = Math.sin(p), K = 1.15;
       const hipA = A * sn * g1 + air * 0.75, hipB = -A * sn * g1 - air * 0.25;
       const kneeA = -(K * Math.max(0, Math.cos(p)) * amp * g1 + air * 1.0), kneeB = -(K * Math.max(0, -Math.cos(p)) * amp * g1 + air * 0.7);
@@ -320,7 +320,7 @@ export class Game {
     if (st.jumpT > 0) { st.jumpT = Math.max(0, st.jumpT - dt); if (st.jumpT === 0) sfx.land(); }
     // tự động: nhảy qua chướng ngại nằm trong làn của mình
     const nextObs = this.obst.find((o) => !o.done && o.s >= prev - 0.5 && o.lanes.includes(st.lane));
-    if (this.mode === 'auto' && nextObs && nextObs.s - st.s < 2.8 && nextObs.s - st.s > 0 && st.jumpT <= 0) st.jumpT = 0.7;
+    if (this.mode === 'auto' && nextObs && nextObs.s - st.s < clamp(st.speed * 0.45, 2.8, 6) && nextObs.s - st.s > 0 && st.jumpT <= 0) st.jumpT = 0.7;
     for (const o of this.obst) if (!o.done && prev < o.s && st.s >= o.s) {
       o.done = true; if (!o.lanes.includes(st.lane)) continue;           // né sang làn khác: không va
       if (st.jumpT > 0.08) { st.jumps++; this.unsent.jumps++; this.float('Nhảy qua! 🦘', '#ffe27a'); }
@@ -385,7 +385,7 @@ export class Game {
   render(dt) {
     const st = this.st, w = this.world, t = this.t;
     const P = w.posAt(st.s), [mx, mz] = w.off(P, st.lat), jh = st.jumpT > 0 ? Math.sin((1 - st.jumpT / 0.7) * Math.PI) * 1.7 : 0;
-    this.me.group.position.set(mx, P.y, mz); this.me.group.rotation.y = -P.h; this.me.animate(dt, Math.min(8, st.speed), jh, t);
+    this.me.group.position.set(mx, P.y, mz); this.me.group.rotation.y = -P.h; this.me.animate(dt, Math.min(12, st.speed), jh, t);
     for (const o of this.others.values()) {
       o.s += (o.ts - o.s) * Math.min(1, dt * 6); o.lat += (LX[o.lane] - o.lat) * Math.min(1, dt * 8);
       const Q = w.posAt(o.s), [x, z] = w.off(Q, o.lat); o.actor.group.position.set(x, Q.y, z); o.actor.group.rotation.y = -Q.h; o.actor.animate(dt, o.mv ? 4 : 0, o.j ? 1 : 0, t);

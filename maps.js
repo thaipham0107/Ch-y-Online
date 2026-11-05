@@ -2,11 +2,11 @@
 // Độ cao/độ dốc là xấp xỉ theo thực tế để chơi; có thể thay bằng file GPX thật của ban tổ chức giải.
 (function (root) {
   const RULES = {
-    STRIDE: 2.0,          // m / bước
-    BOLT_STRIDE: 3.0,     // m / bước khi có tia sét
+    STRIDE: 3.0,          // m / bước
+    BOLT_STRIDE: 4.5,     // m / bước khi có tia sét
     BOLT_SECS: 8,
     MAX_STEPS_PER_SEC: 4,
-    AUTO_STEPS_PER_SEC: 1,
+    AUTO_STEPS_PER_SEC: 2,
     STAM_MAX: 100,
     STAM_PER_STEP: 0.12,
     BOLT_COST_MULT: 1.5,
@@ -14,7 +14,7 @@
     IDLE_REGEN: 2,
     BITE_STAM: 20, BITE_SLOW_SECS: 4, BITE_STRIDE_MULT: 0.5,
     HIT_STAM: 10, HIT_SLOW_SECS: 1,
-    DOG_SPEED: 2.8, DOG_START_GAP: 3.5, DOG_SECS: 9, DOG_WARN_SECS: 2,
+    DOG_SPEED: 8.5, DOG_START_GAP: 6, DOG_SECS: 9, DOG_WARN_SECS: 2,
     INV_SLOTS: 5, INV_STACK: 3
   };
   const ITEMS = {
