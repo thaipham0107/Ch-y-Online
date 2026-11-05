@@ -62,6 +62,23 @@ export function buildWorld(map, scene) {
       xs[i] = raw[j][0] + (raw[j + 1][0] - raw[j][0]) * f; zs[i] = raw[j][1] + (raw[j + 1][1] - raw[j][1]) * f; ys[i] = Rt.elev[j] + (Rt.elev[j + 1] - Rt.elev[j]) * f;
     }
     const cut = Math.floor(total); xs = sm(xs.subarray(0, cut + 1), 4); zs = sm(zs.subarray(0, cut + 1), 4); ys = sm(ys.subarray(0, cut + 1), 10);
+    // khúc cua gắt hơn bán kính tối thiểu thì dải đường 4 làn (rộng 10 m) bị gập đè lên chính nó: giới hạn độ cong (R >= RMIN)
+    {
+      const RMIN = 16, MAXR = 1 / RMIN, n = cut + 1, h0 = new Float32Array(n);
+      for (let i = 0; i < n; i++) { const a2 = Math.max(0, i - 3), b2 = Math.min(cut, i + 3); h0[i] = Math.atan2(zs[b2] - zs[a2], xs[b2] - xs[a2]); if (i) { while (h0[i] - h0[i - 1] > Math.PI) h0[i] -= 2 * Math.PI; while (h0[i] - h0[i - 1] < -Math.PI) h0[i] += 2 * Math.PI; } }
+      const f = new Float32Array(n), r = new Float32Array(n); f[0] = h0[0]; r[n - 1] = h0[n - 1];
+      for (let i = 1; i < n; i++) f[i] = f[i - 1] + clamp(h0[i] - f[i - 1], -MAXR, MAXR);
+      for (let i = n - 2; i >= 0; i--) r[i] = r[i + 1] + clamp(h0[i] - r[i + 1], -MAXR, MAXR);
+      let changed = false; const hn = new Float32Array(n);
+      for (let i = 0; i < n; i++) { hn[i] = (f[i] + r[i]) / 2; if (Math.abs(hn[i] - h0[i]) > 0.02) changed = true; }
+      if (changed) {                               // dựng lại tọa độ từ hướng đã giới hạn, kéo điểm cuối về đúng chỗ cũ
+        const nx = new Float32Array(n), nz = new Float32Array(n); nx[0] = xs[0]; nz[0] = zs[0];
+        for (let i = 1; i < n; i++) { nx[i] = nx[i - 1] + Math.cos(hn[i]); nz[i] = nz[i - 1] + Math.sin(hn[i]); }
+        const ex = (xs[cut] - nx[cut]) / cut, ez = (zs[cut] - nz[cut]) / cut;
+        for (let i = 0; i < n; i++) { nx[i] += ex * i; nz[i] += ez * i; }
+        xs = sm(nx, 3); zs = sm(nz, 3);
+      }
+    }
     const hh = new Float32Array(N); let prev = 0;
     for (let i = 0; i <= cut; i++) { const a = Math.max(0, i - 6), b = Math.min(cut, i + 6); let h = Math.atan2(zs[b] - zs[a], xs[b] - xs[a]); if (i) { while (h - prev > Math.PI) h -= 2 * Math.PI; while (h - prev < -Math.PI) h += 2 * Math.PI; } hh[i] = h; prev = h; }
     const X = new Float32Array(N), Z = new Float32Array(N), Y = new Float32Array(N); X.set(xs); Z.set(zs); Y.set(ys);
@@ -112,7 +129,7 @@ export function buildWorld(map, scene) {
     const asph = C(T.road), warm = C('#9a4f3e'), white = C('#f5f2ea'), yellow = C('#f2c230');
     const STEP = 3;
     for (let s = 0; s < L - STEP; s += STEP) {
-      const g = S.gradeAt(map, s), tint = clamp((g - 3) / 9, 0, 0.8);
+      const g = S.gradeAt(map, s), tint = clamp((g - 6) / 14, 0, 0.3);   // chỉ ám đỏ nhẹ khi rất dốc, vẫn là mặt nhựa
       const stripe = Math.floor(s / 6) % 2 ? 0.93 : 1;
       const base = asph.clone().lerp(warm, tint).multiplyScalar(stripe);
       const A = posAt(s), B = posAt(s + STEP), dash = Math.floor(s / 6) % 2 === 0;
