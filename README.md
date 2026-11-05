@@ -70,3 +70,6 @@ Hình học và độ cao của 10 bản đồ nằm trong `public/courses/` (`<
 
 ## Chướng ngại và nguy hiểm
 Đá có rêu, cành cây gãy, khúc gỗ, nón, thùng, trâu, vũng nước. **Xe máy đi ngược chiều** (né sang làn khác; tự động tự né), **chó đuổi 16 giây** và cắn lặp lại có hồi chiêu, **tia sét ⚡ rơi nhiều**. Mọi thứ sinh theo seed nên giải đấu công bằng.
+
+## Đội cổ vũ
+Các bạn nữ chibi đứng hai bên đường theo đội 1–5 người (số tối đa tùy cung đường), hò hét, nhảy, lắc pom-pom, vẫy tay, phun nước; chạy qua thì nhân vật hiện cảm xúc trên đầu (vui vẻ, hạnh phúc, hưng phấn...) và được thưởng một ít thể lực.

@@ -236,6 +236,59 @@ export function bikeMesh(hue) {
   g.scale.setScalar(1.3); g.userData.wheels = wheels; return g;
 }
 
+// ---------- đội cổ vũ: các bạn nữ chibi đứng hai bên đường ----------
+const CHEER_MAX = { hanoi: 5, saigon: 5, danang: 5, gps: 5, halong: 4, trangan: 4, mocchau: 3, haivan: 3, prenn: 3, oquyho: 2, mapileng: 2 };   // số người tối đa mỗi đội theo cung đường
+const CHEER_ROLES = ['pompom', 'cheer', 'spray', 'wave', 'pompom'];
+const CHEER_SAY = ['Cố lên!', 'Hết mình!', 'Tuyệt vời!', 'Đỉnh quá!', 'Go go go!', 'Fighting!', 'Sắp tới rồi!', 'Chạy đi!'];
+const OUTFIT = [['#ff5c93', '#ffffff'], ['#ffb02e', '#ff5c5c'], ['#38b6ff', '#ffffff'], ['#9b5cff', '#ffe27a'], ['#2ec27e', '#ffffff'], ['#ff6b3d', '#fff2b0']];
+export function makeCheer(k, role) {
+  const g = new THREE.Group(), M = (c) => new THREE.MeshLambertMaterial({ color: c }), [top, accent] = OUTFIT[k % OUTFIT.length], skin = M('#f6c9a4');
+  const body = new THREE.Group(); body.position.y = 0.4; g.add(body);
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.44, 0.62, 10), M(top)); torso.position.y = 0.95; body.add(torso);
+  const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.72, 0.55, 12, 1, true).translate(0, -0.275, 0), new THREE.MeshLambertMaterial({ color: accent, side: THREE.DoubleSide })); skirt.position.y = 0.72; body.add(skirt);
+  const sash = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 6, 14).rotateX(Math.PI / 2), M('#fff')); sash.position.y = 0.76; body.add(sash);
+  const headG = new THREE.Group(); headG.position.y = 1.62; headG.scale.setScalar(1.3); body.add(headG);
+  headG.add(new THREE.Mesh(headGeo, skin));
+  const hairCol = ['#1d1717', '#3a2316', '#5a2a1c', '#14141c'][k % 4], hairM = M(hairCol);
+  const hair = new THREE.Mesh(hairGeo, hairM); hair.position.y = 0.05; headG.add(hair);
+  const back = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 10), hairM); back.scale.set(0.55, 1.05, 0.95); back.position.set(-0.28, -0.2, 0); headG.add(back);          // tóc dài sau lưng
+  if (k % 2 === 0) { const tail = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), hairM); tail.scale.set(0.7, 1.7, 0.7); tail.position.set(-0.55, -0.1, 0.25); tail.rotation.z = 0.4; headG.add(tail); }   // đuôi ngựa
+  for (const z of [-0.3, 0.3]) { const bow = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.22, 4), M(top)); bow.position.set(-0.05, 0.5, z); bow.rotation.x = z > 0 ? -1.2 : 1.2; headG.add(bow); }
+  const white = new THREE.MeshBasicMaterial({ color: '#fff' }), ink = new THREE.MeshBasicMaterial({ color: '#1d1a1a' }), blush = new THREE.MeshBasicMaterial({ color: '#ff8fa0', transparent: true, opacity: 0.8 });
+  for (const z of [-0.2, 0.2]) {
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), white); w.scale.set(0.5, 1.2, 1); w.position.set(0.42, 0.0, z); headG.add(w);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), ink); e.scale.set(0.6, 1.2, 1); e.position.set(0.47, -0.01, z); headG.add(e);
+    const h = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), white); h.position.set(0.52, 0.05, z + 0.025); headG.add(h);
+    const ch = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), blush); ch.scale.set(0.35, 0.8, 1.3); ch.position.set(0.44, -0.17, z * 1.65); headG.add(ch);
+  }
+  const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: '#c2385a' })); mouth.scale.set(0.4, 0.6, 1); mouth.position.set(0.5, -0.15, 0); headG.add(mouth);      // miệng há cười
+  const arm = (sd) => {
+    const sh = new THREE.Group(); sh.position.set(0, 1.2, sd * 0.46); body.add(sh);
+    sh.add(new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.07, 0.5, 6).translate(0, -0.25, 0), skin));
+    const hand = new THREE.Group(); hand.position.y = -0.52; sh.add(hand); hand.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), skin));
+    return { sh, hand };
+  };
+  const arms = [arm(-1), arm(1)], pom = [];
+  if (role === 'pompom' || role === 'cheer') for (const a of arms) { const p = new THREE.Mesh(new THREE.IcosahedronGeometry(0.26, 1), new THREE.MeshLambertMaterial({ color: k % 2 ? '#ff4f8b' : '#ffd23a', flatShading: true, emissive: '#331100' })); p.position.y = 0.05; a.hand.add(p); pom.push(p); }
+  let bottle = null;
+  if (role === 'spray') { bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.42, 8), new THREE.MeshLambertMaterial({ color: '#6fd0ff', transparent: true, opacity: 0.85 })); bottle.position.set(0.12, 0.1, 0); bottle.rotation.z = -1.1; arms[1].hand.add(bottle); }
+  const legs = [-1, 1].map((sd) => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.09, 0.4, 6).translate(0, -0.2, 0), M('#fff')); l.position.set(0, 0.42, sd * 0.2); body.add(l); const f = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6).scale(1.2, 0.7, 0.9), M(accent)); f.position.set(0.06, -0.4, 0); l.add(f); return l; });
+  g.scale.setScalar(1.2); g.userData = { body, arms, legs, headG, role, pom, bottle, skirt, k };
+  return g;
+}
+export function animateCheer(c, t, ph, excite) {                 // excite 0..1: càng gần vận động viên càng nhiệt
+  const u = c.userData, a = 0.7 + excite * 0.6, w = t * (5 + excite * 4) + ph, s = Math.sin(w), hop = Math.max(0, Math.sin(w * 1.0)) * (0.12 + excite * 0.3);
+  u.body.position.y = 0.4 + (u.role === 'cheer' || excite > 0.5 ? hop : hop * 0.3); u.skirt.scale.set(1 + Math.abs(s) * 0.12, 1, 1 + Math.abs(s) * 0.12);
+  u.headG.rotation.z = Math.sin(w * 0.5) * 0.12; u.headG.rotation.x = Math.sin(w * 0.7) * 0.08;
+  const [L, R] = u.arms;
+  if (u.role === 'cheer') { L.sh.rotation.z = 2.4 + s * 0.3 * a; R.sh.rotation.z = 2.4 - s * 0.3 * a; L.sh.rotation.x = 0.9; R.sh.rotation.x = -0.9; }     // hai tay giơ cao
+  else if (u.role === 'pompom') { L.sh.rotation.z = 1.9 + s * 0.6 * a; R.sh.rotation.z = 1.9 - s * 0.6 * a; L.sh.rotation.x = 0.8; R.sh.rotation.x = -0.8; }
+  else if (u.role === 'wave') { R.sh.rotation.z = 2.7; R.sh.rotation.x = -0.25; R.hand.rotation.z = s * 0.9; L.sh.rotation.z = 0.35; L.hand.rotation.z = 0; }       // vẫy tay
+  else { R.sh.rotation.z = 1.5; R.sh.rotation.x = -0.3 + s * 0.08; L.sh.rotation.z = 2.3 + s * 0.4 * a; L.sh.rotation.x = 0.3; }                                   // cầm chai phun nước, tay kia giơ lên
+  if (u.pom) for (const p of u.pom) p.rotation.y = w * 3;
+  for (let i = 0; i < 2; i++) u.legs[i].rotation.z = (i ? s : -s) * 0.25 * (u.role === 'cheer' || excite > 0.5 ? 1 : 0.4);
+}
+
 // ---------- Game ----------
 export class Game {
   constructor(canvas, hooks, cfg = {}) {
@@ -329,12 +382,14 @@ export class Game {
     this.bikes = []; this.bikeEvents = []; for (let s = 140 + rng() * 120; s < this.total - 150; s += (230 + rng() * 170) / hard) this.bikeEvents.push({ s, lane: Math.floor(rng() * 4), v: 9 + rng() * 5, hue: Math.floor(rng() * 6) }); this.bikeIdx = 0;
     this.dogEvents = []; for (let s = 260 + rng() * 300; s < this.total - 120; s += 420 + rng() * 600) this.dogEvents.push(s);
     this.dogIdx = 0; this.dog = null; this.hold.clear();
+    this.squads = []; { const cm = CHEER_MAX[course.theme] || 3; for (let s = 105 + rng() * 80; s < this.total - 50; s += 150 + rng() * 170) this.squads.push({ s, side: rng() < 0.5 ? -1 : 1, n: 1 + Math.floor(rng() * cm), k: Math.floor(rng() * 6), built: false, pass: false, g: null, list: [], parts: [] }); }
+    this.emo = null;
     this.me = makeRunner({ id: 0, name: profile.name, km: profile.totals.totalKm, tier: profile.tier, equip: profile.equip }, true); this.scene.add(this.me.group);
     this.running = true; this.last = performance.now(); this.camHead = this.world.posAt(0).h; this.camD = 34; this.yaw = this.yawCur = 0; this.pitchO = 1.0; this.pitchCur = this.focusPitch; this.hud(true);
     cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.loop);
   }
   dispose() {
-    this.running = false; cancelAnimationFrame(this.raf);
+    this.running = false; cancelAnimationFrame(this.raf); this.emo = null; this.squads = [];
     if (this.world) { this.scene.remove(this.world.group); if (this.world.dispose) this.world.dispose(); }
     if (this.me) this.scene.remove(this.me.group);
     while (this.dyn.children.length) this.dyn.remove(this.dyn.children[0]);
@@ -424,10 +479,55 @@ export class Game {
       slot.n++; it.taken = true; this.dyn.remove(it.sp); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1;
       sfx.pickup(); this.float(`${S.ITEMS[it.key].icon} ${S.ITEMS[it.key].name}`, '#fff'); this.hooks.onInventory && this.hooks.onInventory(this.inv);
     }
+    for (const q of this.squads) if (!q.pass && st.s >= q.s) { q.pass = true; this.emote(q.n); }
     this.bikeLogic(dt, prev);
     this.dogLogic(dt);
     if (st.target >= this.total && st.s >= this.total - 0.05) { st.finished = true; st.s = st.target = this.total; sfx.finish(); this.hold.clear(); this.hooks.onFinish && this.hooks.onFinish(this.summary()); }
   }
+  // ----- đội cổ vũ -----
+  buildSquad(q) {
+    const w = this.world, gy = w.bbox ? 0 : -0.3; q.g = new THREE.Group(); this.dyn.add(q.g); q.built = true;
+    for (let i = 0; i < q.n; i++) {
+      const role = CHEER_ROLES[(i + q.k) % 5], m = makeCheer(q.k + i, role), P = w.posAt(q.s + (i - (q.n - 1) / 2) * 1.9), [x, z] = w.off(P, q.side * (6.7 + (i % 2) * 1.1));
+      m.position.set(x, P.y + gy, z); q.g.add(m);
+      const c = { m, x, z, h: P.h, ph: i * 1.3 + q.k, role, y: P.y + gy, bubble: null, say: CHEER_SAY[(q.k * 3 + i * 5) % CHEER_SAY.length] };
+      if (role === 'spray') { c.drops = []; for (let k = 0; k < 14; k++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 4), new THREE.MeshBasicMaterial({ color: '#8fdcff', transparent: true, opacity: 0.85 })); d.visible = false; q.g.add(d); c.drops.push({ d, life: 0, v: [0, 0, 0] }); } c.acc = 0; }
+      q.list.push(c);
+    }
+  }
+  destroySquad(q) { for (const c of q.list) if (c.bubble) { c.bubble.material.map.dispose(); c.bubble.material.dispose(); } this.dyn.remove(q.g); q.g = null; q.list = []; q.built = false; }
+  cheerUpdate(dt, t, px, pz) {
+    const st = this.st;
+    for (const q of this.squads) {
+      const d = q.s - st.s;
+      if (!q.built && d < 130 && d > -35) this.buildSquad(q); else if (q.built && (d < -50 || d > 190)) this.destroySquad(q);
+      if (!q.built) continue;
+      const ex = clamp(1 - Math.abs(d) / 45, 0, 1);
+      for (const [i, c] of q.list.entries()) {
+        const base = -c.h + (q.side > 0 ? Math.PI / 2 : -Math.PI / 2), face = -Math.atan2(pz - c.z, px - c.x);        // ban đầu quay mặt ra đường, rồi quay theo nhìn vận động viên
+        let diff = Math.atan2(Math.sin(face - base), Math.cos(face - base)); diff = clamp(diff, -2.0, 2.0);
+        let cur = Math.atan2(Math.sin(c.m.rotation.y - base), Math.cos(c.m.rotation.y - base)); cur += (diff - cur) * Math.min(1, dt * 6); c.m.rotation.y = base + cur;
+        animateCheer(c.m, t, c.ph, ex);
+        if (ex > 0.2 && i % 2 === 0 && !c.bubble) { c.bubble = textSprite(c.say, { color: '#fff', bg: '#e8408fdd', scaleW: 3.0, w: 320, h: 96, font: 'bold 50px system-ui, sans-serif' }); c.bubble.position.set(0, 3.7, 0); c.bubble.material.depthTest = false; c.bubble.renderOrder = 26; c.m.add(c.bubble); c.bt = 0; }
+        if (c.bubble) { c.bt += dt; const sc = Math.min(1, c.bt * 4) * (1 + Math.sin(t * 8 + i) * 0.04); c.bubble.scale.set(3.0 * sc / 1.2, 3.0 * sc * 0.3 / 1.2, 1); c.bubble.visible = ex > 0.05; }
+        if (c.drops && Math.abs(d) < 70) {                                                                               // phun nước về phía đường
+          const lx = -Math.sin(c.h) * -q.side, lz = Math.cos(c.h) * -q.side; c.acc += dt * 26;
+          while (c.acc >= 1) { c.acc -= 1; const p = c.drops.find((o) => o.life <= 0); if (!p) break; p.life = 0.9; const sp = 4 + Math.random() * 2.5; p.v = [lx * sp + (Math.random() - 0.5), 3.6 + Math.random() * 2, lz * sp + (Math.random() - 0.5)]; p.d.position.set(c.x + lx * 0.7, c.y + 2.2 + Math.abs(Math.sin(t * 5 + c.ph)) * 0.2, c.z + lz * 0.7); p.d.visible = true; }
+        }
+        if (c.drops) for (const p of c.drops) if (p.life > 0) { p.life -= dt; p.v[1] -= 9 * dt; p.d.position.x += p.v[0] * dt; p.d.position.y += p.v[1] * dt; p.d.position.z += p.v[2] * dt; p.d.material.opacity = clamp(p.life * 1.5, 0, 0.85); if (p.life <= 0 || p.d.position.y < c.y) { p.life = 0; p.d.visible = false; } }
+      }
+    }
+  }
+  emote(n) {                                                           // cảm xúc hiện trên đầu nhân vật khi chạy qua đội cổ vũ
+    const pool = n >= 4 ? [['🤩', 'Hưng phấn!'], ['🔥', 'Bốc lửa!'], ['😆', 'Phấn khích!']] : n >= 2 ? [['😄', 'Vui vẻ!'], ['🥰', 'Hạnh phúc!'], ['😍', 'Thích quá!']] : [['😊', 'Vui vẻ!'], ['😘', 'Ngại quá!']];
+    const [ch, label] = pool[Math.floor(Math.random() * pool.length)], bonus = Math.min(8, 2 + n);
+    this.clearEmote();
+    const sp = emojiSprite(ch, 2.1), lb = textSprite(`${label} +${bonus}`, { color: '#fff3b0', scaleW: 3.6, w: 420, h: 96, font: 'bold 54px system-ui, sans-serif' });
+    for (const o of [sp, lb]) { o.material.depthTest = false; o.renderOrder = 28; this.me.group.add(o); }
+    this.emo = { sp, lb, t: 2.8, life: 2.8 }; this.st.stam = Math.min(R.STAM_MAX, this.st.stam + bonus); if (this.st.exhausted && this.st.stam >= R.STAM_RESUME) this.st.exhausted = false;
+    sfx.cheer();
+  }
+  clearEmote() { const e = this.emo; if (!e) return; this.me.group.remove(e.sp, e.lb); e.lb.material.map.dispose(); e.lb.material.dispose(); this.emo = null; if (this.me.arrow) this.me.arrow.visible = true; }
   bikeLogic(dt, prevS) {
     const st = this.st;
     while (this.bikeIdx < this.bikeEvents.length && st.s >= this.bikeEvents[this.bikeIdx].s) {         // xe máy xuất hiện cách người chơi ~170 m, chạy ngược về phía bạn
@@ -506,6 +606,11 @@ export class Game {
     for (const f of this.floaters) { f.t -= dt; f.sp.position.y = f.y + (1.3 - f.t) * 1.6; f.sp.material.opacity = clamp(f.t, 0, 1); }
     this.floaters = this.floaters.filter((f) => { if (f.t <= 0) this.scene.remove(f.sp); return f.t > 0; });
     for (const it of this.items) if (!it.taken) it.sp.position.y = it.y + Math.sin(t * 3 + it.s) * 0.2;
+    this.cheerUpdate(dt, t, mx, mz);
+    if (this.emo) { const e = this.emo; e.t -= dt; const k = 1 - e.t / e.life, pop = k < 0.12 ? k / 0.12 * 1.25 : k < 0.25 ? 1.25 - (k - 0.12) / 0.13 * 0.25 : 1, fade = clamp(e.t / 0.6, 0, 1);
+      const zf = clamp(this.camD / 34, 0.55, 2.6);       // giữ kích thước trên màn hình ổn định khi zoom
+      e.sp.scale.setScalar(1.6 * zf * pop * (1 + Math.sin(t * 9) * 0.05)); e.sp.position.set(0, 4.3 + 0.5 * zf + Math.sin(t * 6) * 0.1, 0); e.sp.material.opacity = fade;
+      e.lb.scale.set(2.9 * zf * pop, 2.9 * zf * pop * 96 / 420, 1); e.lb.position.set(0, 3.9 + 0.2 * zf, 0); e.lb.material.opacity = fade; if (this.me.arrow) this.me.arrow.visible = false; if (e.t <= 0) this.clearEmote(); }
     for (const b of this.bikes) { const Q = w.posAt(b.s), [x, z] = w.off(Q, LX[b.lane]); b.m.position.set(x, Q.y, z); b.m.rotation.y = -Q.h + Math.PI; for (const wh of b.m.userData.wheels) wh.rotation.z -= b.v * dt / 0.38; b.m.rotation.z = Math.sin(t * 9 + b.s) * 0.02; }
     if (this.dog && this.dog.m.visible) dogAnimate(this.dog.m, t, this.dog.phase === 'leave' ? 0.55 : 1);
     if (st.shake > 0) st.shake -= dt;
