@@ -168,7 +168,8 @@ export class Game {
   constructor(canvas, hooks, cfg = {}) {
     this.hooks = hooks; this.canvas = canvas; this.cfg = cfg;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.maxPR = Math.min(2, window.devicePixelRatio || 1); this.pr = Math.min(this.maxPR, 1.5); this.ft = 16; this.fc = 0;   // độ phân giải tự điều chỉnh theo FPS
+    this.renderer.setPixelRatio(this.pr);
     this.scene = new THREE.Scene(); this.camera = new THREE.PerspectiveCamera(48, 1, 0.5, 2500);
     this.scene.add(new THREE.HemisphereLight('#fff3dc', '#8a7a62', 1.0));
     const sun = new THREE.DirectionalLight('#fff1d2', 1.1); sun.position.set(40, 80, 30); this.scene.add(sun);
@@ -222,7 +223,7 @@ export class Game {
     this.world.setFinish(this.total);
     this.profile = profile; this.mode = mode; this.seed = seed;
     const rng = mulberry(seed);
-    this.st = { s: 0, target: 0, lane: 1, lat: LX[1], stam: R.STAM_MAX, exhausted: false, slowT: 0, boltT: 0, jumpT: 0, jumpCd: 0, auto: 0, stepTimes: [], lastStep: -9,
+    this.st = { s: 0, target: 0, rate: 0, v: 0, lane: 1, lat: LX[1], stam: R.STAM_MAX, exhausted: false, slowT: 0, boltT: 0, jumpT: 0, jumpCd: 0, auto: 0, stepTimes: [], lastStep: -9,
       steps: 0, meters: 0, jumps: 0, bites: 0, boltsUsed: 0, time: 0, speed: 0, finished: false, items: {}, shake: 0, grade: 0 };
     this.unsent = { steps: 0, meters: 0, jumps: 0, bites: 0, boltsUsed: 0, secs: 0, items: {} };
     this.inv = (profile.inventory || []).filter((s) => S.ITEMS[s.k]).map((s) => ({ k: s.k, n: Math.min(R.INV_STACK, s.n) })).slice(0, R.INV_SLOTS);
@@ -265,10 +266,11 @@ export class Game {
     const st = this.st; if (!this.running || st.finished || st.exhausted) return false;
     const now = this.t; st.stepTimes = st.stepTimes.filter((x) => now - x < 1);
     if (st.stepTimes.length >= R.MAX_STEPS_PER_SEC) return false;
-    st.stepTimes.push(now); st.lastStep = now;
+    const prevStep = st.lastStep; st.stepTimes.push(now); st.lastStep = now;
     const g = S.gradeAt(this.map, st.target); st.grade = g;
     const cost = R.STAM_PER_STEP * S.slopeMult(g) * (st.boltT > 0 ? R.BOLT_COST_MULT : 1);
     let stride = st.boltT > 0 ? R.BOLT_STRIDE : R.STRIDE; if (st.slowT > 0) stride *= R.BITE_STRIDE_MULT;
+    { const gt = now - prevStep, inst = gt > 1.2 ? 3 : Math.min(12, stride / Math.max(0.12, gt)); st.rate += (inst - st.rate) * (gt > 1.2 ? 1 : 0.4); }   // tốc độ chạy ước lượng (m/s) để chuyển động liên tục
     st.stam -= cost; st.target += stride; st.steps++; st.meters += stride; this.unsent.steps++; this.unsent.meters += stride; sfx.step(st.boltT > 0);
     if (st.stam <= 0) { st.stam = 0; st.exhausted = true; sfx.tired(); this.say('😮‍💨 Hết thể lực! Dùng đồ ăn hoặc chờ hồi sức', 2200); }
     return true;
@@ -307,7 +309,13 @@ export class Game {
     if (this.t - st.lastStep > 1.2 || st.exhausted) { st.stam = Math.min(R.STAM_MAX, st.stam + R.IDLE_REGEN * dt); if (st.exhausted && st.stam >= R.STAM_RESUME) st.exhausted = false; }
     if (this.hold.size && this.mode !== 'auto' && !st.exhausted && this.t - st.lastStep >= 1 / R.MAX_STEPS_PER_SEC - 0.002) this.step();
     if (this.mode === 'auto' && !st.exhausted) { st.auto += dt; while (st.auto >= 1 / R.AUTO_STEPS_PER_SEC) { st.auto -= 1 / R.AUTO_STEPS_PER_SEC; st.stepTimes = []; this.step(); } }
-    const prev = st.s, gap = st.target - st.s; st.s += Math.min(gap, clamp(gap * 4.5, 0, 16) * dt); if (st.target - st.s < 0.01) st.s = st.target;   // đuổi theo mục tiêu êm hơn, không giật từng cục
+    // chạy liên tục theo nhịp bước (không dịch từng cục theo từng bước): vận tốc bám theo tốc độ ước lượng + phần quãng đường còn thiếu
+    const prev = st.s, gap = st.target - st.s;
+    if (this.t - st.lastStep > 0.4) st.rate *= Math.exp(-dt * 3.5);
+    const overdue = clamp((this.t - st.lastStep - 0.6) / 0.4, 0, 1);      // quá nhịp bước dự kiến thì dồn nốt phần còn thiếu
+    const vDes = 0.95 * st.rate + gap * (0.35 + 2.5 * overdue);
+    st.v += (vDes - st.v) * Math.min(1, dt * 8);
+    st.s += Math.min(gap, Math.max(0, st.v) * dt); if (st.target - st.s < 0.01) st.s = st.target;
     st.speed += ((st.s - prev) / Math.max(dt, 1e-3) - st.speed) * Math.min(1, dt * 6);
     if (st.jumpT > 0) { st.jumpT = Math.max(0, st.jumpT - dt); if (st.jumpT === 0) sfx.land(); }
     // tự động: nhảy qua chướng ngại nằm trong làn của mình
@@ -365,6 +373,14 @@ export class Game {
     const dt = clamp(((now - this.rl) || 16) / 1000, 0, 0.1); this.rl = now;
     if (!document.hidden) this.advance(dt);
     this.render(dt);
+    if (!document.hidden && ++this.fc > 90) {          // bỏ 90 khung đầu (biên dịch shader), sau đó tự giảm/tăng độ nét để giữ FPS mượt
+      this.ft = this.ft * 0.96 + Math.min(100, (now - (this.lastNow || now))) * 0.04;
+      if (this.fc % 60 === 0) {
+        let pr = this.pr; if (this.ft > 24 && pr > 0.6) pr = Math.max(0.6, pr - 0.2); else if (this.ft < 15 && pr < this.maxPR) pr = Math.min(this.maxPR, pr + 0.1);
+        if (pr !== this.pr) { this.pr = pr; this.renderer.setPixelRatio(pr); this.renderer.setSize(innerWidth, innerHeight, false); }
+      }
+    }
+    this.lastNow = now;
   }
   render(dt) {
     const st = this.st, w = this.world, t = this.t;
