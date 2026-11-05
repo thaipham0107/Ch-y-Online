@@ -1,5 +1,6 @@
 // Dựng thế giới 3D cho một bản đồ: tuyến đường theo độ cao, địa hình, cảnh vật đặc trưng từng địa danh.
-import * as THREE from 'three';
+import './compat.js';
+import * as THREE from '/vendor/three.module.js';   // đường dẫn thẳng, không dùng import map (Safari < 16.4 không hỗ trợ)
 const S = window.Shared;
 const HALF = S.LANES.HALF;   // nửa bề rộng mặt đường (4 làn)
 

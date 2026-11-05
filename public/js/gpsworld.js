@@ -1,5 +1,6 @@
 // Thế giới GPS: chạy ảo dọc một tuyến đường thật. Nền là ảnh bản đồ (2D hoặc vệ tinh) trải dưới đường 4 làn.
-import * as THREE from 'three';
+import './compat.js';
+import * as THREE from '/vendor/three.module.js';   // đường dẫn thẳng, không dùng import map (Safari < 16.4 không hỗ trợ)
 import { textSprite } from './world.js';
 const S = window.Shared;
 const RAD = Math.PI / 180;

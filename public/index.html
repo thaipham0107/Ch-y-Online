@@ -6,7 +6,6 @@
 <title>Chạy Online</title>
 <link rel="stylesheet" href="/leaflet/leaflet.css">
 <link rel="stylesheet" href="style.css">
-<script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -109,6 +108,15 @@
 <div id="modal" class="modal" hidden><div class="panel mbox"><button class="x" id="m-x" aria-label="Đóng">×</button><div id="m-body"></div></div></div>
 <div id="toast" class="toast"></div>
 
+<div id="bootfail" hidden style="position:fixed;inset:auto 12px 12px 12px;z-index:99;background:#7f1d1d;color:#fff;border-radius:12px;padding:12px 14px;font:14px/1.4 system-ui,sans-serif">
+  <b>Trang chưa chạy được trên trình duyệt này.</b> Hãy cập nhật iPadOS/iOS (nên từ 14 trở lên) hoặc mở bằng Safari/Chrome bản mới, rồi tải lại trang.<br><small>Chi tiết lỗi: <code id="bootmsg">không rõ</code></small>
+</div>
+<script>
+window.addEventListener('error', function (e) { window.__lastErr = (e.message || '') + ' @' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0); });
+window.addEventListener('unhandledrejection', function (e) { window.__lastErr = String(e.reason && e.reason.message || e.reason); });
+setTimeout(function () { if (!window.__booted) { document.getElementById('bootmsg').textContent = window.__lastErr || 'trình duyệt không tải được mô-đun'; document.getElementById('bootfail').hidden = false; } }, 6000);
+</script>
+<script nomodule>document.getElementById('bootfail').hidden = false;</script>
 <script src="/maps.js"></script>
 <script src="/leaflet/leaflet.js"></script>
 <script type="module" src="js/track.js"></script>

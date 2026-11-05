@@ -1,5 +1,6 @@
 // Engine game: nhân vật chibi + trang bị, 4 làn, camera zoom in/zoom out xoay 360°, thể lực/vật phẩm/chướng ngại/chó đuổi.
-import * as THREE from 'three';
+import './compat.js';
+import * as THREE from '/vendor/three.module.js';   // đường dẫn thẳng, không dùng import map (Safari < 16.4 không hỗ trợ)
 import { buildWorld, textSprite } from './world.js';
 import { buildGpsWorld } from './gpsworld.js';
 import { sfx } from './sound.js';

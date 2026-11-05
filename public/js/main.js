@@ -429,3 +429,5 @@ function toggleSound() { sfx.toggle(); soundIcon(); toast(sfx.muted ? 'Đã tắ
 $('#b-sound').onclick = toggleSound; soundIcon();
 // tiếng bấm nút ngoài sảnh
 document.addEventListener('click', (e) => { if (e.target.closest('button') && !e.target.closest('#hud')) sfx.click(); });
+
+window.__booted = true;      // báo cho khung cảnh báo trình duyệt cũ rằng trang đã chạy

@@ -85,3 +85,6 @@ Hồ sơ → tải ảnh đại diện; ảnh thay cho đầu nhân vật (bản
 
 ## Tương tác nhiều người
 Cùng bản đồ (hoặc cùng giải đấu) cùng lúc thì thấy nhau. Người gần nhất được đánh dấu vòng đỏ; **Q** trêu, **E** đấm, **R** đá (hoặc 3 nút bên trái màn hình): người bị chọc chậm lại 1–3 giây, có hồi chiêu và miễn nhiễm 2,5 giây; nút 🕊 bật chế độ hòa bình. Server kiểm tra cự ly/hồi chiêu; hiệu ứng làm chậm thực thi ở máy người bị chọc. Ảnh đại diện hiện ở bảng xếp hạng, kết quả giải, về đích và trang quản trị.
+
+## Trình duyệt hỗ trợ
+Safari/iPadOS/iOS 14 trở lên (nên 15+), Chrome/Edge/Firefox bản mới. Trình duyệt quá cũ sẽ thấy khung báo lỗi đỏ ở cuối trang thay vì trang trống.

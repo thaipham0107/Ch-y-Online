@@ -1,5 +1,6 @@
 # Changelog
 ## 1.2.0
+- Sửa lỗi iPad/iPhone đời cũ (Safari < 16.4) không thao tác được gì: bỏ import map, nạp three.js bằng đường dẫn thẳng; bù canvas roundRect; thêm khung báo lỗi khi trình duyệt không chạy được trang (kèm chi tiết lỗi).
 - Tương tác nhiều người: trêu/đấm/đá làm chậm người bị chọc, vòng đỏ chọn mục tiêu, hồi chiêu + miễn nhiễm + chế độ hòa bình; người chạy cùng bản đồ hoặc cùng giải thấy nhau; ảnh đại diện hiện ở bảng xếp hạng, kết quả giải, về đích, thông báo, trang quản trị.
 - Ảnh đại diện: tải ở Hồ sơ, thay cho đầu nhân vật (tài khoản: server, mọi người thấy; khách: trình duyệt); admin xóa được ảnh vi phạm.
 - Cử chỉ vuốt cho cảm ứng (trái/phải = đổi làn, xuống = trượt, lên = nhảy, chạm/giữ = chạy), nút ảo ẩn mặc định (🎮 để hiện); khung tuyến mờ và gọn; thể lực là vòng tròn cạn ngược chiều kim đồng hồ có cảnh báo nhấp nháy; nhặt vật phẩm mượt hơn.
