@@ -165,8 +165,8 @@ module.exports = function mountAdmin(app, ctx) {
       (SELECT COALESCE(SUM(game_m),0) FROM daily WHERE user_id=u.id) gm, (SELECT COALESCE(SUM(km),0) FROM real_daily WHERE user_id=u.id) rk,
       (SELECT MAX(last) FROM vsessions WHERE user_id=u.id) seen, (SELECT COUNT(*) FROM vsessions WHERE user_id=u.id) sess,
       (SELECT COALESCE(SUM(active_s),0) FROM vsessions WHERE user_id=u.id) act, (SELECT COUNT(*) FROM runs WHERE user_id=u.id) runs,
-      (u.strava IS NOT NULL AND u.strava!='') strava FROM users u ${where} ORDER BY ${sort} ${dir}, u.id DESC LIMIT ${size} OFFSET ${page * size}`, ...args);
-    res.json({ total, page, size, users: rows.map((r) => ({ id: r.id, username: r.username, name: r.name, created: r.created, coins: r.coins, banned: !!r.banned, gameKm: r1(r.gm / 1000), realKm: r1(r.rk), seen: r.seen, sessions: r.sess, activeS: Math.round(r.act), runs: r.runs, strava: !!r.strava })) });
+      (u.strava IS NOT NULL AND u.strava!='') strava, (u.avatar IS NOT NULL AND u.avatar!='') hasav, u.avatar_v av FROM users u ${where} ORDER BY ${sort} ${dir}, u.id DESC LIMIT ${size} OFFSET ${page * size}`, ...args);
+    res.json({ total, page, size, users: rows.map((r) => ({ id: r.id, username: r.username, name: r.name, created: r.created, avatar: r.hasav ? `/api/avatar/${r.id}?v=${r.av}` : null, coins: r.coins, banned: !!r.banned, gameKm: r1(r.gm / 1000), realKm: r1(r.rk), seen: r.seen, sessions: r.sess, activeS: Math.round(r.act), runs: r.runs, strava: !!r.strava })) });
   });
 
   app.get('/api/admin/users/:id', guard, (req, res) => {

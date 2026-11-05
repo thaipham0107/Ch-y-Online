@@ -82,3 +82,6 @@ Các bạn nữ chibi đứng hai bên đường theo đội 1–5 người (s�
 
 ## Ảnh đại diện
 Hồ sơ → tải ảnh đại diện; ảnh thay cho đầu nhân vật (bảng tròn viền vàng quay về camera). Tài khoản lưu trên server và mọi người thấy; khách lưu trên trình duyệt. Server chỉ nhận JPG/PNG/WebP ≤ 60 KB (trình duyệt tự thu nhỏ). Admin có thể xóa avatar vi phạm. Lưu ý quyền riêng tư: ảnh người dùng tải lên là dữ liệu cá nhân, hãy nêu trong chính sách quyền riêng tư và có quy trình gỡ ảnh.
+
+## Tương tác nhiều người
+Cùng bản đồ (hoặc cùng giải đấu) cùng lúc thì thấy nhau. Người gần nhất được đánh dấu vòng đỏ; **Q** trêu, **E** đấm, **R** đá (hoặc 3 nút bên trái màn hình): người bị chọc chậm lại 1–3 giây, có hồi chiêu và miễn nhiễm 2,5 giây; nút 🕊 bật chế độ hòa bình. Server kiểm tra cự ly/hồi chiêu; hiệu ứng làm chậm thực thi ở máy người bị chọc. Ảnh đại diện hiện ở bảng xếp hạng, kết quả giải, về đích và trang quản trị.

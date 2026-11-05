@@ -113,7 +113,9 @@ export function makeRunner(info, me) {
   if (me) { arrow = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.55, 3).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: '#ffd23a' })); arrow.position.y = 3.3; g.add(arrow); }
   g.scale.setScalar(me ? 1.25 : 1.1);
   return { group: g, body, arms, legs, feet, halo, arrow, sparks, rainbow: eq.aura === 'aura_rainbow', phase: 0,
-    sp: 0,
+    sp: 0, actK: null, actT: 0, actD: 0.5, stagT: 0,
+    play(k) { this.actK = k; this.actT = 0; this.actD = k === 'kick' ? 0.55 : k === 'punch' ? 0.45 : 0.9; },      // ra đòn: trêu / đấm / đá
+    stag() { this.stagT = 0.7; },                                                                                   // bị đánh: loạng choạng
     animate(dt, speed, jumpH, t, slide = 0) {
       this.sp += (speed - this.sp) * Math.min(1, dt * 10);
       const mv = clamp((this.sp - 0.4) / 1.2, 0, 1), amp = mv * clamp(0.6 + this.sp / 10, 0.6, 1), air = clamp(jumpH / 1.1, 0, 1), g1 = 1 - air;
@@ -132,6 +134,17 @@ export function makeRunner(info, me) {
         for (const lg of this.legs) { lg.hip.rotation.z = lg.hip.rotation.z * (1 - k) + 1.35 * k; lg.knee.rotation.z *= 1 - k * 0.8; }
         for (const am of this.arms) { am.hip.rotation.z = am.hip.rotation.z * (1 - k) - 1.3 * k; am.knee.rotation.z *= 1 - k; }
       }
+      this.body.position.z = 0;
+      if (this.actK) {                                                                  // đòn tấn công/trêu ghẹo ghi đè lên dáng chạy
+        this.actT += dt; const u = this.actT / this.actD;
+        if (u >= 1) this.actK = null; else {
+          const e = Math.sin(u * Math.PI);
+          if (this.actK === 'punch') { this.arms[1].hip.rotation.z = 1.75 * e; this.arms[1].knee.rotation.z = 0.15; this.arms[0].hip.rotation.z = -0.9 * e; this.body.rotation.z -= 0.28 * e; this.body.rotation.y = 0.5 * e; }
+          else if (this.actK === 'kick') { this.legs[1].hip.rotation.z = 1.6 * e; this.legs[1].knee.rotation.z = -0.15; this.arms[0].hip.rotation.z = 1.3 * e; this.arms[1].hip.rotation.z = -1.0 * e; this.body.rotation.z += 0.32 * e; }
+          else { this.arms[0].hip.rotation.z = 2.6 + Math.sin(t * 22) * 0.35; this.arms[1].hip.rotation.z = 2.6 - Math.sin(t * 22) * 0.35; this.arms[0].knee.rotation.z = this.arms[1].knee.rotation.z = 0.2; this.body.rotation.x = Math.sin(t * 16) * 0.14 * e; this.body.position.y += Math.abs(Math.sin(t * 14)) * 0.18 * e; }
+        }
+      } else this.body.rotation.y = 0;
+      if (this.stagT > 0) { this.stagT -= dt; const k = this.stagT / 0.7; this.body.rotation.x += Math.sin(this.stagT * 42) * 0.2 * k; this.body.rotation.z += 0.3 * k; this.body.position.z = Math.sin(this.stagT * 55) * 0.14 * k; }
       const cape = this.group.userData.cape; if (cape) cape.rotation.z = 0.12 + 0.25 * amp + Math.sin(t * 8) * 0.05 * amp;
       this.halo.material.opacity = 0.6 + Math.sin(t * 3 + this.phase * 0.1) * 0.2; this.halo.scale.setScalar(1 + Math.sin(t * 2.4) * 0.05);
       if (this.rainbow) this.halo.material.color.setHSL((t * 0.3) % 1, 0.9, 0.6);
@@ -447,7 +460,8 @@ export class Game {
     this.bikes = []; this.bikeEvents = []; for (let s = 140 + rng() * 120; s < this.total - 150; s += (230 + rng() * 170) / hard) this.bikeEvents.push({ s, lane: Math.floor(rng() * 4), v: 9 + rng() * 5, hue: Math.floor(rng() * 6) }); this.bikeIdx = 0;
     this.dogEvents = []; for (let s = 260 + rng() * 300; s < this.total - 120; s += 420 + rng() * 600) this.dogEvents.push(s);
     this.dogIdx = 0; this.dog = null; this.hold.clear();
-    this.flyers = [];
+    this.flyers = []; this.pops = []; this.target = null; this.peace = this.peace || false;
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.55, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff4d4d', transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide })); this.ring.position.y = 0.1;
     this.squads = []; { const cm = CHEER_MAX[course.theme] || 3; for (let s = 105 + rng() * 80; s < this.total - 50; s += 150 + rng() * 170) this.squads.push({ s, side: rng() < 0.5 ? -1 : 1, n: 1 + Math.floor(rng() * cm), k: Math.floor(rng() * 6), built: false, pass: false, g: null, list: [], parts: [] }); }
     this.emo = null;
     this.me = makeRunner({ id: 0, name: profile.name, km: profile.totals.totalKm, tier: profile.tier, equip: profile.equip, avatar: profile.avatar }, true); this.scene.add(this.me.group);
@@ -572,6 +586,43 @@ export class Game {
     this.dogLogic(dt);
     if (st.target >= this.total && st.s >= this.total - 0.05) { st.finished = true; st.s = st.target = this.total; sfx.finish(); this.hold.clear(); this.hooks.onFinish && this.hooks.onFinish(this.summary()); }
   }
+  // ----- tương tác giữa người chơi: trêu / đấm / đá -----
+  updateTarget() {                                           // chọn người gần nhất (trong 30 m, ưu tiên cùng làn) làm mục tiêu
+    const st = this.st; let best = null;
+    if (!this.peace) for (const o of this.others.values()) {
+      if (o.peace) continue; const ds = o.s - st.s, ad = Math.abs(ds); if (ad > 30) continue;
+      const dl = Math.abs(o.lane - st.lane), score = ad + dl * 4; if (!best || score < best.score) best = { o, ds, dl, score };
+    }
+    const nt = best ? { id: best.o.id, name: best.o.name, melee: Math.abs(best.ds) <= 10 && best.dl <= 1, ahead: best.ds > 0 } : null;
+    const changed = (!nt) !== (!this.target) || (nt && (nt.id !== this.target.id || nt.melee !== this.target.melee));
+    this.target = nt;
+    if (this.ring) { if (this.ring.parent) this.ring.parent.remove(this.ring); if (best) best.o.actor.group.add(this.ring); }
+    if (changed && this.hooks.onTarget) this.hooks.onTarget(nt);
+  }
+  interact(kind) {                                           // gửi yêu cầu lên server; hiệu ứng chạy khi server xác nhận (cả phòng cùng thấy)
+    if (!this.running || this.st.finished || !this.target || this.peace) return false;
+    if (kind !== 'tease' && !this.target.melee) { this.float('Lại gần hơn để ra đòn!', '#ffd27a'); return false; }
+    this.hooks.onAct && this.hooks.onAct(kind, this.target.id); return true;
+  }
+  popAbove(group, ch, size = 1.7) {
+    const sp = emojiSprite(ch, size); sp.material.depthTest = false; sp.renderOrder = 28; sp.position.set(0, 4.3, 0); group.add(sp); this.pops.push({ sp, group, t: 1.1 });
+  }
+  onActMsg(m) {                                              // server báo: from đã ra đòn k lên to (làm chậm to)
+    const st = this.st, meId = this.myId, VERB = { tease: 'trêu', punch: 'đấm', kick: 'đá' };
+    const actorOf = (id) => (id === meId ? this.me : (this.others.get(id) || {}).actor), A = actorOf(m.from), T = actorOf(m.to);
+    const nameOf = (id) => (id === meId ? 'Bạn' : (this.others.get(id) || {}).name || 'Ai đó');
+    if (A) A.play(m.k);
+    if (m.k === 'tease') sfx.tease(); else if (m.k === 'punch') sfx.punch(); else sfx.kick();
+    if (m.to === meId) {
+      if (st.shieldT > 0) { this.float('Khiên chặn! 🛡️', '#8fe3ff'); sfx.pickup(); }
+      else {
+        st.slowT = Math.max(st.slowT, m.slow); if (m.k !== 'tease') st.stam = Math.max(0, st.stam - (m.k === 'kick' ? 5 : 3)); if (st.stam <= 0) st.exhausted = true;
+        st.shake = m.k === 'tease' ? 0.15 : 0.45; this.me.stag(); this.popAbove(this.me.group, m.k === 'tease' ? '😵' : '💫'); this.float(`${nameOf(m.from)} ${VERB[m.k]} bạn! Chậm ${m.slow}s`, '#ff9d8a'); sfx.hit();
+      }
+    } else if (T) { T.stag(); this.popAbove(T.group, m.k === 'tease' ? '😵' : '💫'); }
+    if (m.from === meId) { this.popAbove(this.me.group, m.k === 'tease' ? '😜' : m.k === 'punch' ? '👊' : '🦶', 1.5); if (m.k !== 'tease') st.stam = Math.max(0, st.stam - 2); }
+    this.hooks.onTicker && this.hooks.onTicker(`${nameOf(m.from)} ${VERB[m.k]} ${nameOf(m.to)}!`);
+  }
   // ----- đội cổ vũ -----
   buildSquad(q) {
     const w = this.world, gy = w.bbox ? 0 : -0.3; q.g = new THREE.Group(); this.dyn.add(q.g); q.built = true;
@@ -663,9 +714,10 @@ export class Game {
   addOther(p) {
     if (this.others.has(p.id)) return;
     const av = p.av ? String(p.av).split('.') : null, actor = makeRunner({ ...p, avatar: av ? `/api/avatar/${av[0]}?v=${av[1]}` : null }, false); this.scene.add(actor.group);
-    this.others.set(p.id, { actor, s: p.s || 0, ts: p.s || 0, j: 0, mv: 0, lane: p.l ?? (p.id % 4), lat: LX[p.l ?? (p.id % 4)] });
+    this.others.set(p.id, { id: p.id, name: p.name || 'Người chơi', peace: !!p.peace, actor, s: p.s || 0, ts: p.s || 0, sp: 0, j: 0, mv: 0, lane: p.l ?? (p.id % 4), lat: LX[p.l ?? (p.id % 4)] });
   }
-  removeOther(id) { const o = this.others.get(id); if (o) { this.scene.remove(o.actor.group); this.others.delete(id); } }
+  removeOther(id) { const o = this.others.get(id); if (o) { this.scene.remove(o.actor.group); this.others.delete(id); if (this.target && this.target.id === id) { this.target = null; this.hooks.onTarget && this.hooks.onTarget(null); } } }
+  setPeace(id, on) { const o = this.others.get(id); if (o) o.peace = !!on; }
   snap(arr) { for (const [id, s, j, mv, l] of arr) { const o = this.others.get(id); if (o) { o.ts = s; o.j = j; o.mv = mv; o.lane = l ?? o.lane; } } }
   count() { return this.others.size + 1; }
 
@@ -691,12 +743,17 @@ export class Game {
     this.me.group.position.set(mx, P.y, mz); this.me.group.rotation.y = -P.h; this.me.animate(dt, Math.min(20, st.speed), jh, t, st.slideT > 0 ? Math.min(1, (R.SLIDE_SECS - st.slideT) / 0.1, st.slideT / 0.15) : 0);
     for (const o of this.others.values()) {
       o.s += (o.ts - o.s) * Math.min(1, dt * 6); o.lat += (LX[o.lane] - o.lat) * Math.min(1, dt * 8);
-      const Q = w.posAt(o.s), [x, z] = w.off(Q, o.lat); o.actor.group.position.set(x, Q.y, z); o.actor.group.rotation.y = -Q.h; o.actor.animate(dt, o.mv ? 4 : 0, o.j ? 1 : 0, t);
+      const ps = o.ps === undefined ? o.s : o.ps; o.sp += (clamp((o.s - ps) / Math.max(dt, 1e-3), 0, 22) - o.sp) * Math.min(1, dt * 6); o.ps = o.s;      // tốc độ thật của người khác → nhịp chân đúng
+      const Q = w.posAt(o.s), [x, z] = w.off(Q, o.lat); o.actor.group.position.set(x, Q.y, z); o.actor.group.rotation.y = -Q.h; o.actor.animate(dt, o.sp, o.j ? 1 : 0, t);
     }
     for (const f of this.floaters) { f.t -= dt; f.sp.position.y = f.y + (1.3 - f.t) * 1.6; f.sp.material.opacity = clamp(f.t, 0, 1); }
     this.floaters = this.floaters.filter((f) => { if (f.t <= 0) this.scene.remove(f.sp); return f.t > 0; });
     for (const it of this.items) if (!it.taken) it.sp.position.y = it.y + Math.sin(t * 3 + it.s) * 0.2;
     this.cheerUpdate(dt, t, mx, mz);
+    this.tgT = (this.tgT || 0) - dt; if (this.tgT <= 0) { this.tgT = 0.15; this.updateTarget(); }
+    if (this.ring) this.ring.rotation.y += dt * 2.5;
+    for (const p of this.pops) { p.t -= dt; p.sp.position.y = 4.3 + (1.1 - p.t) * 0.7; p.sp.material.opacity = clamp(p.t / 0.4, 0, 1); if (p.t <= 0) p.group.remove(p.sp); }
+    this.pops = this.pops.filter((p) => p.t > 0);
     { const fv = (this.baseFov || 48) + clamp(st.speed / 22, 0, 1) * 7; if (Math.abs(this.camera.fov - fv) > 0.05) { this.camera.fov += (fv - this.camera.fov) * Math.min(1, dt * 3); this.camera.updateProjectionMatrix(); } }    // chạy càng nhanh góc nhìn càng rộng
     for (const f of this.flyers) { f.t += dt; const k = Math.min(1, f.t / 0.3), e = k * k; f.sp.position.set(f.from.x + (mx - f.from.x) * e, f.from.y + (P.y + 1.4 - f.from.y) * e, f.from.z + (mz - f.from.z) * e); f.sp.scale.setScalar((f.s0 || 1.4) * (1 - 0.55 * e)); if (k >= 1) this.dyn.remove(f.sp); }
     this.flyers = this.flyers.filter((f) => f.t < 0.3);

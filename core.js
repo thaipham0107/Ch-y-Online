@@ -65,7 +65,7 @@ const q = {
   setStrava: db.prepare('UPDATE users SET strava=?,last_sync=? WHERE id=?'),
   lbGame: db.prepare('SELECT user_id u, SUM(game_m - imp) g FROM daily WHERE day>=? GROUP BY user_id'),
   lbReal: db.prepare('SELECT user_id u, SUM(km) r FROM real_daily WHERE day>=? GROUP BY user_id'),
-  users: db.prepare('SELECT id,name,strava FROM users'),
+  users: db.prepare('SELECT id,name,strava,avatar,avatar_v FROM users'),
   setCoins: db.prepare('UPDATE users SET coins=?,coin_rem=? WHERE id=?'),
   setShop: db.prepare('UPDATE users SET coins=?,owned=?,equip=? WHERE id=?'),
   // giải đấu
@@ -414,7 +414,7 @@ app.get('/api/leaderboard', (req, res) => {
   const names = new Map(q.users.all().map((u) => [u.id, u]));
   const rows = [...agg.entries()].filter(([id]) => names.has(id)).map(([id, e]) => ({
     name: names.get(id).name, gameKm: r1(e.g), realKm: r1(e.r), totalKm: r1(e.g + e.r), tier: Shared.tierIndex(totalsFor(id).totalKm),
-    strava: !!names.get(id).strava, me: !!(req.user && req.user.id === id) })).filter((r) => r.totalKm > 0).sort((a, b) => b.totalKm - a.totalKm).slice(0, 20);
+    strava: !!names.get(id).strava, avatar: names.get(id).avatar ? `/api/avatar/${id}?v=${names.get(id).avatar_v}` : null, me: !!(req.user && req.user.id === id) })).filter((r) => r.totalKm > 0).sort((a, b) => b.totalKm - a.totalKm).slice(0, 20);
   res.json({ period: p, rows });
 });
 
@@ -494,6 +494,10 @@ function cleanMedals(m) {
   } return out;
 }
 function tState(t, now = Date.now()) { return t.finalized ? 'final' : now > t.end_at ? 'closing' : now < t.start_at ? 'upcoming' : (t.live_at && now < t.live_at) ? 'lobby' : 'open'; }
+function avatarOf(pkey) {            // ảnh đại diện của người chơi trong giải (chỉ tài khoản 'u<id>' mới có)
+  if (!/^u\d+$/.test(pkey)) return null;
+  const u = db.prepare('SELECT avatar, avatar_v FROM users WHERE id=?').get(+pkey.slice(1)); return u && u.avatar ? `/api/avatar/${pkey.slice(1)}?v=${u.avatar_v}` : null;
+}
 function standings(t) {
   const cats = jparse(t.cats, []), names = new Map(q.pList.all(t.code).map((p) => [p.pkey, p.name])), res = {};
   const rows = q.rList.all(t.code);
@@ -506,7 +510,7 @@ function standings(t) {
     }
     res[c.id] = [...best.values()].sort((a, b) => (a.status === 'finished') !== (b.status === 'finished') ? (a.status === 'finished' ? -1 : 1)
       : a.status === 'finished' ? a.time_s - b.time_s || a.created - b.created : b.dist_m - a.dist_m)
-      .map((r, i) => ({ rank: i + 1, pkey: r.pkey, name: names.get(r.pkey) || 'Người chơi', status: r.status, timeS: r.time_s, distM: Math.round(r.dist_m) }));
+      .map((r, i) => ({ rank: i + 1, pkey: r.pkey, name: names.get(r.pkey) || 'Người chơi', avatar: avatarOf(r.pkey), status: r.status, timeS: r.time_s, distM: Math.round(r.dist_m) }));
   }
   return res;
 }
@@ -624,6 +628,7 @@ app.post('/api/tournaments/:code/flush', needWho, (req, res) => {
 // Không phụ thuộc thư viện WebSocket: nền tảng đưa vào "sock" = { send(chuỗi), open() } rồi gọi message()/close().
 const rooms = new Map();
 let nextPid = 1;
+const ACTS = { tease: { range: 30, lane: 9, cd: 1500, slow: 1.0 }, punch: { range: 10, lane: 1, cd: 2500, slow: 2.0 }, kick: { range: 12, lane: 1, cd: 3500, slow: 3.0 } };
 const admin = createAdmin(app, { db, dayOf, hashPw, publicTotals: totalsFor, MAPS, env, online: () => ({ running: [...rooms.values()].reduce((a, r) => a + r.size, 0) }) });
 const send = (p, o) => { if (p.sock.open()) p.sock.send(JSON.stringify(o)); };
 function bcast(room, o, except) { const s = JSON.stringify(o); for (const p of room) if (p !== except && p.sock.open()) p.sock.send(s); }
@@ -631,7 +636,7 @@ function cleanEquip(e) { const out = {}; for (const cat of Object.keys(SHOP_DEFA
 
 function connect(sock, cookieHeader) {
   const { user } = userFromCookie(cookieHeader);
-  const p = { id: nextPid++, sock, room: null, s: 0, l: 1, j: 0, mv: 0, name: 'Khách', km: 0, tier: 0, equip: cleanEquip({}), last: 0 };
+  const p = { peace: false, immuneUntil: 0, lastAct: 0, cd: {}, id: nextPid++, sock, room: null, s: 0, l: 1, j: 0, mv: 0, name: 'Khách', km: 0, tier: 0, equip: cleanEquip({}), last: 0 };
   return {
     message(raw) {
       let m; try { m = JSON.parse(raw); } catch { return; }
@@ -645,10 +650,24 @@ function connect(sock, cookieHeader) {
         else { p.name = cleanName(m.name) || 'Khách'; p.km = r1(clamp(+m.km || 0, 0, 20000)); p.equip = cleanEquip(m.equip); }
         p.tier = Shared.tierIndex(p.km);
         let rk; for (let k = 1; ; k++) { rk = key + '#' + k; const set = rooms.get(rk) || new Set(); if (set.size < 30) { rooms.set(rk, set); break; } }
-        p.room = rooms.get(rk); p.room.add(p);
-        const info = (o) => ({ id: o.id, name: o.name, km: o.km, tier: o.tier, equip: o.equip, av: o.av, s: o.s, l: o.l, j: o.j, mv: o.mv });
+        p.room = rooms.get(rk); p.peace = !!m.peace; p.room.add(p);
+        const info = (o) => ({ id: o.id, name: o.name, km: o.km, tier: o.tier, equip: o.equip, av: o.av, peace: o.peace, s: o.s, l: o.l, j: o.j, mv: o.mv });
         send(p, { t: 'welcome', id: p.id, players: [...p.room].filter((o) => o !== p).map(info) });
         bcast(p.room, { t: 'join', p: info(p) }, p);
+      } else if (m.t === 'peace' && p.room) {                       // chế độ hòa bình: không đánh được và cũng không bị đánh
+        p.peace = !!m.on; bcast(p.room, { t: 'peace', id: p.id, on: p.peace });
+      } else if (m.t === 'act' && p.room) {                         // trêu / đấm / đá: server kiểm tra cự ly, hồi chiêu, miễn nhiễm rồi phát cho cả phòng
+        const now = Date.now(), k = String(m.k), RULE = ACTS[k]; if (!RULE) return;
+        const deny = (why) => send(p, { t: 'deny', k, why });
+        if (p.peace) return deny('peace');
+        if (now - p.lastAct < 900 || now < (p.cd[k] || 0)) return deny('cooldown');
+        const tg = [...p.room].find((o) => o.id === (+m.to | 0));
+        if (!tg || tg === p) return deny('target');
+        if (tg.peace) return deny('target_peace');
+        if (now < tg.immuneUntil) return deny('immune');
+        if (Math.abs(tg.s - p.s) > RULE.range || Math.abs(tg.l - p.l) > RULE.lane) return deny('range');
+        p.lastAct = now; p.cd[k] = now + RULE.cd; tg.immuneUntil = now + RULE.slow * 1000 + 2500;      // sau khi bị chậm còn 2,5 giây miễn nhiễm: không bị khóa liên tục
+        bcast(p.room, { t: 'act', k, from: p.id, to: tg.id, slow: RULE.slow });
       } else if (m.t === 'pos' && p.room) {
         const now = Date.now(); if (now - p.last < 80) return; p.last = now;
         const s = +m.s; if (Number.isFinite(s)) p.s = clamp(s, 0, 60000);

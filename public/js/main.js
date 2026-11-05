@@ -128,7 +128,7 @@ $('#s-go').onclick = () => startFree();
 const getMode = () => sel.mode; const setMode = (m) => { sel.mode = m; };
 
 // ----- chạy -----
-let invPending = null, invRaf = 0;
+let invPending = null, invRaf = 0, tickT = 0;
 function ensureGame() {
   if (game) return game;
   game = new Game($('#c'), {
@@ -136,6 +136,9 @@ function ensureGame() {
     onEvent: (text, ms = 2000) => { const t = $('#ticker'); t.textContent = text; clearTimeout(t._t); t._t = setTimeout(() => { t.textContent = ''; }, ms + 2000); if (/Chó|Gâu|Hết thể lực/.test(text)) banner(text, ms); },
     onInventory: (inv) => { invPending = inv; if (!invRaf) invRaf = requestAnimationFrame(() => { invRaf = 0; renderInv(invPending); store.saveInventory(invPending); }); },      // gộp cập nhật túi đồ theo khung hình
     onCoin: (n) => { sessionCoins += n; },
+    onTarget: (t) => showTarget(t),
+    onAct: (k, to) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'act', k, to })); },
+    onTicker: (txt) => { $('#ticker').textContent = txt; clearTimeout(tickT); tickT = setTimeout(() => { $('#ticker').textContent = ''; }, 3500); },
     onFinish: (sum) => finishRun(sum)
   }, cfg);
   if (window.__chayDebug) window.__game = game;      // chỉ để kiểm thử tự động
@@ -185,12 +188,25 @@ async function launch({ course, dist, mode, seed, room, tour, view = '3d' }) {
   $('#h-map').textContent = tour ? `🏅 ${tour.title}` : course.name; $('#h-auto').checked = mode === 'auto'; renderInv(g.inv);
   $('#h-elev').hidden = course.kind === 'gps'; const imgStyle = course.kind === 'gps' ? course.style : g.view; $('#attr').textContent = imgStyle === 'sat' ? cfg.tiles.attrSat : imgStyle === 'road' ? cfg.tiles.attrRoad : '';
   $('#ticker').textContent = ''; $('#banner').hidden = true; $('#h-coins').innerHTML = '<span class="gc"></span> ' + coinBase;
-  $('#b-map').hidden = !g.world.bbox;
+  g.peace = peaceOn; $('#b-map').hidden = !g.world.bbox;
   if (mode !== 'auto') toast(TOUCH ? (padOn ? 'Chạm màn hình để chạy · nút NHẢY để nhảy' : 'Chạm/giữ = chạy · vuốt ◀ ▶ = đổi làn · vuốt ↓ = trượt · vuốt ↑ = nhảy') : 'Space hoặc nhấp chuột để chạy · J hoặc ↑ để nhảy', 3500);
   connectWs(course, room); clearInterval(flushTimer); flushTimer = setInterval(() => doFlush(false), 15000);
 }
 async function doFlush(done, finished) { if (!game || !game.st) return null; store.record(game.takeDelta()); return store.flush(done, finished); }
-function stopRun() { clearInterval(flushTimer); clearInterval(posTimer); clearTimeout(wsTimer); if (ws) { ws.onclose = null; ws.close(); ws = null; } if (game) game.dispose(); }
+// ----- tương tác (trêu / đấm / đá) -----
+const ACT_CD = { tease: 1500, punch: 2500, kick: 3500 };
+function showTarget(t) {
+  const box = $('#social'); box.hidden = !t; if (!t) return;
+  $('#sc-name').textContent = `🎯 ${t.name}`; $('#sc-punch').disabled = $('#sc-kick').disabled = !t.melee;
+}
+for (const [id, k] of [['sc-tease', 'tease'], ['sc-punch', 'punch'], ['sc-kick', 'kick']]) {
+  $('#' + id).addEventListener('pointerdown', (e) => { e.preventDefault(); const b = e.currentTarget; if (!game || b.classList.contains('cd')) return; if (game.interact(k)) { b.classList.add('cd'); setTimeout(() => b.classList.remove('cd'), ACT_CD[k]); } });
+}
+let peaceOn = false; try { peaceOn = localStorage.getItem('chay.peace') === '1'; } catch { /* bỏ */ }
+const applyPeace = () => { $('#b-peace').classList.toggle('on', peaceOn); if (game) { game.peace = peaceOn; } if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'peace', on: peaceOn })); };
+$('#b-peace').onclick = () => { peaceOn = !peaceOn; try { localStorage.setItem('chay.peace', peaceOn ? '1' : '0'); } catch { /* bỏ */ } applyPeace(); toast(peaceOn ? '🕊 Hòa bình: bạn không trêu/đánh và cũng không bị trêu/đánh' : '😜 Đã bật tương tác trêu/đấm/đá', 2200); };
+$('#b-peace').classList.toggle('on', peaceOn);
+function stopRun() { $('#social').hidden = true; clearInterval(flushTimer); clearInterval(posTimer); clearTimeout(wsTimer); if (ws) { ws.onclose = null; ws.close(); ws = null; } if (game) game.dispose(); }
 async function exitRun() {
   const t = cur && cur.tour;
   await doFlush(!!t, false); stopRun();
@@ -199,7 +215,7 @@ async function exitRun() {
 async function finishRun(sum) {
   const t = cur && cur.tour, r = await doFlush(true, true), p = store.profile();
   const result = t ? `<p class="sub">🏅 ${esc(t.title)} · ${t.km} km</p>${r && r.finished ? `<p>Kết quả ghi nhận: <b>${fmtTime(r.timeS)}</b> (thời gian do server đo từ lúc xuất phát).</p>` : '<p class="hint">Kết quả chưa được ghi nhận (nhịp bước không hợp lệ hoặc mất kết nối).</p>'}` : `<p class="sub">${esc(sum.map.name)} · ${(sum.dist / 1000).toFixed(1)} km</p>`;
-  openModal(`<h2>🎉 Về đích!</h2>${result}
+  openModal(`<h2>${p.avatar ? `<img class="avs" src="${esc(p.avatar)}" alt="">` : ''}🎉 Về đích!</h2>${result}
     <div class="sumgrid"><div>Thời gian<b>${fmtTime(sum.time)}</b></div><div>Số bước<b>${sum.steps}</b></div><div>Pace TB<b>${fmtPace(sum.time / 60 / (sum.dist / 1000))}/km</b></div><div>Nhảy qua<b>${sum.jumps}</b></div><div>Bị chó cắn<b>${sum.bites}</b></div><div>Vật phẩm<b style="font-size:15px">${ITEM_ICON(sum.items)}</b></div></div>
     <p class="hint">Tổng km tích lũy: <b>${p.totals.totalKm.toFixed(1)} km</b> · <span class="gc"></span> ${p.coins || 0} xu (+${S.COIN.FINISH} xu thưởng về đích).</p>
     <div class="seg">${t ? '<button id="tobr" class="on">Xem bảng xếp hạng</button>' : '<button id="again" class="on">Chạy lại</button>'}<button id="tolobby">Về sảnh</button></div>`);
@@ -227,6 +243,7 @@ function updateHud(h) {
   if (game.map.kind !== 'gps') drawElev($('#h-elev'), game.map, h.s);
 }
 // điều khiển
+const cdKey = (id, k) => { const b = $('#' + id); b.classList.add('cd'); setTimeout(() => b.classList.remove('cd'), ACT_CD[k]); };
 const typing = () => /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
 const modalOpen = () => !$('#modal').hidden;
 addEventListener('keydown', (e) => {
@@ -243,6 +260,9 @@ addEventListener('keydown', (e) => {
   else if (e.key === '-') game.zoom(1);
   else if (e.key === 't' || e.key === 'T') game.tilt();
   else if (e.key === 'm' || e.key === 'M') toggleSound();
+  else if (e.key === 'q' || e.key === 'Q') { if (game.interact('tease')) cdKey('sc-tease', 'tease'); }
+  else if (e.key === 'e' || e.key === 'E') { if (game.interact('punch')) cdKey('sc-punch', 'punch'); }
+  else if (e.key === 'r' || e.key === 'R') { if (game.interact('kick')) cdKey('sc-kick', 'kick'); }
   else if (e.key === 'f' || e.key === 'F') game.fitAll();
 });
 function toggleAuto() { game.setMode(game.mode === 'auto' ? 'manual' : 'auto'); sel.mode = game.mode; toast(game.mode === 'auto' ? `▶ Chạy tự động (${R.AUTO_STEPS_PER_SEC} bước/giây)` : '✋ Chạy thủ công', 1200); }
@@ -266,11 +286,14 @@ function connectWs(course, room) {
   clearTimeout(wsTimer); if (ws) { ws.onclose = null; ws.close(); }
   ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
   const p = store.profile();
-  ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', map: course.kind === 'gps' ? 'hoguom' : course.id, room, name: p.name, km: p.totals.totalKm, equip: p.equip }));
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', map: course.kind === 'gps' ? 'hoguom' : course.id, room, name: p.name, km: p.totals.totalKm, equip: p.equip, peace: !!game.peace }));
   ws.onmessage = (e) => {
     let m; try { m = JSON.parse(e.data); } catch { return; } if (!game) return;
-    if (m.t === 'welcome') game.setOthers(m.players);
-    else if (m.t === 'join') { game.addOther(m.p); $('#ticker').textContent = `${m.p.name} vừa vào cung đường`; }
+    if (m.t === 'welcome') { game.myId = m.id; game.setOthers(m.players); }
+    else if (m.t === 'act') game.onActMsg(m);
+    else if (m.t === 'peace') game.setPeace(m.id, m.on);
+    else if (m.t === 'deny') { const T = { range: 'Ở quá xa hoặc khác làn', immune: 'Người này vừa bị chọc, đợi một chút', peace: 'Bạn đang ở chế độ hòa bình 🕊', target_peace: 'Người này đang ở chế độ hòa bình 🕊' }[m.why]; if (T) toast(T, 1500); }
+    else if (m.t === 'join') { game.addOther(m.p); $('#ticker').innerHTML = (m.p.av ? `<img class="avs sm" src="/api/avatar/${String(m.p.av).split('.')[0]}?v=${String(m.p.av).split('.')[1]}" alt="">` : '') + esc(m.p.name) + ' vừa vào cung đường'; clearTimeout(tickT); tickT = setTimeout(() => { $('#ticker').textContent = ''; }, 3500); }
     else if (m.t === 'leave') game.removeOther(m.id);
     else if (m.t === 'snap') game.snap(m.p);
   };
@@ -302,7 +325,7 @@ async function openPanel(kind) {
       const j = await store.leaderboard(period).catch(() => ({ rows: [] }));
       $('#m-body').innerHTML = `<h2>🏆 Xếp hạng</h2><div class="seg" id="lb-tabs">${[['today', 'Hôm nay'], ['week', '7 ngày'], ['all', 'Tất cả']].map(([k, n]) => `<button data-p="${k}" class="${k === period ? 'on' : ''}">${n}</button>`).join('')}</div>
         <div class="tw"><table><thead><tr><th>#</th><th>Tên</th><th>Game</th><th>Ngoài đời 👟</th><th>Tổng</th></tr></thead><tbody>
-        ${j.rows.length ? j.rows.map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td>${i + 1}</td><td>${S.TIERS[r.tier].icon} ${esc(r.name)} ${r.strava ? '<span title="Đã kết nối Strava">🟧</span>' : ''}</td><td class="g">${r.gameKm.toFixed(1)}</td><td class="r">${r.realKm.toFixed(1)}</td><td class="t">${r.totalKm.toFixed(1)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--mut)">Chưa có dữ liệu</td></tr>'}</tbody></table></div>
+        ${j.rows.length ? j.rows.map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td>${i + 1}</td><td>${S.TIERS[r.tier].icon} ${r.avatar ? `<img class="avs sm" src="${esc(r.avatar)}" alt="">` : ''}${esc(r.name)} ${r.strava ? '<span title="Đã kết nối Strava">🟧</span>' : ''}</td><td class="g">${r.gameKm.toFixed(1)}</td><td class="r">${r.realKm.toFixed(1)}</td><td class="t">${r.totalKm.toFixed(1)}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--mut)">Chưa có dữ liệu</td></tr>'}</tbody></table></div>
         <p class="hint">Xếp theo <b>tổng km</b> = km trong game + km chạy ngoài đời. Người chưa kết nối Strava có cột Ngoài đời = 0. Km gộp từ dữ liệu khách không tính vào bảng này.</p>`;
       $('#lb-tabs').onclick = (e) => { if (e.target.dataset.p) render(e.target.dataset.p); };
     };

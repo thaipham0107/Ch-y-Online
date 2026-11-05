@@ -53,5 +53,8 @@ export const sfx = {
   swoosh() { noise({ dur: 0.28, vol: 0.2, freq: 1400, q: 0.6, type: 'bandpass' }); tone({ type: 'sawtooth', f0: 180, f1: 90, dur: 0.25, vol: 0.08 }); },
   cheer() { noise({ dur: 0.7, vol: 0.14, freq: 1100, q: 1.2, type: 'bandpass' }); [0, 0.12, 0.26].forEach((t, i) => tone({ type: 'triangle', f0: 520 + i * 90, f1: 900 + i * 120, t, dur: 0.3, vol: 0.12, vib: 14 })); tone({ type: 'sine', f0: 1320, t: 0.45, dur: 0.25, vol: 0.1 }); },
   slide() { noise({ dur: 0.32, vol: 0.2, freq: 900, q: 0.5, type: 'bandpass' }); tone({ type: 'triangle', f0: 420, f1: 140, dur: 0.28, vol: 0.1 }); },
+  tease() { tone({ type: 'sawtooth', f0: 380, f1: 190, dur: 0.38, vol: 0.12, vib: 70 }); tone({ type: 'square', f0: 700, t: 0.1, dur: 0.12, vol: 0.05 }); },
+  punch() { noise({ dur: 0.09, vol: 0.28, freq: 700 }); tone({ type: 'sine', f0: 200, f1: 70, dur: 0.14, vol: 0.34 }); },
+  kick() { noise({ dur: 0.18, vol: 0.18, freq: 1300, q: 0.5, type: 'bandpass' }); tone({ type: 'sine', f0: 160, f1: 55, t: 0.08, dur: 0.18, vol: 0.36 }); },
   click() { tone({ type: 'triangle', f0: 640, f1: 480, dur: 0.06, vol: 0.12 }); },
 };

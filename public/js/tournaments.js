@@ -72,13 +72,13 @@ export function createTournamentUI(ctx) {
       <div class="box"><div class="seg" id="t-cats">${t.cats.map((c) => `<button data-cat="${c.id}" class="${c.id === cat ? 'on' : ''}">${c.km} km</button>`).join('')}</div>
         <h3>${t.state === 'final' ? 'Tổng kết' : 'Bảng xếp hạng'} · ${t.cats.find((c) => c.id === cat).km} km</h3>
         ${t.state === 'final' && st.length ? podium(t, st) : ''}
-        <div class="tw"><table><thead><tr><th>#</th><th>Tên</th><th>Kết quả</th></tr></thead><tbody>${st.length ? st.map((r) => `<tr class="${r.me ? 'me' : ''}"><td>${r.rank}</td><td>${esc(r.name)}</td><td>${r.status === 'finished' ? '<b>' + fmt.time(r.timeS) + '</b>' : `Chưa về đích · ${(r.distM / 1000).toFixed(2)} km`}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--mut)">Chưa có kết quả</td></tr>'}</tbody></table></div></div>`);
+        <div class="tw"><table><thead><tr><th>#</th><th>Tên</th><th>Kết quả</th></tr></thead><tbody>${st.length ? st.map((r) => `<tr class="${r.me ? 'me' : ''}"><td>${r.rank}</td><td>${r.avatar ? `<img class="avs sm" src="${esc(r.avatar)}" alt="">` : ''}${esc(r.name)}</td><td>${r.status === 'finished' ? '<b>' + fmt.time(r.timeS) + '</b>' : `Chưa về đích · ${(r.distM / 1000).toFixed(2)} km`}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--mut)">Chưa có kết quả</td></tr>'}</tbody></table></div></div>`);
     if (t.state === 'lobby') { clearInterval(liveTimer); liveTimer = setInterval(tick, 250); tick(); }
     root().dataset.cat = cat;
   }
   function podium(t, st) {
     const top = st.filter((r) => r.status === 'finished').slice(0, 3), order = [top[1], top[0], top[2]], kinds = ['silver', 'gold', 'bronze'];
-    return `<div class="podium">${order.map((r, i) => r ? `<div class="pod p${i}">${medalSvg(t.medals[kinds[i]], i === 1 ? 92 : 72)}<b>${esc(r.name)}</b><span>${fmt.time(r.timeS)}</span></div>` : '<div></div>').join('')}</div>
+    return `<div class="podium">${order.map((r, i) => r ? `<div class="pod p${i}">${medalSvg(t.medals[kinds[i]], i === 1 ? 92 : 72)}<b>${r.avatar ? `<img class="avs" src="${esc(r.avatar)}" alt="">` : ''}${esc(r.name)}</b><span>${fmt.time(r.timeS)}</span></div>` : '<div></div>').join('')}</div>
       <p class="hint">${st.filter((r) => r.status === 'finished').length} người về đích và nhận huy chương (3 người đầu nhận huy chương hạng, còn lại nhận huy chương phong trào).</p>`;
   }
   let ready = null;
