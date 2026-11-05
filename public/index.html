@@ -84,13 +84,14 @@
     <button data-open="tour" title="Giải đấu (sắp có)">🏅</button>
     <button id="b-sound" title="Bật/tắt âm thanh (M)">🔊</button>
     <button id="b-map" title="Xem toàn tuyến trên bản đồ (F)" hidden>🗺</button>
+    <button id="b-pad" title="Hiện/ẩn nút ◀ ▶ TRƯỢT NHẢY" hidden>🎮</button>
     <button id="b-tilt" title="Đổi góc nhìn / về góc chạy (T)">🎥</button>
     <button id="b-exit" title="Thoát chuyến chạy">⏏</button>
   </div>
   <div class="zoom"><button id="z-in">+</button><button id="z-out">−</button></div>
   <div id="viewhint" class="viewhint" hidden>Toàn cảnh: kéo để xoay 360°, cuộn/chụm để zoom. Zoom gần để về góc chạy.</div>
   <div id="attr" class="attr"></div>
-  <div class="stamwrap"><div class="stamlbl">Thể lực <b id="h-stam">100</b></div><div class="bar stam"><i id="h-stambar"></i></div><div id="h-status" class="status"></div></div>
+  <div class="stamwrap" id="stamwrap"><div class="ringbox"><svg class="ring" viewBox="0 0 72 72"><circle class="trk" cx="36" cy="36" r="30"/><circle class="arc" id="h-stamarc" cx="36" cy="36" r="30" pathLength="100"/></svg><div class="stamnum"><b id="h-stam">100</b><small>THỂ LỰC</small></div></div><div id="h-status" class="status"></div></div>
   <div id="banner" class="banner" hidden></div>
   <div class="inv" id="inv"></div>
   <div class="actions">

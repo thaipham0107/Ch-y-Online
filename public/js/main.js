@@ -128,12 +128,13 @@ $('#s-go').onclick = () => startFree();
 const getMode = () => sel.mode; const setMode = (m) => { sel.mode = m; };
 
 // ----- chạy -----
+let invPending = null, invRaf = 0;
 function ensureGame() {
   if (game) return game;
   game = new Game($('#c'), {
     onHud: updateHud,
     onEvent: (text, ms = 2000) => { const t = $('#ticker'); t.textContent = text; clearTimeout(t._t); t._t = setTimeout(() => { t.textContent = ''; }, ms + 2000); if (/Chó|Gâu|Hết thể lực/.test(text)) banner(text, ms); },
-    onInventory: (inv) => { renderInv(inv); store.saveInventory(inv); },
+    onInventory: (inv) => { invPending = inv; if (!invRaf) invRaf = requestAnimationFrame(() => { invRaf = 0; renderInv(invPending); store.saveInventory(invPending); }); },      // gộp cập nhật túi đồ theo khung hình
     onCoin: (n) => { sessionCoins += n; },
     onFinish: (sum) => finishRun(sum)
   }, cfg);
@@ -185,7 +186,7 @@ async function launch({ course, dist, mode, seed, room, tour, view = '3d' }) {
   $('#h-elev').hidden = course.kind === 'gps'; const imgStyle = course.kind === 'gps' ? course.style : g.view; $('#attr').textContent = imgStyle === 'sat' ? cfg.tiles.attrSat : imgStyle === 'road' ? cfg.tiles.attrRoad : '';
   $('#ticker').textContent = ''; $('#banner').hidden = true; $('#h-coins').innerHTML = '<span class="gc"></span> ' + coinBase;
   $('#b-map').hidden = !g.world.bbox;
-  if (mode !== 'auto') toast(TOUCH ? 'Chạm màn hình để chạy · nút NHẢY để nhảy' : 'Space hoặc nhấp chuột để chạy · J hoặc ↑ để nhảy', 3500);
+  if (mode !== 'auto') toast(TOUCH ? (padOn ? 'Chạm màn hình để chạy · nút NHẢY để nhảy' : 'Chạm/giữ = chạy · vuốt ◀ ▶ = đổi làn · vuốt ↓ = trượt · vuốt ↑ = nhảy') : 'Space hoặc nhấp chuột để chạy · J hoặc ↑ để nhảy', 3500);
   connectWs(course, room); clearInterval(flushTimer); flushTimer = setInterval(() => doFlush(false), 15000);
 }
 async function doFlush(done, finished) { if (!game || !game.st) return null; store.record(game.takeDelta()); return store.flush(done, finished); }
@@ -217,7 +218,8 @@ function updateHud(h) {
   $('#h-dist').textContent = `${(h.s / 1000).toFixed(2)} / ${(h.dist / 1000).toFixed(1)} km`;
   $('#h-speed').textContent = `${h.kmh.toFixed(1)} km/h · ${fmtPace(h.pace)}/km`;
   $('#h-grade').textContent = game.map.kind === 'gps' ? 'GPS' : `${h.grade >= 0 ? '+' : ''}${h.grade.toFixed(1)}% · ${Math.round(h.elev)} m`;
-  $('#h-stam').textContent = Math.round(h.stam); $('#h-stambar').style.width = h.stam + '%'; $('.stam').classList.toggle('low', h.stam < 25);
+  { const sw = $('#stamwrap'); $('#h-stam').textContent = Math.round(h.stam); $('#h-stamarc').style.strokeDasharray = `${Math.max(0, h.stam).toFixed(1)} 100`;
+    sw.classList.toggle('mid', h.stam < 50 && h.stam >= 25); sw.classList.toggle('low', h.stam < 25 && !h.exhausted); sw.classList.toggle('dead', !!h.exhausted); }
   { const fx = []; if (h.shieldT > 0) fx.push(`🛡️ Khiên ${Math.ceil(h.shieldT)}s`); if (h.magT > 0) fx.push(`🧲 Nam châm ${Math.ceil(h.magT)}s`); if (h.boltT > 0) fx.push(`⚡ Tăng tốc ${Math.ceil(h.boltT)}s`); if (h.slowT > 0) fx.push(`🐕 Chậm lại ${Math.ceil(h.slowT)}s`); if (!fx.length && h.dog === 'chase') fx.push('🐕 Chó đang đuổi!');
     $('#h-status').textContent = h.exhausted ? '😮‍💨 Kiệt sức — chờ hồi sức hoặc dùng đồ ăn' : fx.join(' · '); }
   $('#h-online').textContent = `${h.online} đang online`; $('#h-auto').checked = h.mode === 'auto';
@@ -371,6 +373,11 @@ window.__app = { store, get game() { return game; }, sel, get tours() { return t
 // nhãn nút theo thiết bị
 { const s = $('#b-step small'), j = $('#b-jump small'), sl = $('#b-slide small'); if (TOUCH) { s.textContent = 'hoặc chạm màn hình'; j.textContent = ''; sl.textContent = ''; } else { s.textContent = 'Space / click'; j.textContent = 'J / ↑'; sl.textContent = 'S / ↓'; } }
 
+// bàn phím ảo / cử chỉ (điện thoại, tablet): mặc định dùng cử chỉ, ẩn các nút ◀ ▶ TRƯỢT NHẢY; nút 🎮 bật lại khi cần
+let padOn = false; try { padOn = localStorage.getItem('chay.pad') === '1'; } catch { /* bỏ */ }
+const applyPad = () => { $('#hud').classList.toggle('gest', TOUCH && !padOn); $('#b-pad').hidden = !TOUCH; $('#b-pad').classList.toggle('on', padOn); };
+$('#b-pad').onclick = () => { padOn = !padOn; try { localStorage.setItem('chay.pad', padOn ? '1' : '0'); } catch { /* bỏ */ } applyPad(); toast(padOn ? 'Đã bật nút ◀ ▶ TRƯỢT NHẢY' : 'Chỉ dùng cử chỉ vuốt', 1400); };
+applyPad();
 // âm thanh
 const soundIcon = () => { $('#b-sound').textContent = sfx.muted ? '🔇' : '🔊'; };
 function toggleSound() { sfx.toggle(); soundIcon(); toast(sfx.muted ? 'Đã tắt âm thanh' : 'Đã bật âm thanh', 1200); }

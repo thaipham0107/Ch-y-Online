@@ -104,7 +104,7 @@ export class Store {
   }
   saveInventory(inv) {
     const clean = inv.map((s) => ({ k: s.k, n: s.n }));
-    if (this.mode === 'guest') { this.guest.inventory = clean; safeSet(this.guest); return; }
+    if (this.mode === 'guest') { this.guest.inventory = clean; clearTimeout(this.invTimer); this.invTimer = setTimeout(() => safeSet(this.guest), 700); return; }      // gộp nhiều lần nhặt đồ, không ghi localStorage liên tục
     clearTimeout(this.invTimer); this.invTimer = setTimeout(() => api('/api/inventory', { inv: clean }).catch(() => {}), 1500);
   }
 

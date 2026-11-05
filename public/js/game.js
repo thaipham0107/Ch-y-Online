@@ -338,28 +338,29 @@ export class Game {
   resize() { const w = innerWidth, h = innerHeight; this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.baseFov = h > w ? Math.min(78, 48 * Math.pow(h / w, 0.55)) : 48; this.camera.fov = this.baseFov; this.camera.updateProjectionMatrix(); }
   get overview() { return this.camD > 60; }
   bindPointer() {
-    const el = this.canvas, pts = new Map(); let pinch = 0, drag = null, swipe = null, tap = null, holdT = 0;
+    const el = this.canvas, pts = new Map(); let pinch = 0, drag = null, swipe = null, tap = null, holdT = 0, gs = null;
     el.addEventListener('pointerdown', (e) => { el.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY]; swipe = [e.clientX, e.clientY, performance.now()];
       tap = pts.size === 1 && (e.pointerType !== 'mouse' || e.button === 0) ? { x: e.clientX, y: e.clientY, t: performance.now(), ok: true, held: false } : null; if (pts.size > 1 && tap) tap.ok = false;
+      gs = pts.size === 1 && e.pointerType !== 'mouse' ? { x: e.clientX, y: e.clientY, last: 0 } : null;     // cử chỉ vuốt chỉ cho cảm ứng/bút
       clearTimeout(holdT); if (tap) { const mine = tap; holdT = setTimeout(() => { if (tap === mine && mine.ok && this.running) { mine.held = true; this.setHold('ptr', true); } }, 220); }   /* giữ yên 0,22 giây = chạy liên tục */
       if (pts.size > 1) this.setHold('ptr', false);
       if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
     el.addEventListener('pointermove', (e) => {
       if (!pts.has(e.pointerId)) return; const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
-      if (tap && (pts.size > 1 || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10)) { tap.ok = false; if (tap.held) { tap.held = false; this.setHold('ptr', false); } }   // kéo/chụm thì không tính là chạm
+      if (tap && (pts.size > 1 || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10)) { tap.ok = false; if (tap.held && pts.size > 1) { tap.held = false; this.setHold('ptr', false); } }   // kéo/chụm thì không tính là chạm (đang giữ chạy thì vẫn tiếp tục)
+      if (gs && pts.size === 1 && this.running && !this.overview) {      // vuốt ngang = đổi làn, xuống = trượt, lên = nhảy: kích hoạt ngay khi ngón tay đi đủ xa, vuốt liền nhiều lần không cần nhấc tay
+        const now = performance.now(), dx = e.clientX - gs.x, dy = e.clientY - gs.y, ax = Math.abs(dx), ay = Math.abs(dy);
+        if (ax > 34 && ax > ay * 1.2 && now - gs.last > 90) { gs.v = false; this.moveLane(dx > 0 ? 1 : -1); gs.x = e.clientX; gs.y = e.clientY; gs.last = now; if (tap) tap.ok = false; }
+        else if (ay > 40 && ay > ax * 1.2 && now - gs.last > 160 && !gs.v) { gs.v = true; if (dy > 0) this.slide(); else this.jump(); gs.x = e.clientX; gs.y = e.clientY; gs.last = now; if (tap) tap.ok = false; }
+      }
       if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) this.camD = clamp(this.camD * pinch / d, 14, this.maxD); pinch = d; return; }
       if (this.overview) this.orbit(e.clientX - prev[0], e.clientY - prev[1]);
     });
     const up = (e) => {
-      if (swipe && pts.size === 1 && !this.overview && this.running) {          // vuốt ngang để đổi làn khi đang zoom in
-        const dx = e.clientX - swipe[0], dy = e.clientY - swipe[1];
-        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5 && performance.now() - swipe[2] < 600) this.moveLane(dx > 0 ? 1 : -1);
-        else if (Math.abs(dy) > 45 && Math.abs(dy) > Math.abs(dx) * 1.5 && performance.now() - swipe[2] < 600) { if (dy > 0) this.slide(); else this.jump(); }      // vuốt xuống = trượt, vuốt lên = nhảy
-      }
       // chạm nhanh hoặc nhấp chuột (không kéo) = 1 bước; vuốt ngang/kéo xoay/chụm zoom không tính
       clearTimeout(holdT); this.setHold('ptr', false);
       if (tap && tap.ok && !tap.held && e.type === 'pointerup' && pts.size === 1 && performance.now() - tap.t < 400 && this.running) this.step();
-      tap = null;
+      tap = null; gs = null;
       pts.delete(e.pointerId); pinch = 0; swipe = null;
     };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
@@ -478,7 +479,9 @@ export class Game {
   }
   say(text, ms) { this.hooks.onEvent && this.hooks.onEvent(text, ms); }
   float(text, color = '#fff') {
-    const sp = textSprite(text, { color, scaleW: 6, w: 512, h: 96, font: 'bold 52px system-ui' }); sp.material.depthTest = false; sp.renderOrder = 30;
+    const key = text + '|' + color, cache = (this.floatTpl = this.floatTpl || new Map());      // dùng lại texture chữ: không tạo canvas mới mỗi lần nhặt đồ (hết khựng)
+    let tpl = cache.get(key); if (!tpl) { tpl = textSprite(text, { color, scaleW: 6, w: 512, h: 96, font: 'bold 52px system-ui' }); cache.set(key, tpl); if (cache.size > 80) cache.delete(cache.keys().next().value); }
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tpl.material.map, transparent: true, depthTest: false, depthWrite: false })); sp.scale.copy(tpl.scale); sp.renderOrder = 30;
     const P = this.world.posAt(this.st.s), [x, z] = this.world.off(P, this.st.lat); sp.position.set(x, P.y + 4.4, z); this.scene.add(sp); this.floaters.push({ sp, t: 1.3, y: P.y + 4.4 });
   }
   zoom(d) { this.camD = clamp(this.camD * (d < 0 ? 0.8 : 1.3), 14, this.maxD); }
@@ -527,19 +530,19 @@ export class Game {
     if (st.magT > 0) for (const it of this.items) {                  // nam châm: hút xu trong 11 m phía trước, ở mọi làn
       if (it.key !== 'coin' || it.taken || it.s - st.s < -1.5 || it.s - st.s > 11) continue;
       it.taken = true; st.items.coin = (st.items.coin || 0) + 1; this.unsent.items.coin = (this.unsent.items.coin || 0) + 1; this.hooks.onCoin && this.hooks.onCoin(1);
-      this.flyers.push({ sp: it.sp, t: 0, from: it.sp.position.clone() }); if (this.t - (this.lastCoinSfx || 0) > 0.07) { this.lastCoinSfx = this.t; sfx.coin(); }
+      this.flyers.push({ sp: it.sp, t: 0, from: it.sp.position.clone(), s0: it.sp.scale.x }); if (this.t - (this.lastCoinSfx || 0) > 0.07) { this.lastCoinSfx = this.t; sfx.coin(); }
     }
     for (const r of this.rushes) if (!r.said && st.s >= r.s - 8) { r.said = true; this.say('🪙 Đoạn thưởng xu! Gom thật nhiều!', 2400); }
     for (const it of this.items) {
       if (it.taken || !(it.lane === st.lane || Math.abs(st.lat - LX[it.lane]) < 1.3) || !(prev < it.s + 1.8 && st.s >= it.s - 1.8)) continue;       // quét cả đoạn vừa đi qua (chạy nhanh/FPS thấp không bị lọt) và chấp nhận khi đã sát làn
-      if (it.key === 'coin') { it.taken = true; this.dyn.remove(it.sp); st.items.coin = (st.items.coin || 0) + 1; this.unsent.items.coin = (this.unsent.items.coin || 0) + 1; this.hooks.onCoin && this.hooks.onCoin(1); sfx.coin(); continue; }
+      if (it.key === 'coin') { it.taken = true; this.flyers.push({ sp: it.sp, t: 0, from: it.sp.position.clone(), s0: it.sp.scale.x }); st.items.coin = (st.items.coin || 0) + 1; this.unsent.items.coin = (this.unsent.items.coin || 0) + 1; this.hooks.onCoin && this.hooks.onCoin(1); sfx.coin(); continue; }
       const slot = this.inv.find((x) => x.k === it.key && x.n < R.INV_STACK) || (this.inv.length < R.INV_SLOTS ? (this.inv.push({ k: it.key, n: 0 }), this.inv[this.inv.length - 1]) : null);
       if (!slot) {                               // túi đầy: dùng luôn nếu có ích, không thì để lại trên đường và báo
-        if (it.key === 'bolt' || it.key === 'magnet' || it.key === 'shield' || st.stam < R.STAM_MAX - 8 || st.slowT > 0) { it.taken = true; this.dyn.remove(it.sp); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1; sfx.pickup(); this.applyItem(it.key); }
+        if (it.key === 'bolt' || it.key === 'magnet' || it.key === 'shield' || st.stam < R.STAM_MAX - 8 || st.slowT > 0) { it.taken = true; this.flyers.push({ sp: it.sp, t: 0, from: it.sp.position.clone(), s0: it.sp.scale.x }); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1; sfx.pickup(); this.applyItem(it.key); }
         else if (!it.warned) { it.warned = true; this.float('Túi đầy! 🎒', '#ffb27a'); }
         continue;
       }
-      slot.n++; it.taken = true; this.dyn.remove(it.sp); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1;
+      slot.n++; it.taken = true; this.flyers.push({ sp: it.sp, t: 0, from: it.sp.position.clone(), s0: it.sp.scale.x }); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1;
       sfx.pickup(); this.float(`${S.ITEMS[it.key].icon} ${S.ITEMS[it.key].name}`, '#fff'); this.hooks.onInventory && this.hooks.onInventory(this.inv);
     }
     for (const q of this.squads) if (!q.pass && st.s >= q.s) { q.pass = true; this.emote(q.n); }
@@ -673,7 +676,7 @@ export class Game {
     for (const it of this.items) if (!it.taken) it.sp.position.y = it.y + Math.sin(t * 3 + it.s) * 0.2;
     this.cheerUpdate(dt, t, mx, mz);
     { const fv = (this.baseFov || 48) + clamp(st.speed / 22, 0, 1) * 7; if (Math.abs(this.camera.fov - fv) > 0.05) { this.camera.fov += (fv - this.camera.fov) * Math.min(1, dt * 3); this.camera.updateProjectionMatrix(); } }    // chạy càng nhanh góc nhìn càng rộng
-    for (const f of this.flyers) { f.t += dt; const k = Math.min(1, f.t / 0.3), e = k * k; f.sp.position.set(f.from.x + (mx - f.from.x) * e, f.from.y + (P.y + 1.4 - f.from.y) * e, f.from.z + (mz - f.from.z) * e); f.sp.scale.setScalar(1.4 * (1 - 0.6 * e)); if (k >= 1) this.dyn.remove(f.sp); }
+    for (const f of this.flyers) { f.t += dt; const k = Math.min(1, f.t / 0.3), e = k * k; f.sp.position.set(f.from.x + (mx - f.from.x) * e, f.from.y + (P.y + 1.4 - f.from.y) * e, f.from.z + (mz - f.from.z) * e); f.sp.scale.setScalar((f.s0 || 1.4) * (1 - 0.55 * e)); if (k >= 1) this.dyn.remove(f.sp); }
     this.flyers = this.flyers.filter((f) => f.t < 0.3);
     if (this.shieldMesh) { const on = st.shieldT > 0 && (st.shieldT > 1.5 || Math.floor(t * 8) % 2 === 0); this.shieldMesh.visible = on; if (on) { this.shieldMesh.scale.setScalar(1 + Math.sin(t * 6) * 0.04); this.shieldMesh.material.opacity = 0.32 + Math.sin(t * 5) * 0.08; } }
     if (this.emo) { const e = this.emo; e.t -= dt; const k = 1 - e.t / e.life, pop = k < 0.12 ? k / 0.12 * 1.25 : k < 0.25 ? 1.25 - (k - 0.12) / 0.13 * 0.25 : 1, fade = clamp(e.t / 0.6, 0, 1);

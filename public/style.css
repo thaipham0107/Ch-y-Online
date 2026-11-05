@@ -198,3 +198,35 @@ button,select,.seg button,.slot{touch-action:manipulation;-webkit-tap-highlight-
   .act{width:52px;height:52px;font-size:12px}.act.main{width:80px;height:80px}.act.sm{width:52px;height:52px}
   .actions{gap:6px}
 }
+
+/* ===== giao diện chạy gọn hơn: khung tuyến mờ + vòng thể lực + cử chỉ ===== */
+#c{touch-action:none}
+#hud .topc{background:rgba(27,20,16,.38);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border:1px solid #ffffff14;padding:5px 11px;gap:3px;pointer-events:none;width:min(300px,calc(100vw - 150px));box-shadow:none}
+#hud .topc .row{font-size:13px}#hud .topc .sm{font-size:11.5px;color:#e6d9c8}
+#hud .topc .bar{height:5px}
+#hud .topc canvas{display:none}
+@media (min-width:900px) and (min-height:620px){#hud .topc{width:min(360px,40vw)}#hud .topc canvas{display:block;height:30px;opacity:.7}}
+@media (max-width:520px) and (min-height:521px){#hud .topc{left:12px;transform:none;width:calc(100vw - 76px);top:calc(max(8px,env(safe-area-inset-top)) + 38px)}#hud .topc canvas{display:none}}
+/* vòng thể lực: cạn dần ngược chiều kim đồng hồ, nhấp nháy khi sắp hết */
+#hud .stamwrap{width:auto;height:auto;padding:0;background:none;display:flex;align-items:center;gap:8px;left:max(12px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom))}
+.ringbox{position:relative;width:78px;height:78px;border-radius:50%;background:#000a;flex:none}
+.ring{width:100%;height:100%;transform:scaleX(-1) rotate(-90deg);overflow:visible}
+.ring circle{fill:none;stroke-width:7;stroke-linecap:round}
+.ring .trk{stroke:#ffffff22}
+.ring .arc{stroke:#35d06b;stroke-dasharray:100 100;transition:stroke-dasharray .25s linear,stroke .3s;filter:drop-shadow(0 0 3px #35d06b88)}
+.stamnum{position:absolute;inset:0;display:grid;place-content:center;text-align:center;line-height:1}
+.stamnum b{font-size:22px;font-variant-numeric:tabular-nums}.stamnum small{font-size:8px;letter-spacing:.06em;color:var(--mut);margin-top:2px}
+.stamwrap.mid .arc{stroke:#f5c518;filter:drop-shadow(0 0 3px #f5c51888)}
+.stamwrap.low .arc{stroke:#ff5a3c;filter:drop-shadow(0 0 5px #ff5a3c)}
+.stamwrap.low .ringbox{animation:ringwarn .7s ease-in-out infinite}
+.stamwrap.dead .arc{stroke:#ff2d2d}.stamwrap.dead .ringbox{animation:ringwarn .35s ease-in-out infinite;background:#5a0b0bcc}
+.stamwrap.low .stamnum b,.stamwrap.dead .stamnum b{color:#ff9d8a}
+@keyframes ringwarn{0%,100%{box-shadow:0 0 0 0 #ff3b2e00,0 0 0 0 #0000}50%{box-shadow:0 0 0 4px #ff3b2e99,0 0 16px 4px #ff3b2e88;transform:scale(1.06)}}
+#hud .status{position:static;margin:0;max-width:34vw;padding:3px 9px;border-radius:99px;background:#000a;font-size:12px;min-height:0;line-height:1.3}
+#hud .status:empty{display:none}
+/* điện thoại/tablet dùng cử chỉ: ẩn nút ◀ ▶ TRƯỢT NHẢY (bấm 🎮 để hiện lại) */
+#hud.gest #b-left,#hud.gest #b-right,#hud.gest #b-slide,#hud.gest #b-jump{display:none}
+#b-pad.on{background:#f2c230;color:#2a1d05}
+@media (max-width:520px) and (min-height:521px){.ringbox{width:66px;height:66px}.stamnum b{font-size:19px}#hud .stamwrap{bottom:84px}}
+@media (max-height:520px){.ringbox{width:54px;height:54px}.stamnum b{font-size:16px}.stamnum small{display:none}#hud .stamwrap{bottom:max(8px,env(safe-area-inset-bottom))}#hud .status{display:none}}
+.auto{white-space:nowrap}
