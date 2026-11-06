@@ -68,7 +68,7 @@
 
 <!-- ===== HUD khi chạy ===== -->
 <section id="hud" hidden>
-  <div class="tl"><div class="row"><div class="online"><i></i><span id="h-online">1 đang online</span></div><div class="online coinchip" id="h-coins"><span class="gc"></span> 0</div></div><div id="ticker" class="ticker"></div></div>
+  <div class="tl"><div class="row"><div class="online"><i></i><span id="h-online">1 đang online</span></div><div class="online coinchip" id="h-coins"><span class="gc"></span> 0</div><label class="auto autotop"><input type="checkbox" id="h-auto"><span>Tự động</span></label></div><div id="ticker" class="ticker"></div></div>
   <div class="topc panel">
     <div class="row"><b id="h-map"></b><span id="h-time">00:00</span></div>
     <div class="bar"><i id="h-prog"></i></div>
@@ -76,16 +76,10 @@
     <canvas id="h-elev" width="300" height="46"></canvas>
   </div>
   <div class="rightcol" id="rightcol">
-    <button data-open="quest" title="Mục tiêu hôm nay">🎯</button>
-    <button data-open="shop" title="Cửa hàng">🛍</button>
-    <button data-open="history" title="Lịch sử">📖</button>
-    <button data-open="board" title="Xếp hạng">🏆</button>
-    <button data-open="tour" title="Giải đấu (sắp có)">🏅</button>
     <button id="b-sound" title="Bật/tắt âm thanh (M)">🔊</button>
     <button id="b-map" title="Xem toàn tuyến trên bản đồ (F)" hidden>🗺</button>
     <button id="b-pad" title="Hiện/ẩn nút ◀ ▶ TRƯỢT NHẢY" hidden>🎮</button>
     <button id="b-peace" title="Chế độ hòa bình: không trêu/đánh và không bị trêu/đánh">🕊</button>
-    <button id="b-tilt" title="Đổi góc nhìn / về góc chạy (T)">🎥</button>
     <button id="b-exit" title="Thoát chuyến chạy">⏏</button>
   </div>
   <div class="zoom"><button id="z-in">+</button><button id="z-out">−</button></div>
@@ -96,11 +90,10 @@
   <div id="banner" class="banner" hidden></div>
   <div class="inv" id="inv"></div>
   <div class="actions">
-    <label class="auto"><input type="checkbox" id="h-auto"><span>Tự động</span></label>
-    <button id="b-left" class="act sm">◀<small>←</small></button><button id="b-right" class="act sm">▶<small>→</small></button>
+        <button id="b-left" class="act sm">◀<small>←</small></button><button id="b-right" class="act sm">▶<small>→</small></button>
     <button id="b-slide" class="act sm">TRƯỢT<small>S</small></button>
     <button id="b-jump" class="act">NHẢY<small>J</small></button>
-    <button id="b-step" class="act main">BƯỚC<small>Space</small></button>
+    <button id="b-step" class="act main">CHẠY<small>Space</small></button>
   </div>
 </section>
 

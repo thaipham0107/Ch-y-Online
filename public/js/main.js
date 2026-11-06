@@ -304,7 +304,7 @@ $('#b-slide').addEventListener('pointerdown', (e) => { e.preventDefault(); game 
 $('#b-left').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.moveLane(-1); });
 $('#b-right').addEventListener('pointerdown', (e) => { e.preventDefault(); game && game.moveLane(1); });
 $('#z-in').onclick = () => game.zoom(-1); $('#z-out').onclick = () => game.zoom(1);
-$('#b-tilt').onclick = () => game.tilt(); $('#b-map').onclick = () => game.fitAll(); $('#b-exit').onclick = () => exitRun();
+$('#b-map').onclick = () => game.fitAll(); $('#b-exit').onclick = () => exitRun();
 addEventListener('beforeunload', () => { if (game && game.st && game.running && store.mode === 'guest' && !(cur && cur.tour)) { store.record(game.takeDelta()); store.flush(false); } });
 
 // ----- nhiều người chơi -----
