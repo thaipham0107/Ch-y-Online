@@ -88,3 +88,10 @@ Cùng bản đồ (hoặc cùng giải đấu) cùng lúc thì thấy nhau. Ngư
 
 ## Trình duyệt hỗ trợ
 Safari/iPadOS/iOS 14 trở lên (nên 15+), Chrome/Edge/Firefox bản mới. Trình duyệt quá cũ sẽ thấy khung báo lỗi đỏ ở cuối trang thay vì trang trống.
+
+## Trang bị có tác dụng, đồ dùng 24 giờ, tự động dùng đồ
+- Túi đồ: mỗi ô tối đa **5** món; **ba lô** thêm 1 ô.
+- **Giày** +1% … +10% tốc độ (giá càng cao càng nhanh, mỗi loại thêm một đặc tính); **mũ, phụ kiện, đồng hồ** có tác dụng riêng (giảm tiêu hao thể lực, thêm xu, chó cắn nhẹ hơn, vùng nhặt rộng hơn, đồ ăn hồi nhiều hơn, khiên/nam châm/tia sét lâu hơn...). Nơ, băng rôn, hào quang chỉ để trang trí và tồn tại vĩnh viễn. Xem bảng đầy đủ trong tài liệu phân tích và trong cửa hàng.
+- Cửa hàng → "Đồ dùng (24h)": mua khiên, tia sét, nam châm vào túi, **hết hạn sau 24 giờ**.
+- **Chế độ tự động** tự dùng đồ: ăn khi thể lực dưới 80%, khiên rồi tia sét khi chó đuổi, tia sét khi nước rút 15% cuối, nam châm khi vào đoạn thưởng xu.
+- Kết quả cuối chuyến được lưu nền có thử lại và hộp thư đi (không còn đơ màn hình); `node tools/test-flush.mjs <url> <thư mục data>` kiểm tra server ghi nhận đủ quãng đường khi dùng nhiều tia sét.

@@ -44,6 +44,8 @@ function addAcc(body, g, id, headG) {
   if (id === 'glasses') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.62), L(col)); m.position.set(0.5, 0.03, 0); headG.add(m); }
   else if (id === 'scarf') { const t = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.11, 6, 16).rotateX(Math.PI / 2), L(col)); t.position.y = 1.08; body.add(t); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.2), L(col)); tail.position.set(-0.45, 0.85, 0.15); body.add(tail); }
   else if (id === 'backpack') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.75, 0.62), L(col)); m.position.set(-0.6, 0.78, 0); body.add(m); }
+  else if (id === 'bow') { for (const z of [-1, 1]) { const w = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.42, 5), L(col)); w.position.set(0.5, 1.08, z * 0.22); w.rotation.x = z * Math.PI / 2; body.add(w); } const k = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), L('#fff')); k.position.set(0.52, 1.08, 0); body.add(k); }
+  else if (id === 'banner') { const b = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.25, 0.26), L(col)); b.position.set(0.02, 0.85, 0); b.rotation.x = 0.85; b.scale.set(1.45, 1, 1); body.add(b); const st = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.1), L('#ffe27a')); st.position.set(0.03, 0.85, 0); st.rotation.x = 0.85; st.scale.set(1.5, 1, 1); body.add(st); }
   else if (id === 'cape') { const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.2, 1.0), L(col, { side: THREE.DoubleSide })); m.position.set(-0.66, 0.8, 0); m.rotation.z = 0.12; body.add(m); g.userData.cape = m; }
 }
 const avatarCache = new Map();
@@ -420,7 +422,8 @@ export class Game {
     this.st = { s: 0, target: 0, rate: 0, v: 0, slideT: 0, slideCd: 0, slides: 0, magT: 0, shieldT: 0, rampMsg: 0, lane: 1, lat: LX[1], stam: R.STAM_MAX, exhausted: false, slowT: 0, boltT: 0, jumpT: 0, jumpCd: 0, auto: 0, stepTimes: [], lastStep: -9,
       steps: 0, meters: 0, jumps: 0, bites: 0, boltsUsed: 0, time: 0, speed: 0, finished: false, items: {}, shake: 0, grade: 0 };
     this.unsent = { steps: 0, meters: 0, jumps: 0, bites: 0, boltsUsed: 0, secs: 0, items: {} };
-    this.inv = (profile.inventory || []).filter((s) => S.ITEMS[s.k]).map((s) => ({ k: s.k, n: Math.min(R.INV_STACK, s.n) })).slice(0, R.INV_SLOTS);
+    this.perks = S.perksOf(profile.equip || {}); this.slots = R.INV_SLOTS + this.perks.slots; this.invChk = 1;     // hiệu ứng trang bị + số ô túi (ba lô +1)
+    this.inv = (profile.inventory || []).filter((s) => S.ITEMS[s.k] && (!s.exp || s.exp > Date.now())).map((s) => (s.exp ? { k: s.k, n: Math.min(R.INV_STACK, s.n), exp: s.exp } : { k: s.k, n: Math.min(R.INV_STACK, s.n) })).slice(0, this.slots);
     // chướng ngại + vật phẩm + xu rơi ngẫu nhiên (theo seed) ở các làn
     this.obst = []; this.items = [];
     const rr0 = mulberry((seed ^ 0x51ed270b) >>> 0); this.rushes = []; for (let s = 650 + rr0() * 450; s < this.total - 260; s += 1050 + rr0() * 800) this.rushes.push({ s, len: 130 + rr0() * 50, said: false });
@@ -485,17 +488,44 @@ export class Game {
     if (st.stepTimes.length >= R.MAX_STEPS_PER_SEC) return false;
     const prevStep = st.lastStep; st.stepTimes.push(now); st.lastStep = now;
     const g = S.gradeAt(this.map, st.target); st.grade = g;
-    const cost = R.STAM_PER_STEP * S.slopeMult(g) * (st.boltT > 0 ? R.BOLT_COST_MULT : 1);
+    const pk = this.perks, cost = R.STAM_PER_STEP * (1 + (S.slopeMult(g) - 1) * (1 - pk.slopeSave)) * (1 - pk.stamSave) * (st.boltT > 0 ? R.BOLT_COST_MULT : 1);
     let stride = st.boltT > 0 ? R.BOLT_STRIDE : R.STRIDE; if (st.slowT > 0) stride *= R.BITE_STRIDE_MULT;
     const prog = st.target / this.total; stride *= R.RAMP_START + (1 - R.RAMP_START) * clamp(prog / R.RAMP_FULL, 0, 1);      // tốc độ tăng dần theo quãng đường
+    stride *= 1 + pk.speed;                                   // giày tăng tốc (+1% … +10%)
     if (!st.rampMsg && prog >= R.RAMP_FULL) { st.rampMsg = 1; this.float('Đạt tốc độ tối đa! 🔥', '#ffcf5a'); }
     { const gt = now - prevStep, inst = gt > 1.2 ? stride * 0.8 : Math.min(28, stride / Math.max(0.12, gt)); st.rate += (inst - st.rate) * (gt > 1.2 ? 1 : 0.4); }   // tốc độ chạy ước lượng (m/s) để chuyển động liên tục
     st.stam -= cost; st.target += stride; st.steps++; st.meters += stride; this.unsent.steps++; this.unsent.meters += stride; sfx.step(st.boltT > 0);
     if (st.stam <= 0) { st.stam = 0; st.exhausted = true; sfx.tired(); this.say('😮‍💨 Hết thể lực! Dùng đồ ăn hoặc chờ hồi sức', 2200); }
     return true;
   }
+  // chế độ tự động: tự dùng đồ trong túi cho người chơi (ưu tiên đồ có hạn dùng)
+  autoUse(dt) {
+    const st = this.st; this.autoCd = (this.autoCd || 0) - dt; if (this.autoCd > 0 || st.finished || !this.inv.length) return;
+    const find = (pred) => { let b = -1; this.inv.forEach((s, i) => { if (pred(s) && (b < 0 || (s.exp && !this.inv[b].exp))) b = i; }); return b; };
+    const use = (i) => { this.useItem(i); this.autoCd = 0.9; };
+    if (this.dog && this.dog.phase === 'chase' && st.shieldT <= 0) {                       // chó đang đuổi: dùng khiên; hết khiên thì dùng tia sét chạy thoát
+      let i = find((s) => s.k === 'shield'); if (i >= 0) return use(i);
+      if (st.boltT <= 0) { i = find((s) => s.k === 'bolt'); if (i >= 0) return use(i); }
+    }
+    if (st.stam < R.STAM_MAX * 0.8) {                                                      // thể lực dưới 80%: ăn nước/chuối/dưa (điện giải khi yếu hoặc đang bị chậm)
+      const deficit = R.STAM_MAX - st.stam, eb = 1 + this.perks.eatBonus;
+      const foods = this.inv.map((s, i) => ({ i, exp: !!s.exp, gain: (S.ITEMS[s.k].stam || 0) * eb, k: s.k })).filter((x) => x.gain > 0 && (x.k !== 'elec' || st.stam < 45 || st.slowT > 0));
+      if (foods.length) {
+        const fit = foods.filter((x) => x.gain <= deficit + 8).sort((a, b) => b.gain - a.gain)[0] || foods.sort((a, b) => a.gain - b.gain)[0];
+        return use(fit.i);
+      }
+    }
+    if (st.target / this.total > 0.85 && st.boltT <= 0 && st.stam > 25) { const i = find((s) => s.k === 'bolt'); if (i >= 0) return use(i); }          // nước rút ở 15% cuối
+    { const b = this.inv.findIndex((s) => s.k === 'bolt' && s.n >= R.INV_STACK); if (b >= 0 && st.boltT <= 0 && st.stam > 40) return use(b); }             // túi đầy tia sét: dùng bớt, đỡ phí khi nhặt thêm
+    if (st.magT <= 0) {                                                                    // nam châm: vào đoạn thưởng xu hoặc có nhiều xu ngay phía trước
+      const inRush = this.rushes.some((r) => st.s > r.s - 12 && st.s < r.s + r.len * 0.6); let near = 0;
+      if (!inRush) for (const it of this.items) if (!it.taken && it.key === 'coin' && it.s > st.s && it.s < st.s + 18) near++;
+      if (inRush || near >= 6) { const i = find((s) => s.k === 'magnet'); if (i >= 0) return use(i); }
+    }
+  }
+  gotSlow(sec) { const st = this.st; st.slowT = Math.max(st.slowT, sec * (1 - this.perks.slowResist)); }      // khăn quàng: bị chậm ngắn hơn
   slide() { const st = this.st; if (!this.running || st.finished || st.slideT > 0 || st.slideCd > 0) return; st.jumpT = 0; st.slideT = R.SLIDE_SECS; st.slideCd = 0.15; sfx.slide(); }
-  jump() { const st = this.st; if (!this.running || st.finished || st.jumpT > 0 || st.jumpCd > 0) return; st.jumpT = 0.7; st.jumpCd = 0.15; sfx.jump(); }
+  jump() { const st = this.st; if (!this.running || st.finished || st.jumpT > 0 || st.jumpCd > 0) return; st.jumpD = 0.7 * (1 + this.perks.jumpLong); st.jumpT = st.jumpD; st.jumpCd = 0.15; sfx.jump(); }
   moveLane(d) { const st = this.st; if (!this.running || st.finished) return; st.lane = clamp(st.lane + d, 0, S.LANES.COUNT - 1); }
   setMode(m) { this.mode = m; this.st.auto = 0; }
   // giữ nút/phím/màn hình = chạy liên tục ở tốc độ tối đa (4 bước/giây)
@@ -509,10 +539,11 @@ export class Game {
   }
   applyItem(k) {
     const it = S.ITEMS[k], st = this.st;
-    if (k === 'magnet') { st.magT = R.MAGNET_SECS; this.float('🧲 Nam châm hút xu!', '#ffd23a'); sfx.pickup(); }
-    else if (k === 'shield') { st.shieldT = R.SHIELD_SECS; this.float('🛡️ Khiên bảo vệ!', '#8fe3ff'); sfx.pickup(); }
-    else if (k === 'bolt') { st.boltT = Math.min(st.boltT + R.BOLT_SECS, R.BOLT_SECS * 2); st.boltsUsed++; this.unsent.boltsUsed++; this.float('⚡ Tăng tốc!', '#ffe27a'); sfx.bolt(); }
-    else { sfx.eat(); st.stam = Math.min(R.STAM_MAX, st.stam + it.stam); if (it.cure) st.slowT = 0; this.float(`${it.icon} +${it.stam} thể lực`, '#9ef0b0'); if (st.exhausted && st.stam >= R.STAM_RESUME) st.exhausted = false; }
+    const pw = this.perks.power;
+    if (k === 'magnet') { st.magT = R.MAGNET_SECS + pw; this.float('🧲 Nam châm hút xu!', '#ffd23a'); sfx.pickup(); }
+    else if (k === 'shield') { st.shieldT = R.SHIELD_SECS + pw; this.float('🛡️ Khiên bảo vệ!', '#8fe3ff'); sfx.pickup(); }
+    else if (k === 'bolt') { st.boltT = Math.min(st.boltT + R.BOLT_SECS + pw, (R.BOLT_SECS + pw) * 2); st.boltsUsed++; this.unsent.boltsUsed++; this.float('⚡ Tăng tốc!', '#ffe27a'); sfx.bolt(); }
+    else { const gain = Math.round(it.stam * (1 + this.perks.eatBonus)); sfx.eat(); st.stam = Math.min(R.STAM_MAX, st.stam + gain); if (it.cure) st.slowT = 0; this.float(`${it.icon} +${gain} thể lực`, '#9ef0b0'); if (st.exhausted && st.stam >= R.STAM_RESUME) st.exhausted = false; }
   }
   say(text, ms) { this.hooks.onEvent && this.hooks.onEvent(text, ms); }
   float(text, color = '#fff') {
@@ -542,6 +573,8 @@ export class Game {
     st.lat += (LX[st.lane] - st.lat) * Math.min(1, dt * 10);
     if (this.t - st.lastStep > 1.2 || st.exhausted) { st.stam = Math.min(R.STAM_MAX, st.stam + R.IDLE_REGEN * dt); if (st.exhausted && st.stam >= R.STAM_RESUME) st.exhausted = false; }
     if (this.hold.size && this.mode !== 'auto' && !st.exhausted && this.t - st.lastStep >= 1 / R.MAX_STEPS_PER_SEC - 0.002) this.step();
+    if ((this.invChk -= dt) <= 0) { this.invChk = 1; const n = this.inv.length; this.inv = this.inv.filter((s) => !s.exp || s.exp > Date.now()); if (this.inv.length !== n) this.hooks.onInventory && this.hooks.onInventory(this.inv); }     // đồ mua có hạn 24 giờ: hết hạn thì biến mất
+    if (this.mode === 'auto') this.autoUse(dt);
     if (this.mode === 'auto' && !st.exhausted) { st.auto += dt; while (st.auto >= 1 / R.AUTO_STEPS_PER_SEC) { st.auto -= 1 / R.AUTO_STEPS_PER_SEC; st.stepTimes = []; this.step(); } }
     // chạy liên tục theo nhịp bước (không dịch từng cục theo từng bước): vận tốc bám theo tốc độ ước lượng + phần quãng đường còn thiếu
     const prev = st.s, gap = st.target - st.s;
@@ -555,14 +588,14 @@ export class Game {
     // tự động: nhảy qua chướng ngại nằm trong làn của mình
     const nextObs = this.obst.find((o) => !o.done && o.s >= prev - 0.5 && o.lanes.includes(st.lane));
     if (this.mode === 'auto' && nextObs && nextObs.s - st.s < clamp(st.speed * 0.45, 2.8, 9) && nextObs.s - st.s > 0) {
-      if (OVERHEAD.has(nextObs.kind)) { if (st.slideT <= 0) { st.slideT = R.SLIDE_SECS; sfx.slide(); } } else if (st.jumpT <= 0 && st.slideT <= 0) st.jumpT = 0.7;
+      if (OVERHEAD.has(nextObs.kind)) { if (st.slideT <= 0) { st.slideT = R.SLIDE_SECS; sfx.slide(); } } else if (st.jumpT <= 0 && st.slideT <= 0) st.jumpT = st.jumpD = 0.7 * (1 + this.perks.jumpLong);
     }
     for (const o of this.obst) if (!o.done && prev < o.s && st.s >= o.s) {
       o.done = true; if (!o.lanes.includes(st.lane)) continue;           // né sang làn khác: không va
       const over = OVERHEAD.has(o.kind);
       if (st.shieldT > 0) { this.float('Khiên chặn! 🛡️', '#8fe3ff'); sfx.pickup(); }
       else if (over ? st.slideT > 0.05 : st.jumpT > 0.08) { if (over) { st.slides++; this.float('Trượt qua! 🛷', '#ffe27a'); } else { st.jumps++; this.unsent.jumps++; this.float('Nhảy qua! 🦘', '#ffe27a'); } }
-      else { st.stam = Math.max(0, st.stam - R.HIT_STAM); st.slowT = Math.max(st.slowT, R.HIT_SLOW_SECS); st.shake = 0.3; this.float(over ? 'Đụng đầu! -10' : 'Vấp rồi! -10', '#ff9d8a'); sfx.hit(); if (st.stam <= 0) st.exhausted = true; }
+      else { st.stam = Math.max(0, st.stam - R.HIT_STAM); this.gotSlow(R.HIT_SLOW_SECS * this.perks.hitSlow); st.shake = 0.3; this.float(over ? 'Đụng đầu! -10' : 'Vấp rồi! -10', '#ff9d8a'); sfx.hit(); if (st.stam <= 0) st.exhausted = true; }
     }
     if (st.magT > 0) for (const it of this.items) {                  // nam châm: hút xu trong 11 m phía trước, ở mọi làn
       if (it.key !== 'coin' || it.taken || it.s - st.s < -1.5 || it.s - st.s > 11) continue;
@@ -571,9 +604,10 @@ export class Game {
     }
     for (const r of this.rushes) if (!r.said && st.s >= r.s - 8) { r.said = true; this.say('🪙 Đoạn thưởng xu! Gom thật nhiều!', 2400); }
     for (const it of this.items) {
-      if (it.taken || !(it.lane === st.lane || Math.abs(st.lat - LX[it.lane]) < 1.3) || !(prev < it.s + 1.8 && st.s >= it.s - 1.8)) continue;       // quét cả đoạn vừa đi qua (chạy nhanh/FPS thấp không bị lọt) và chấp nhận khi đã sát làn
+      const pr = 1 + this.perks.pickupR;                                                // kính râm: vùng nhặt rộng hơn
+      if (it.taken || !(it.lane === st.lane || Math.abs(st.lat - LX[it.lane]) < 1.3 * pr) || !(prev < it.s + 1.8 * pr && st.s >= it.s - 1.8 * pr)) continue;       // quét cả đoạn vừa đi qua (chạy nhanh/FPS thấp không bị lọt) và chấp nhận khi đã sát làn
       if (it.key === 'coin') { it.taken = true; this.flyers.push({ sp: it.sp, t: 0, from: it.sp.position.clone(), s0: it.sp.scale.x }); st.items.coin = (st.items.coin || 0) + 1; this.unsent.items.coin = (this.unsent.items.coin || 0) + 1; this.hooks.onCoin && this.hooks.onCoin(1); sfx.coin(); continue; }
-      const slot = this.inv.find((x) => x.k === it.key && x.n < R.INV_STACK) || (this.inv.length < R.INV_SLOTS ? (this.inv.push({ k: it.key, n: 0 }), this.inv[this.inv.length - 1]) : null);
+      const slot = this.inv.find((x) => x.k === it.key && x.n < R.INV_STACK && !x.exp) || (this.inv.length < this.slots ? (this.inv.push({ k: it.key, n: 0 }), this.inv[this.inv.length - 1]) : null);
       if (!slot) {                               // túi đầy: dùng luôn nếu có ích, không thì để lại trên đường và báo
         if (it.key === 'bolt' || it.key === 'magnet' || it.key === 'shield' || st.stam < R.STAM_MAX - 8 || st.slowT > 0) { it.taken = true; this.flyers.push({ sp: it.sp, t: 0, from: it.sp.position.clone(), s0: it.sp.scale.x }); st.items[it.key] = (st.items[it.key] || 0) + 1; this.unsent.items[it.key] = (this.unsent.items[it.key] || 0) + 1; sfx.pickup(); this.applyItem(it.key); }
         else if (!it.warned) { it.warned = true; this.float('Túi đầy! 🎒', '#ffb27a'); }
@@ -617,7 +651,7 @@ export class Game {
     if (m.to === meId) {
       if (st.shieldT > 0) { this.float('Khiên chặn! 🛡️', '#8fe3ff'); sfx.pickup(); }
       else {
-        st.slowT = Math.max(st.slowT, m.slow); if (m.k !== 'tease') st.stam = Math.max(0, st.stam - (m.k === 'kick' ? 5 : 3)); if (st.stam <= 0) st.exhausted = true;
+        this.gotSlow(m.slow); if (m.k !== 'tease') st.stam = Math.max(0, st.stam - (m.k === 'kick' ? 5 : 3)); if (st.stam <= 0) st.exhausted = true;
         st.shake = m.k === 'tease' ? 0.15 : 0.45; this.me.stag(); this.popAbove(this.me.group, m.k === 'tease' ? '😵' : '💫'); this.float(`${nameOf(m.from)} ${VERB[m.k]} bạn! Chậm ${m.slow}s`, '#ff9d8a'); sfx.hit();
       }
     } else if (T) { T.stag(); this.popAbove(T.group, m.k === 'tease' ? '😵' : '💫'); }
@@ -683,7 +717,7 @@ export class Game {
       if (!b.done && b.ps - prevS > 0 && b.s - st.s <= 0) {                                                            // hai bên vừa đi qua nhau
         b.done = true; const dl = Math.abs(st.lat - LX[b.lane]);
         if (dl < 1.5 && st.shieldT > 0) { this.float('Khiên chặn! 🛡️', '#8fe3ff'); sfx.pickup(); }
-        else if (dl < 1.5) { st.stam = Math.max(0, st.stam - 15); st.slowT = Math.max(st.slowT, 1.5); st.shake = 0.5; this.float('Đụng xe máy! -15', '#ff7a6a'); sfx.hit(); if (st.stam <= 0) st.exhausted = true; }
+        else if (dl < 1.5) { st.stam = Math.max(0, st.stam - 15); this.gotSlow(1.5); st.shake = 0.5; this.float('Đụng xe máy! -15', '#ff7a6a'); sfx.hit(); if (st.stam <= 0) st.exhausted = true; }
         else if (dl < 3.8) { this.float('Suýt va! 😅', '#ffe27a'); sfx.swoosh(); }
       }
     }
@@ -702,7 +736,7 @@ export class Game {
       if ((d.bark -= dt) <= 0) { d.bark = 1.8; sfx.bark(); }
       d.cool = (d.cool || 0) - dt;
       if (st.s - d.s <= 0.9 && d.cool <= 0 && st.shieldT > 0) { this.float('Khiên chặn chó! 🛡️', '#8fe3ff'); sfx.pickup(); d.cool = 3.5; d.s = st.s - R.DOG_START_GAP * 0.8; }
-      else if (st.s - d.s <= 0.9 && d.cool <= 0) { st.stam = Math.max(0, st.stam - R.BITE_STAM); st.slowT = R.BITE_SLOW_SECS; st.bites++; this.unsent.bites++; st.shake = 0.5; this.float(`Bị cắn! -${R.BITE_STAM}`, '#ff7a6a'); sfx.bite(); if (st.stam <= 0) st.exhausted = true; d.cool = 3.5; d.s = st.s - R.DOG_START_GAP * 0.8; d.bitten = true; }   // cắn xong lùi lại rồi lại đuổi tiếp tới hết giờ
+      else if (st.s - d.s <= 0.9 && d.cool <= 0) { const bs = Math.round(R.BITE_STAM * (1 - this.perks.biteResist)); st.stam = Math.max(0, st.stam - bs); this.gotSlow(R.BITE_SLOW_SECS); st.bites++; this.unsent.bites++; st.shake = 0.5; this.float(`Bị cắn! -${bs}`, '#ff7a6a'); sfx.bite(); if (st.stam <= 0) st.exhausted = true; d.cool = 3.5; d.s = st.s - R.DOG_START_GAP * 0.8; d.bitten = true; }   // cắn xong lùi lại rồi lại đuổi tiếp tới hết giờ
       else if (d.t <= 0) { d.phase = 'leave'; d.t = 2; this.float(d.bitten ? 'Chó bỏ cuộc 😮‍💨' : 'Thoát chó rồi 😅', '#9ef0b0'); }
     } else if (d.phase === 'leave') { d.lat += (d.lat < 0 ? -1 : 1) * 6 * dt; d.s += 2 * dt; if (d.t <= 0) { this.dyn.remove(d.m); this.dog = null; return; } }
     if (d.m.visible) { const P = this.world.posAt(d.s), [x, z] = this.world.off(P, d.lat); d.m.position.set(x, P.y, z); d.m.rotation.y = -P.h - (d.phase === 'leave' ? 1.2 : 0); }
@@ -740,7 +774,7 @@ export class Game {
   }
   render(dt) {
     const st = this.st, w = this.world, t = this.t;
-    const P = w.posAt(st.s), [mx, mz] = w.off(P, st.lat), jh = st.jumpT > 0 ? Math.sin((1 - st.jumpT / 0.7) * Math.PI) * 1.7 : 0;
+    const P = w.posAt(st.s), [mx, mz] = w.off(P, st.lat), jh = st.jumpT > 0 ? Math.sin((1 - st.jumpT / (st.jumpD || 0.7)) * Math.PI) * 1.7 : 0;
     this.me.group.position.set(mx, P.y, mz); this.me.group.rotation.y = -P.h; this.me.animate(dt, Math.min(20, st.speed), jh, t, st.slideT > 0 ? Math.min(1, (R.SLIDE_SECS - st.slideT) / 0.1, st.slideT / 0.15) : 0);
     for (const o of this.others.values()) {
       o.s += (o.ts - o.s) * Math.min(1, dt * 6); o.lat += (LX[o.lane] - o.lat) * Math.min(1, dt * 8);

@@ -3,16 +3,20 @@ const S = window.Shared;
 const GK = 'chayonline.guest.v1', GBK = 'chayonline.guest.backup';
 export const dayOf = (t = Date.now()) => new Date(t + 7 * 3600e3).toISOString().slice(0, 10);
 const r1 = (v) => Math.round(v * 10) / 10;
-const ITEM_KEYS = ['water', 'banana', 'melon', 'elec', 'bolt', 'coin'];
+const ITEM_KEYS = ['water', 'banana', 'melon', 'elec', 'bolt', 'magnet', 'shield', 'coin'];
 const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) => (b % 36).toString(36)).join('') + Date.now().toString(36);
 
 let GUEST_HDR = {};
-export async function api(path, body, method) {
-  const opt = { headers: { ...GUEST_HDR } };
+export async function api(path, body, method, ms = 15000) {
+  const opt = { headers: { ...GUEST_HDR } }, ac = typeof AbortController !== 'undefined' ? new AbortController() : null, tm = ac ? setTimeout(() => ac.abort(), ms) : 0;   // quá thời gian thì hủy, không để treo màn hình
+  if (ac) opt.signal = ac.signal;
   if (body !== undefined) { opt.method = method || 'POST'; opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
-  const r = await fetch(path, opt), j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || 'Có lỗi xảy ra');
-  return j;
+  try {
+    const r = await fetch(path, opt), j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error || 'Có lỗi xảy ra'); e.status = r.status; throw e; }
+    return j;
+  } catch (e) { if (e.name === 'AbortError') { const x = new Error('Mạng chậm, hết thời gian chờ'); x.network = true; throw x; } if (!e.status) e.network = true; throw e; }
+  finally { clearTimeout(tm); }
 }
 const safeGet = (k = GK) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const safeSet = (v) => { try { localStorage.setItem(GK, JSON.stringify(v)); } catch { /* bộ nhớ đầy hoặc bị chặn */ } };
@@ -92,6 +96,41 @@ export class Store {
     }
     this.guestEarn(a, finished, true); return null;
   }
+  // ----- gửi kết quả cuối chuyến: có thử lại, hết thời gian chờ, và hộp thư đi lưu trên máy để gửi lại sau nếu mạng lỗi -----
+  snapshotRun() { return { runId: this.runId, run: this.run }; }
+  async flushFinal(snap, finished) {
+    const a = this.acc; this.acc = this.blank();
+    const tour = snap.run && snap.run.kind === 'tour';
+    if (this.mode !== 'account' && !tour) { this.guestEarn(a, finished, true); return { ok: true, local: true, finished }; }
+    if (!snap.runId) return null;
+    const url = tour ? `/api/tournaments/${snap.run.code}/flush` : '/api/run/flush', body = { runId: snap.runId, ...a, done: 1, fin: finished ? 1 : 0 };
+    for (let i = 0; i < 3; i++) {
+      try {
+        const r = await api(url, body, 'POST', 9000);
+        if (tour && this.mode === 'guest') this.guestEarn(a, finished);        // khách: xu lưu trên máy
+        return r;
+      } catch (e) {
+        if (!e.network) return { error: e.message, fatal: true };               // lỗi do server từ chối (hết hạn giải...): gửi lại cũng vô ích
+        await new Promise((ok) => setTimeout(ok, 800 * (i + 1)));
+      }
+    }
+    this.pushOutbox({ url, body, guestEarn: tour && this.mode === 'guest' ? { a, finished } : null, at: Date.now() });
+    return { error: 'Mạng yếu', pending: true };
+  }
+  outbox() { try { return JSON.parse(localStorage.getItem('chay.outbox') || '[]'); } catch { return []; } }
+  pushOutbox(e) { try { const o = this.outbox(); o.push(e); localStorage.setItem('chay.outbox', JSON.stringify(o.slice(-20))); } catch { /* bộ nhớ đầy */ } }
+  async retryOutbox() {                                                          // gửi lại kết quả còn kẹt (mở lại trang, có mạng trở lại...)
+    if (this.retrying) return 0; const list = this.outbox(); if (!list.length) return 0; this.retrying = true; let ok = 0; const keep = [];
+    try {
+      for (const e of list) {
+        try { await api(e.url, e.body, 'POST', 9000); ok++; if (e.guestEarn && this.guest) this.guestEarn(e.guestEarn.a, e.guestEarn.finished); }
+        catch (er) { if (er.network && Date.now() - e.at < 3 * 864e5) keep.push(e); }       // lỗi mạng: giữ lại; lỗi server hoặc quá 3 ngày: bỏ
+      }
+      try { localStorage.setItem('chay.outbox', JSON.stringify(keep)); } catch { /* bỏ */ }
+      if (ok && this.mode === 'account') await this.refresh().catch(() => {});
+    } finally { this.retrying = false; }
+    return ok;
+  }
   guestEarn(a, finished, saveDaily) {
     const g = this.guest; if (!g) return;
     if (saveDaily) {
@@ -121,6 +160,14 @@ export class Store {
   async buy(cat, id) {
     const it = S.shopItem(cat, id);
     if (this.mode === 'account') { this.me = (await api('/api/shop/buy', { cat, id })).me; return; }
+    if (cat === 'boost') {
+      const b = S.BOOST.find((x) => x.id === id), g = this.guest; if (!b) throw new Error('Không có vật phẩm này');
+      if (g.coins < b.price) throw new Error('Không đủ xu');
+      const slots = S.RULES.INV_SLOTS + S.perksOf(g.equip || {}).slots, now = Date.now(), exp = now + S.RULES.BOOST_HOURS * 3600e3;
+      const inv = (g.inventory || []).filter((s) => !s.exp || s.exp > now), st = inv.find((s) => s.k === b.k && s.exp && s.n < S.RULES.INV_STACK);
+      if (st) { st.n++; st.exp = exp; } else if (inv.length < slots) inv.push({ k: b.k, n: 1, exp }); else throw new Error('Túi đồ đã đầy');
+      g.coins -= b.price; g.inventory = inv; safeSet(g); return;
+    }
     const g = this.guest; if (!it) throw new Error('Không có vật phẩm này');
     if (it.price > 0 && !g.owned.includes(cat + ':' + id)) { if (g.coins < it.price) throw new Error('Không đủ xu'); g.coins -= it.price; g.owned.push(cat + ':' + id); safeSet(g); }
   }

@@ -17,7 +17,7 @@
     DOG_SPEED: 19, DOG_START_GAP: 10, DOG_SECS: 16, DOG_WARN_SECS: 2,
     MAGNET_SECS: 10, SHIELD_SECS: 8, SLIDE_SECS: 0.7,
     RAMP_START: 0.8, RAMP_FULL: 0.6,   // bước ngắn dần lúc xuất phát (80%), đạt 100% sau 60% quãng đường: tốc độ tăng dần như Temple Run
-    INV_SLOTS: 5, INV_STACK: 3
+    INV_SLOTS: 5, INV_STACK: 5, BOOST_HOURS: 24
   };
   const ITEMS = {
     water:  { name: 'Nước',      icon: '💧', stam: 15,  w: 40 },
@@ -41,36 +41,60 @@
   const LANES = { COUNT: 4, X: [-3.6, -1.2, 1.2, 3.6], HALF: 5.0 };
   // xu: kiếm khi chạy (nhiều hơn khi chạy ngoài đời để khuyến khích)
   const COIN = { PER_KM_GAME: 10, PER_KM_REAL: 25, FINISH: 20, ICON: '🪙' };
-  const SHOP_CATS = [['hat', 'Mũ'], ['shoes', 'Giày'], ['acc', 'Phụ kiện'], ['watch', 'Đồng hồ'], ['aura', 'Hào quang']];
+  const SHOP_CATS = [['hat', 'Mũ'], ['shoes', 'Giày'], ['acc', 'Phụ kiện'], ['watch', 'Đồng hồ'], ['aura', 'Hào quang'], ['boost', 'Đồ dùng (24h)']];
   const SHOP_DEFAULT = { hat: 'none', shoes: 'shoe_basic', acc: 'none', watch: 'none', aura: 'aura_tier' };
+  // Mỗi trang bị có thể có hiệu ứng (fx) ảnh hưởng tới việc chạy; đồ trang trí (không fx) tồn tại vĩnh viễn trên nhân vật.
+  // fx: speed (+% bước dài), stamSave (-% tiêu hao thể lực), slopeSave (-% phần tốn thêm khi lên dốc), eatBonus (+% thể lực từ đồ ăn),
+  // coinMult (+% xu), biteResist (-% thể lực mất khi chó cắn), slowResist (-% thời gian bị chậm), hitSlow (nhân thời gian chậm khi vấp), pickupR (+% vùng nhặt),
+  // power (+giây cho khiên/nam châm/tia sét), jumpLong (+% thời gian nhảy), slots (+ô túi)
   const SHOP = [
     { id: 'none', cat: 'hat', name: 'Không đội', price: 0, icon: '🙂' },
-    { id: 'bando', cat: 'hat', name: 'Băng đô', price: 100, icon: '🎀', color: '#e03131' },
-    { id: 'nonla', cat: 'hat', name: 'Nón lá', price: 120, icon: '👒', color: '#ecd58e' },
-    { id: 'cap', cat: 'hat', name: 'Mũ lưỡi trai', price: 160, icon: '🧢', color: '#1971c2' },
-    { id: 'neko', cat: 'hat', name: 'Tai mèo', price: 250, icon: '🐱', color: '#ffb3c7' },
-    { id: 'crown', cat: 'hat', name: 'Vương miện', price: 600, icon: '👑', color: '#f5b700' },
+    { id: 'bando', cat: 'hat', name: 'Băng đô', price: 100, icon: '🎀', color: '#e03131', fx: { stamSave: 0.05 }, desc: 'Giảm 5% tiêu hao thể lực' },
+    { id: 'nonla', cat: 'hat', name: 'Nón lá', price: 120, icon: '👒', color: '#ecd58e', fx: { stamSave: 0.08 }, desc: 'Giảm 8% tiêu hao thể lực' },
+    { id: 'cap', cat: 'hat', name: 'Mũ lưỡi trai', price: 160, icon: '🧢', color: '#1971c2', fx: { coinMult: 0.1 }, desc: '+10% xu kiếm được' },
+    { id: 'neko', cat: 'hat', name: 'Tai mèo', price: 250, icon: '🐱', color: '#ffb3c7', fx: { biteResist: 0.4 }, desc: 'Chó cắn mất ít thể lực hơn 40%' },
+    { id: 'crown', cat: 'hat', name: 'Vương miện', price: 600, icon: '👑', color: '#f5b700', fx: { coinMult: 0.2, power: 2 }, desc: '+20% xu; khiên, nam châm, tia sét lâu hơn 2 giây' },
     { id: 'shoe_basic', cat: 'shoes', name: 'Giày thường', price: 0, icon: '👞', color: '#3a2d26' },
-    { id: 'shoe_red', cat: 'shoes', name: 'Giày đỏ', price: 80, icon: '👟', color: '#e03131' },
-    { id: 'shoe_blue', cat: 'shoes', name: 'Giày xanh', price: 80, icon: '👟', color: '#1c7ed6' },
-    { id: 'shoe_gold', cat: 'shoes', name: 'Giày vàng', price: 300, icon: '🥇', color: '#f5b700' },
-    { id: 'shoe_wing', cat: 'shoes', name: 'Giày cánh', price: 900, icon: '🪽', color: '#ffffff' },
+    { id: 'shoe_red', cat: 'shoes', name: 'Giày đỏ', price: 80, icon: '👟', color: '#e03131', fx: { speed: 0.01 }, desc: '+1% tốc độ' },
+    { id: 'shoe_blue', cat: 'shoes', name: 'Giày xanh', price: 120, icon: '👟', color: '#1c7ed6', fx: { speed: 0.02 }, desc: '+2% tốc độ' },
+    { id: 'shoe_road', cat: 'shoes', name: 'Giày chạy phố', price: 200, icon: '👟', color: '#8b5cf6', fx: { speed: 0.03, hitSlow: 0.5 }, desc: '+3% tốc độ; vấp chướng ngại chỉ chậm một nửa' },
+    { id: 'shoe_gold', cat: 'shoes', name: 'Giày vàng', price: 300, icon: '🥇', color: '#f5b700', fx: { speed: 0.04, coinMult: 0.1 }, desc: '+4% tốc độ, +10% xu' },
+    { id: 'shoe_trail', cat: 'shoes', name: 'Giày địa hình', price: 450, icon: '🥾', color: '#2f9e44', fx: { speed: 0.06, slopeSave: 0.25 }, desc: '+6% tốc độ; leo dốc ít tốn thể lực hơn 25%' },
+    { id: 'shoe_carbon', cat: 'shoes', name: 'Giày carbon', price: 650, icon: '👟', color: '#1f2937', fx: { speed: 0.08, stamSave: 0.08 }, desc: '+8% tốc độ, giảm 8% tiêu hao thể lực' },
+    { id: 'shoe_wing', cat: 'shoes', name: 'Giày cánh', price: 900, icon: '🪽', color: '#ffffff', fx: { speed: 0.10, jumpLong: 0.25 }, desc: '+10% tốc độ; nhảy lâu hơn 25%' },
     { id: 'none', cat: 'acc', name: 'Không', price: 0, icon: '🙂' },
-    { id: 'glasses', cat: 'acc', name: 'Kính râm', price: 150, icon: '🕶️', color: '#111' },
-    { id: 'scarf', cat: 'acc', name: 'Khăn quàng', price: 120, icon: '🧣', color: '#d6453d' },
-    { id: 'backpack', cat: 'acc', name: 'Ba lô', price: 200, icon: '🎒', color: '#2f9e44' },
-    { id: 'cape', cat: 'acc', name: 'Áo choàng', price: 450, icon: '🦸', color: '#b02a4a' },
+    { id: 'glasses', cat: 'acc', name: 'Kính râm', price: 150, icon: '🕶️', color: '#111', fx: { pickupR: 0.4 }, desc: 'Vùng nhặt vật phẩm rộng hơn 40%' },
+    { id: 'scarf', cat: 'acc', name: 'Khăn quàng', price: 120, icon: '🧣', color: '#d6453d', fx: { slowResist: 0.2 }, desc: 'Bị chậm ngắn hơn 20%' },
+    { id: 'backpack', cat: 'acc', name: 'Ba lô', price: 200, icon: '🎒', color: '#2f9e44', fx: { slots: 1 }, desc: '+1 ô túi đồ' },
+    { id: 'cape', cat: 'acc', name: 'Áo choàng', price: 450, icon: '🦸', color: '#b02a4a', fx: { power: 3 }, desc: 'Khiên, nam châm, tia sét lâu hơn 3 giây' },
+    { id: 'bow', cat: 'acc', name: 'Nơ', price: 90, icon: '🎀', color: '#ff6fa5', desc: 'Trang trí, tồn tại vĩnh viễn' },
+    { id: 'banner', cat: 'acc', name: 'Băng rôn', price: 130, icon: '🎗️', color: '#e03131', desc: 'Trang trí, tồn tại vĩnh viễn' },
     { id: 'none', cat: 'watch', name: 'Không', price: 0, icon: '🙂' },
-    { id: 'watch_basic', cat: 'watch', name: 'Đồng hồ thể thao', price: 100, icon: '⌚', color: '#222' },
-    { id: 'watch_gold', cat: 'watch', name: 'Đồng hồ vàng', price: 350, icon: '⌚', color: '#f5b700' },
-    { id: 'watch_smart', cat: 'watch', name: 'Đồng hồ thông minh', price: 500, icon: '⌚', color: '#38bdf8' },
+    { id: 'watch_basic', cat: 'watch', name: 'Đồng hồ thể thao', price: 100, icon: '⌚', color: '#222', fx: { eatBonus: 0.1 }, desc: 'Đồ ăn hồi thêm 10% thể lực' },
+    { id: 'watch_gold', cat: 'watch', name: 'Đồng hồ vàng', price: 350, icon: '⌚', color: '#f5b700', fx: { eatBonus: 0.2 }, desc: 'Đồ ăn hồi thêm 20% thể lực' },
+    { id: 'watch_smart', cat: 'watch', name: 'Đồng hồ thông minh', price: 500, icon: '⌚', color: '#38bdf8', fx: { eatBonus: 0.3 }, desc: 'Đồ ăn hồi thêm 30% thể lực' },
     { id: 'aura_tier', cat: 'aura', name: 'Theo hạng', price: 0, icon: '✨' },
-    { id: 'aura_gold', cat: 'aura', name: 'Hào quang vàng', price: 300, icon: '🌟', color: '#ffd23a' },
-    { id: 'aura_fire', cat: 'aura', name: 'Hào quang lửa', price: 500, icon: '🔥', color: '#ff6a2a' },
-    { id: 'aura_ice', cat: 'aura', name: 'Hào quang băng', price: 500, icon: '❄️', color: '#7fd8ff' },
-    { id: 'aura_sakura', cat: 'aura', name: 'Hào quang hoa anh đào', price: 700, icon: '🌸', color: '#ff9ccd' },
-    { id: 'aura_rainbow', cat: 'aura', name: 'Hào quang cầu vồng', price: 1200, icon: '🌈', color: '#ff00ff' }
+    { id: 'aura_gold', cat: 'aura', name: 'Hào quang vàng', price: 300, icon: '🌟', color: '#ffd23a', desc: 'Trang trí, tồn tại vĩnh viễn' },
+    { id: 'aura_fire', cat: 'aura', name: 'Hào quang lửa', price: 500, icon: '🔥', color: '#ff6a2a', desc: 'Trang trí, tồn tại vĩnh viễn' },
+    { id: 'aura_ice', cat: 'aura', name: 'Hào quang băng', price: 500, icon: '❄️', color: '#7fd8ff', desc: 'Trang trí, tồn tại vĩnh viễn' },
+    { id: 'aura_sakura', cat: 'aura', name: 'Hào quang hoa anh đào', price: 700, icon: '🌸', color: '#ff9ccd', desc: 'Trang trí, tồn tại vĩnh viễn' },
+    { id: 'aura_rainbow', cat: 'aura', name: 'Hào quang cầu vồng', price: 1200, icon: '🌈', color: '#ff00ff', desc: 'Trang trí, tồn tại vĩnh viễn' }
   ];
+  // đồ dùng một lần, mua về vào túi đồ và hết hạn sau BOOST_HOURS giờ
+  const BOOST = [
+    { id: 'shield', k: 'shield', name: 'Khiên', price: 60, icon: '🛡️', desc: 'Chặn mọi va chạm trong 8 giây khi dùng' },
+    { id: 'bolt', k: 'bolt', name: 'Tia sét', price: 40, icon: '⚡', desc: 'Bước dài 6 m trong 8 giây khi dùng' },
+    { id: 'magnet', k: 'magnet', name: 'Nam châm', price: 50, icon: '🧲', desc: 'Hút xu ở mọi làn trong 10 giây khi dùng' }
+  ];
+  // tổng hợp hiệu ứng của bộ trang bị đang mặc (mũ, giày, phụ kiện, đồng hồ). Dùng chung cho server (kiểm tra km, xu) và trình duyệt.
+  const perksOf = (equip = {}) => {
+    const p = { speed: 0, stamSave: 0, slopeSave: 0, eatBonus: 0, coinMult: 0, biteResist: 0, slowResist: 0, hitSlow: 1, pickupR: 0, power: 0, jumpLong: 0, slots: 0 };
+    for (const cat of ['hat', 'shoes', 'acc', 'watch']) {
+      const it = SHOP.find((x) => x.cat === cat && x.id === equip[cat]); if (!it || !it.fx) continue;
+      for (const [k, v] of Object.entries(it.fx)) { if (k === 'hitSlow') p.hitSlow = Math.min(p.hitSlow, v); else p[k] += v; }
+    }
+    return p;
+  };
   const shopItem = (cat, id) => SHOP.find((x) => x.cat === cat && x.id === id);
   // biểu tượng huy chương giải đấu cho phép chọn
   const MEDAL_ICONS = ['🏃', '🏆', '🌿', '⭐', '🔥', '⚡', '🏔️', '🌊', '🐉', '🌸', '🦅', '❤️'];
@@ -152,6 +176,6 @@
       Object.assign(m, x.sides || {});
     }
   }
-  const api = { applyMeta, RULES, ITEMS, TIERS, tierIndex, MAPS, elevAt, gradeAt, stats, slopeMult, LANES, COIN, SHOP, SHOP_CATS, SHOP_DEFAULT, shopItem, MEDAL_ICONS, MEDAL_SHAPES };
+  const api = { applyMeta, RULES, ITEMS, TIERS, tierIndex, MAPS, elevAt, gradeAt, stats, slopeMult, LANES, COIN, SHOP, BOOST, perksOf, SHOP_CATS, SHOP_DEFAULT, shopItem, MEDAL_ICONS, MEDAL_SHAPES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Shared = api;
 })(typeof window !== 'undefined' ? window : this);

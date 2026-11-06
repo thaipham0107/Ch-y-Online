@@ -135,7 +135,7 @@ function ensureGame() {
     onHud: updateHud,
     onEvent: (text, ms = 2000) => { const t = $('#ticker'); t.textContent = text; clearTimeout(t._t); t._t = setTimeout(() => { t.textContent = ''; }, ms + 2000); if (/Chó|Gâu|Hết thể lực/.test(text)) banner(text, ms); },
     onInventory: (inv) => { invPending = inv; if (!invRaf) invRaf = requestAnimationFrame(() => { invRaf = 0; renderInv(invPending); store.saveInventory(invPending); }); },      // gộp cập nhật túi đồ theo khung hình
-    onCoin: (n) => { sessionCoins += n; },
+    onCoin: (n) => { sessionCoins += n * (1 + (game && game.perks ? game.perks.coinMult : 0)); },
     onTarget: (t) => showTarget(t),
     onAct: (k, to) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'act', k, to })); },
     onTicker: (txt) => { $('#ticker').textContent = txt; clearTimeout(tickT); tickT = setTimeout(() => { $('#ticker').textContent = ''; }, 3500); },
@@ -207,25 +207,51 @@ const applyPeace = () => { $('#b-peace').classList.toggle('on', peaceOn); if (ga
 $('#b-peace').onclick = () => { peaceOn = !peaceOn; try { localStorage.setItem('chay.peace', peaceOn ? '1' : '0'); } catch { /* bỏ */ } applyPeace(); toast(peaceOn ? '🕊 Hòa bình: bạn không trêu/đánh và cũng không bị trêu/đánh' : '😜 Đã bật tương tác trêu/đấm/đá', 2200); };
 $('#b-peace').classList.toggle('on', peaceOn);
 function stopRun() { $('#social').hidden = true; clearInterval(flushTimer); clearInterval(posTimer); clearTimeout(wsTimer); if (ws) { ws.onclose = null; ws.close(); ws = null; } if (game) game.dispose(); }
-async function exitRun() {
-  const t = cur && cur.tour;
-  await doFlush(!!t, false); stopRun();
+async function exitRun() {                                      // thoát ngay, việc lưu dữ liệu chạy nền (không bắt người chơi chờ mạng)
+  const t = cur && cur.tour, snap = store.snapshotRun();
+  if (game && game.st) store.record(game.takeDelta());
+  store.flushFinal(snap, false).catch(() => {}); stopRun();
   if (t) tours.open(t.code); else enterLobby();
 }
 async function finishRun(sum) {
-  const t = cur && cur.tour, r = await doFlush(true, true), p = store.profile();
-  const result = t ? `<p class="sub">🏅 ${esc(t.title)} · ${t.km} km</p>${r && r.finished ? `<p>Kết quả ghi nhận: <b>${fmtTime(r.timeS)}</b> (thời gian do server đo từ lúc xuất phát).</p>` : '<p class="hint">Kết quả chưa được ghi nhận (nhịp bước không hợp lệ hoặc mất kết nối).</p>'}` : `<p class="sub">${esc(sum.map.name)} · ${(sum.dist / 1000).toFixed(1)} km</p>`;
-  openModal(`<h2>${p.avatar ? `<img class="avs" src="${esc(p.avatar)}" alt="">` : ''}🎉 Về đích!</h2>${result}
+  // Hiện bảng kết quả NGAY bằng số liệu trên máy; việc ghi kết quả lên server chạy nền (có thử lại, hết thời gian chờ, hộp thư đi) nên không bao giờ làm đơ màn hình
+  const t = cur && cur.tour, snap = store.snapshotRun();
+  if (game && game.st) store.record(game.takeDelta());
+  const p = store.profile(), bonus = S.COIN.FINISH;
+  const head = t ? `<p class="sub">🏅 ${esc(t.title)} · ${t.km} km</p><p id="fin-res" class="hint">⏳ Đang gửi kết quả lên giải…</p>`
+    : `<p class="sub">${esc(sum.map.name)} · ${(sum.dist / 1000).toFixed(1)} km</p>`;
+  openModal(`<h2>${p.avatar ? `<img class="avs" src="${esc(p.avatar)}" alt="">` : ''}🎉 Về đích!</h2>${head}
     <div class="sumgrid"><div>Thời gian<b>${fmtTime(sum.time)}</b></div><div>Số bước<b>${sum.steps}</b></div><div>Pace TB<b>${fmtPace(sum.time / 60 / (sum.dist / 1000))}/km</b></div><div>Nhảy qua<b>${sum.jumps}</b></div><div>Bị chó cắn<b>${sum.bites}</b></div><div>Vật phẩm<b style="font-size:15px">${ITEM_ICON(sum.items)}</b></div></div>
-    <p class="hint">Tổng km tích lũy: <b>${p.totals.totalKm.toFixed(1)} km</b> · <span class="gc"></span> ${p.coins || 0} xu (+${S.COIN.FINISH} xu thưởng về đích).</p>
+    <p class="hint" id="fin-tot">Tổng km tích lũy: <b>${p.totals.totalKm.toFixed(1)} km</b> · <span class="gc"></span> ${p.coins || 0} xu (+${bonus} xu thưởng về đích).</p>
+    <p id="fin-st" class="finst">⏳ Đang lưu kết quả…</p>
     <div class="seg">${t ? '<button id="tobr" class="on">Xem bảng xếp hạng</button>' : '<button id="again" class="on">Chạy lại</button>'}<button id="tolobby">Về sảnh</button></div>`);
   // luôn thoát được khỏi bảng kết quả, kể cả khi bước kế tiếp lỗi (mạng yếu...)
   const safe = (fn) => async () => { try { await fn(); } catch (e) { console.error(e); toast(e.message || 'Có lỗi, về sảnh', 3000); try { stopRun(); } catch { /* bỏ */ } enterLobby(); } };
   if (t) $('#tobr').onclick = safe(() => { closeModal(); stopRun(); tours.open(t.code); }); else $('#again').onclick = safe(async () => { closeModal(); stopRun(); await startFree(); });
   $('#tolobby').onclick = safe(() => { closeModal(); stopRun(); enterLobby(); });
+  const paint = async (r) => {
+    const st = $('#fin-st'), res = $('#fin-res'); if (!st) return;                                  // bảng đã đóng thì thôi
+    if (!r || r.local) { st.textContent = ''; if (!t) $('#fin-tot').innerHTML = `Tổng km tích lũy: <b>${store.profile().totals.totalKm.toFixed(1)} km</b> · <span class="gc"></span> ${store.profile().coins || 0} xu (+${bonus} xu thưởng về đích).`; return; }
+    if (r.error) {
+      { const tot = $('#fin-tot'); if (tot) tot.textContent = `Tổng km và xu sẽ được cập nhật khi kết quả được gửi.`; }
+      st.innerHTML = r.pending ? '⚠️ Chưa gửi được (mạng yếu). Máy đã lưu lại và <b>sẽ tự gửi khi có mạng</b>, bạn có thể thoát.  <button id="fin-retry" class="ghost">Thử lại</button>' : `⚠️ ${esc(r.error)}`;
+      if (res) res.textContent = r.pending ? 'Kết quả đang chờ gửi lên giải.' : 'Kết quả không được ghi nhận.';
+      const b = $('#fin-retry'); if (b) b.onclick = async () => { b.disabled = true; st.textContent = '⏳ Đang gửi lại…'; const n = await store.retryOutbox().catch(() => 0); if (n) { st.textContent = '✅ Đã gửi xong'; if (res) res.textContent = 'Kết quả đã được gửi lên giải.'; } else paint({ error: 'Mạng yếu', pending: true }); };
+      return;
+    }
+    if (t) res.innerHTML = r.finished ? `✅ Kết quả ghi nhận: <b>${fmtTime(r.timeS)}</b> (thời gian do server đo từ lúc xuất phát).` : 'Chưa đủ điều kiện ghi nhận về đích (quãng đường chưa đủ hoặc nhịp bước không hợp lệ).';
+    st.textContent = '✅ Đã lưu';
+    try { await store.refresh(); } catch { /* mạng chậm: bỏ qua */ }
+    const q = store.profile(), tot = $('#fin-tot'); if (tot) tot.innerHTML = `Tổng km tích lũy: <b>${q.totals.totalKm.toFixed(1)} km</b> · <span class="gc"></span> ${q.coins || 0} xu${r.finished !== false ? ` (+${bonus} xu thưởng về đích)` : ''}.`;
+  };
+  store.flushFinal(snap, true).then(paint).catch((e) => paint({ error: e.message || 'Lỗi', pending: true }));
 }
 function renderInv(inv) {
-  $('#inv').innerHTML = Array.from({ length: R.INV_SLOTS }, (_, i) => { const s = inv[i]; return `<button class="slot ${s ? 'has' : ''}" data-i="${i}" title="${s ? S.ITEMS[s.k].name : 'Ô trống'}"><small>${i + 1}</small>${s ? S.ITEMS[s.k].icon + '<b>' + s.n + '</b>' : ''}</button>`; }).join('');
+  const slots = game && game.slots ? game.slots : R.INV_SLOTS, now = Date.now();
+  $('#inv').innerHTML = Array.from({ length: slots }, (_, i) => {
+    const s = inv[i], t = s && s.exp ? Math.max(0, Math.ceil((s.exp - now) / 3600e3)) : 0;
+    return `<button class="slot ${s ? 'has' : ''} ${s && s.exp ? 'timed' : ''}" data-i="${i}" title="${s ? S.ITEMS[s.k].name + (s.exp ? ` (còn khoảng ${t} giờ)` : '') : 'Ô trống'}"><small>${i + 1}</small>${s ? S.ITEMS[s.k].icon + '<b>' + s.n + '</b>' : ''}${s && s.exp ? '<i class="tm">⏳</i>' : ''}</button>`;
+  }).join('');
 }
 $('#inv').addEventListener('pointerdown', (e) => { const b = e.target.closest('.slot'); if (b && game) { e.preventDefault(); game.useItem(+b.dataset.i); } });
 function updateHud(h) {
@@ -254,7 +280,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowUp') { if (e.key === 'ArrowUp') e.preventDefault(); game.jump(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); game.moveLane(-1); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); game.moveLane(1); }
-  else if (/^[1-5]$/.test(e.key)) game.useItem(+e.key - 1);
+  else if (/^[1-9]$/.test(e.key)) game.useItem(+e.key - 1);
   else if (e.key === 'a' || e.key === 'A') toggleAuto();
   else if (e.key === '+' || e.key === '=') game.zoom(-1);
   else if (e.key === '-') game.zoom(1);
@@ -340,17 +366,19 @@ async function openPanel(kind) {
 }
 function shopPanel(cat) {
   const p = store.profile(), owned = new Set(p.owned || []), eq = p.equip;
-  const items = S.SHOP.filter((x) => x.cat === cat);
+  const boost = cat === 'boost', items = boost ? S.BOOST.map((b) => ({ ...b, boost: true })) : S.SHOP.filter((x) => x.cat === cat);
   openModal(`<h2>🛍 Cửa hàng</h2><div class="row between"><div class="seg" id="shop-tabs">${S.SHOP_CATS.map(([k, n]) => `<button data-c="${k}" class="${k === cat ? 'on' : ''}">${n}</button>`).join('')}</div><b class="coinbal"><span class="gc"></span> ${p.coins || 0}</b></div>
+    ${boost ? `<p class="hint">Đồ dùng một lần: mua về vào túi đồ, <b>hết hạn sau ${S.RULES.BOOST_HOURS} giờ</b>. Túi hiện có ${(p.inventory || []).length}/${S.RULES.INV_SLOTS + S.perksOf(eq).slots} ô.</p>` : ''}
     <div class="shopgrid">${items.map((it) => { const has = it.price === 0 || owned.has(cat + ':' + it.id), on = eq[cat] === it.id;
-      return `<div class="scard ${on ? 'on' : ''}"><div class="sicon" style="${it.color ? `background:${it.color}33` : ''}">${it.icon}</div><b>${esc(it.name)}</b>
-        ${on ? '<span class="hint">Đang dùng</span>' : has ? `<button class="ghost" data-equip="${it.id}">Dùng</button>` : `<button class="primary" data-buy="${it.id}" ${(p.coins || 0) < it.price ? 'disabled' : ''}>Mua ${it.price} <span class="gc"></span></button>`}</div>`; }).join('')}</div>
+      return `<div class="scard ${on ? 'on' : ''}"><div class="sicon" style="${it.color ? `background:${it.color}33` : ''}">${it.icon}</div><b>${esc(it.name)}</b>${it.desc ? `<small class="fx">${esc(it.desc)}</small>` : ''}
+        ${it.boost ? `<button class="primary" data-buy="${it.id}" ${(p.coins || 0) < it.price ? 'disabled' : ''}>Mua ${it.price} <span class="gc"></span></button>` : on ? '<span class="hint">Đang dùng</span>' : has ? `<button class="ghost" data-equip="${it.id}">Dùng</button>` : `<button class="primary" data-buy="${it.id}" ${(p.coins || 0) < it.price ? 'disabled' : ''}>Mua ${it.price} <span class="gc"></span></button>`}</div>`; }).join('')}</div>
     <p class="hint">Kiếm xu: ${S.COIN.PER_KM_GAME} xu mỗi km trong game, nhặt <span class="gc"></span> trên đường, +${S.COIN.FINISH} xu khi về đích, ${S.COIN.PER_KM_REAL} xu mỗi km chạy ngoài đời (Strava). Trang bị hiện trên nhân vật cho mọi người cùng thấy.</p>`);
   $('#shop-tabs').onclick = (e) => { if (e.target.dataset.c) shopPanel(e.target.dataset.c); };
   document.querySelector('.shopgrid').onclick = async (e) => {
     const b = e.target.closest('button'); if (!b) return;
     try {
-      if (b.dataset.buy) { await store.buy(cat, b.dataset.buy); await store.equipItem(cat, b.dataset.buy); toast('Đã mua và đang dùng ✓'); }
+      if (b.dataset.buy && cat === 'boost') { await store.buy(cat, b.dataset.buy); toast(`Đã thêm vào túi, dùng trong ${S.RULES.BOOST_HOURS} giờ ✓`); }
+      else if (b.dataset.buy) { await store.buy(cat, b.dataset.buy); await store.equipItem(cat, b.dataset.buy); toast('Đã mua và đang dùng ✓'); }
       else if (b.dataset.equip) { await store.equipItem(cat, b.dataset.equip); toast('Đã đổi trang bị ✓'); }
       shopPanel(cat); if (!$('#scr-lobby').hidden) renderLobby();
     } catch (er) { toast(er.message); }
@@ -431,3 +459,7 @@ $('#b-sound').onclick = toggleSound; soundIcon();
 document.addEventListener('click', (e) => { if (e.target.closest('button') && !e.target.closest('#hud')) sfx.click(); });
 
 window.__booted = true;      // báo cho khung cảnh báo trình duyệt cũ rằng trang đã chạy
+
+// gửi lại kết quả cuối chuyến còn kẹt trong hộp thư đi (mở lại trang, có mạng trở lại)
+const flushOutbox = () => { if (store && (store.mode === 'account' || store.mode === 'guest')) store.retryOutbox().catch(() => {}); };
+addEventListener('online', flushOutbox); setInterval(flushOutbox, 30000); setTimeout(flushOutbox, 4000);

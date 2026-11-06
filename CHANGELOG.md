@@ -1,5 +1,7 @@
 # Changelog
 ## 1.2.0
+- Túi đồ 5 món/ô, ba lô +1 ô; trang bị có tác dụng (giày +1…+10% tốc độ, mũ, phụ kiện, đồng hồ), nơ/băng rôn/hào quang chỉ trang trí; đồ dùng 24 giờ (khiên, tia sét, nam châm); chế độ tự động tự dùng đồ.
+- Sửa lỗi về đích không được ghi nhận trong giải (thiếu vài chục mét do tia sét vắt qua hai lần gửi); kết quả cuối chuyến lưu nền có thử lại + hộp thư đi, hết đơ màn hình về đích.
 - Sửa lỗi iPad/iPhone đời cũ (Safari < 16.4) không thao tác được gì: bỏ import map, nạp three.js bằng đường dẫn thẳng; bù canvas roundRect; thêm khung báo lỗi khi trình duyệt không chạy được trang (kèm chi tiết lỗi).
 - Tương tác nhiều người: trêu/đấm/đá làm chậm người bị chọc, vòng đỏ chọn mục tiêu, hồi chiêu + miễn nhiễm + chế độ hòa bình; người chạy cùng bản đồ hoặc cùng giải thấy nhau; ảnh đại diện hiện ở bảng xếp hạng, kết quả giải, về đích, thông báo, trang quản trị.
 - Ảnh đại diện: tải ở Hồ sơ, thay cho đầu nhân vật (tài khoản: server, mọi người thấy; khách: trình duyệt); admin xóa được ảnh vi phạm.

@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS awards(tid TEXT NOT NULL, pkey TEXT NOT NULL, cat TEX
 `);
 function addCol(table, col, def) { if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); }
 addCol('users', 'coins', 'INTEGER DEFAULT 0'); addCol('users', 'coin_rem', 'REAL DEFAULT 0'); addCol('users', 'owned', "TEXT DEFAULT '[]'");
-addCol('users', 'equip', "TEXT DEFAULT '{}'"); addCol('users', 'imported', 'INTEGER DEFAULT 0'); addCol('users', 'avatar', 'TEXT'); addCol('users', 'avatar_v', 'INTEGER DEFAULT 0');
+addCol('users', 'equip', "TEXT DEFAULT '{}'"); addCol('users', 'imported', 'INTEGER DEFAULT 0'); addCol('users', 'avatar', 'TEXT'); addCol('runs', 'bolt_left', 'REAL DEFAULT 0'); addCol('users', 'avatar_v', 'INTEGER DEFAULT 0');
 addCol('daily', 'imp', 'REAL DEFAULT 0'); addCol('real_daily', 'paid', 'REAL DEFAULT 0');
 addCol('tournaments', 'view', "TEXT DEFAULT '3d'"); addCol('runs', 'go', 'INTEGER DEFAULT 0'); addCol('runs', 'pkey', 'TEXT'); addCol('runs', 'tid', 'TEXT'); addCol('runs', 'cat', 'TEXT'); addCol('runs', 'seed', 'INTEGER');
 
@@ -277,21 +277,30 @@ app.post('/api/strava/unlink', need, (req, res) => {
 function applyFlush(run, b, user) {
   const now = Date.now(), dt = clamp((now - run.last_flush) / 1000, 0, 180);
   const steps = clamp(Math.floor(+b.steps || 0), 0, Math.floor(RULES.MAX_STEPS_PER_SEC * dt * 1.05) + 6);
-  const bolts = clamp(Math.floor(+b.boltsUsed || 0), 0, 5);
-  const boost = Math.min(steps, bolts * RULES.BOLT_SECS * RULES.MAX_STEPS_PER_SEC);
-  const meters = clamp(+b.meters || 0, 0, steps * RULES.STRIDE + boost * (RULES.BOLT_STRIDE - RULES.STRIDE));
+  // hiệu ứng trang bị của người chơi (giày tăng tốc, vương miện/áo choàng kéo dài tia sét, xu cộng thêm). Khách không có hồ sơ trên server: nới tối đa để vẫn ghi nhận được.
+  const pk = user ? Shared.perksOf(equipOf(user)) : { speed: 0.10, power: 5, coinMult: 0 };
+  const bolts = clamp(Math.floor(+b.boltsUsed || 0), 0, 8);
+  // tia sét kéo dài 8 giây có thể vắt qua hai lần gửi: cộng dồn số giây tia sét còn lại (bolt_left) thay vì chỉ tính tia sét dùng trong lần gửi này
+  const avail = (run.bolt_left || 0) + bolts * (RULES.BOLT_SECS + pk.power);
+  const boost = Math.min(steps, avail * RULES.MAX_STEPS_PER_SEC * 1.1 + 2);
+  const meters = clamp(+b.meters || 0, 0, (steps * RULES.STRIDE + boost * (RULES.BOLT_STRIDE - RULES.STRIDE)) * (1 + pk.speed) + 3);
+
   const cap = Math.ceil(meters / 60) + 3, items = {}; let total = 0;
   for (const k of Object.keys(ITEMS)) { const n = clamp(Math.floor(+(b.items || {})[k] || 0), 0, cap); items[k] = Math.min(n, Math.max(0, cap - total)); total += items[k]; }
-  items.coin = clamp(Math.floor(+(b.items || {}).coin || 0), 0, Math.ceil(meters / 2.5) + 6);
+  items.coin = Math.floor(clamp(Math.floor(+(b.items || {}).coin || 0), 0, Math.ceil(meters / 2.5) + 6) * (1 + pk.coinMult));
+  // số giây tia sét đã dùng ước tính từ quãng đường vượt mức bình thường; phần còn lại chuyển sang lần gửi sau (tối đa 2 lần thời lượng một tia sét)
+  const consumed = Math.max(0, meters - steps * RULES.STRIDE * (1 + pk.speed)) / ((RULES.BOLT_STRIDE - RULES.STRIDE) * (1 + pk.speed) * RULES.MAX_STEPS_PER_SEC);
+  db.prepare('UPDATE runs SET bolt_left=? WHERE id=?').run(Math.min(Math.max(0, avail - consumed), 2 * (RULES.BOLT_SECS + pk.power)), run.id);
   const newMeters = run.meters + meters;
-  const finishedNow = !!b.done && !run.done && run.dist_m > 0 && newMeters >= run.dist_m - 6;
+  // về đích: client báo fin=1 và quãng đường đủ (nới 3% cho sai số làm tròn/nhịp bước, tránh tình trạng 4,92 km bị tính là chưa về đích)
+  const finishedNow = !!b.done && (b.fin === undefined || !!(+b.fin)) && !run.done && run.dist_m > 0 && newMeters >= run.dist_m - Math.max(6, run.dist_m * 0.03);
   let coins = 0;
   if (user) {
     const day = dayOf(), d = q.getDaily.get(user.id, day) || { game_m: 0, steps: 0, secs: 0, bites: 0, jumps: 0, items: '{}', imp: 0 };
     const it = jparse(d.items, {}); for (const k of ITEM_KEYS) it[k] = (it[k] || 0) + (items[k] || 0);
     q.upDaily.run(user.id, day, d.game_m + meters, d.steps + steps, d.secs + Math.round(Math.min(dt, +b.secs || dt)),
       d.bites + clamp(Math.floor(+b.bites || 0), 0, 20), d.jumps + clamp(Math.floor(+b.jumps || 0), 0, 200), JSON.stringify(it), d.imp || 0);
-    const fresh = q.userById.get(user.id), earn = (fresh.coin_rem || 0) + meters / 1000 * COIN.PER_KM_GAME;
+    const fresh = q.userById.get(user.id), earn = (fresh.coin_rem || 0) + meters / 1000 * COIN.PER_KM_GAME * (1 + pk.coinMult);
     coins = Math.floor(earn) + items.coin + (finishedNow ? COIN.FINISH : 0);
     q.setCoins.run(fresh.coins + coins, earn - Math.floor(earn), user.id);
   }
@@ -310,12 +319,17 @@ app.post('/api/run/start', need, (req, res) => {
 app.post('/api/run/flush', need, (req, res) => {
   const run = q.getRun.get(+req.body.runId || 0);
   if (!run || run.user_id !== req.user.id || run.tid) return res.status(404).json({ error: 'Không có chuyến chạy' });
-  res.json({ ok: true, ...applyFlush(run, req.body, req.user) });
+  const wasDone = !!run.done, r = applyFlush(run, req.body, req.user);
+  res.json({ ok: true, ...r, finished: r.finishedNow || (wasDone && !!req.body.fin) });
 });
+// làm sạch túi đồ do trình duyệt gửi: đúng loại vật phẩm, tối đa INV_STACK mỗi ô, số ô tối đa theo trang bị; đồ mua có hạn (exp) hết hạn thì bỏ
+function cleanInv(inv, slots) {
+  const now = Date.now(), maxExp = now + (RULES.BOOST_HOURS + 2) * 3600e3;
+  return (Array.isArray(inv) ? inv : []).filter((s) => s && own(ITEMS, s.k)).map((s) => { const o = { k: s.k, n: clamp(Math.floor(+s.n || 0), 1, RULES.INV_STACK) }; if (s.exp) o.exp = Math.min(maxExp, Math.floor(+s.exp) || 0); return o; })
+    .filter((s) => !s.exp || s.exp > now).slice(0, slots);
+}
 app.post('/api/inventory', need, (req, res) => {
-  const inv = (Array.isArray(req.body.inv) ? req.body.inv : []).slice(0, RULES.INV_SLOTS)
-    .filter((s) => s && own(ITEMS, s.k)).map((s) => ({ k: s.k, n: clamp(Math.floor(+s.n || 0), 1, RULES.INV_STACK) }));
-  q.setInv.run(JSON.stringify(inv), req.user.id); res.json({ ok: true });
+  q.setInv.run(JSON.stringify(cleanInv(req.body.inv, RULES.INV_SLOTS + Shared.perksOf(equipOf(q.userById.get(req.user.id))).slots)), req.user.id); res.json({ ok: true });
 });
 
 // ---------- Cửa hàng ----------
@@ -343,6 +357,16 @@ app.post('/api/avatar', need, (req, res) => {
 });
 app.delete('/api/avatar', need, (req, res) => { db.prepare('UPDATE users SET avatar=NULL, avatar_v=? WHERE id=?').run(Date.now(), req.user.id); res.json({ me: publicMe(req.user) }); });
 app.post('/api/shop/buy', need, (req, res) => {
+  if (String(req.body.cat) === 'boost') {                                  // đồ dùng một lần (khiên/tia sét/nam châm): vào túi, hết hạn sau 24 giờ
+    const u = q.userById.get(req.user.id), b = Shared.BOOST.find((x) => x.id === String(req.body.id));
+    if (!b) return res.status(400).json({ error: 'Không có vật phẩm này' });
+    if (u.coins < b.price) return res.status(400).json({ error: 'Không đủ xu' });
+    const slots = RULES.INV_SLOTS + Shared.perksOf(equipOf(u)).slots, inv = cleanInv(jparse(u.inventory, []), 99), exp = Date.now() + RULES.BOOST_HOURS * 3600e3;
+    const st = inv.find((s) => s.k === b.k && s.exp && s.n < RULES.INV_STACK);
+    if (st) { st.n++; st.exp = exp; } else if (inv.length < slots) inv.push({ k: b.k, n: 1, exp }); else return res.status(400).json({ error: 'Túi đồ đã đầy' });
+    db.prepare('UPDATE users SET coins=?, inventory=? WHERE id=?').run(u.coins - b.price, JSON.stringify(inv), u.id); admin.logEv('shop_buy', u.id, null, { item: 'boost:' + b.id, price: b.price });
+    return res.json({ me: publicMe(u) });
+  }
   const u = q.userById.get(req.user.id), it = Shared.shopItem(String(req.body.cat), String(req.body.id));
   if (!it) return res.status(400).json({ error: 'Không có vật phẩm này' });
   const owned = ownedSet(u), key = it.cat + ':' + it.id;
@@ -392,7 +416,7 @@ app.post('/api/import', need, (req, res) => {
     const coins = Math.max(0, Math.min(Math.floor(+g.coins || 0), budget - spent));
     const own0 = ownedSet(u); keep.forEach((k) => own0.add(k));
     const eq = jparse(u.equip, {}); for (const [c, id] of Object.entries(g.equip || {})) { const it = Shared.shopItem(c, id); if (it && (it.price === 0 || own0.has(c + ':' + id))) eq[c] = id; }
-    const inv = (Array.isArray(g.inventory) ? g.inventory : []).slice(0, RULES.INV_SLOTS).filter((s) => s && own(ITEMS, s.k)).map((s) => ({ k: s.k, n: clamp(Math.floor(+s.n || 0), 1, RULES.INV_STACK) }));
+    const inv = cleanInv(g.inventory, RULES.INV_SLOTS + 1);
     db.prepare('UPDATE users SET coins=coins+?, owned=?, equip=?, inventory=?, imported=1 WHERE id=?').run(coins, JSON.stringify([...own0]), JSON.stringify(eq), JSON.stringify(inv), u.id);
     });
   } catch (e) { console.error('import lỗi', e.message); return res.status(500).json({ error: 'Không gộp được dữ liệu' }); }
@@ -621,7 +645,9 @@ app.post('/api/tournaments/:code/flush', needWho, (req, res) => {
     if (r.finishedNow) q.rIns.run(run.tid, run.pkey, run.cat, 'finished', Math.round((Date.now() - run.started) / 100) / 10, run.dist_m, r.steps, Date.now());
     else q.rIns.run(run.tid, run.pkey, run.cat, 'dnf', null, Math.min(run.dist_m, r.meters), r.steps, Date.now());
   }
-  res.json({ ok: true, finished: r.finishedNow, coins: r.coins, timeS: r.finishedNow ? Math.round((Date.now() - run.started) / 100) / 10 : null });
+  // trả về kết quả đã ghi trên server (kể cả khi đây là lần gửi lại do lần trước mất mạng) để màn hình của người chơi luôn đúng
+  const rec = db.prepare('SELECT status, time_s FROM results WHERE tid=? AND pkey=? AND cat=? ORDER BY id DESC LIMIT 1').get(run.tid, run.pkey, run.cat);
+  res.json({ ok: true, finished: !!rec && rec.status === 'finished', recorded: !!rec, coins: r.coins, timeS: rec && rec.status === 'finished' ? rec.time_s : null });
 });
 
 // ---------- Hiện diện nhiều người (cùng bản đồ/giải thấy nhau) ----------

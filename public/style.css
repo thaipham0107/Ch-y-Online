@@ -248,3 +248,8 @@ button,select,.seg button,.slot{touch-action:manipulation;-webkit-tap-highlight-
 @media (max-height:520px){.social{bottom:calc(max(8px,env(safe-area-inset-bottom)) + 70px)}.scbtns button{width:44px;height:44px;font-size:20px}}
 #b-peace.on{background:#2f6f4acc;border-color:#7be0a8}
 .avs.sm{width:22px;height:22px;margin-right:6px;border-width:1.5px}
+
+/* cửa hàng: mô tả hiệu ứng, đồ có hạn, kết quả về đích */
+.scard .fx{display:block;font-size:11px;color:var(--mut);line-height:1.25;min-height:28px}
+.slot.timed{box-shadow:inset 0 0 0 2px #5ec8ff88}.slot .tm{position:absolute;left:2px;top:1px;font-size:10px;font-style:normal}
+.finst{margin:6px 0;padding:6px 10px;border-radius:10px;background:#0003;font-size:13px}
