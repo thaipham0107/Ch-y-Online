@@ -60,6 +60,9 @@ if (-not $hasAdmin) {
 }
 $port = EnvValue 'PORT'; if (-not $port) { $port = '3000' }
 $token = EnvValue 'TUNNEL_TOKEN'
+if ($token -and (EnvValue 'BASE_URL') -match 'duckdns\.org') {
+  Fail "Tên miền DuckDNS không dùng được với Cloudflare Tunnel (DuckDNS không cho chuyển DNS về Cloudflare).`nCách 1: xóa dòng TUNNEL_TOKEN trong .env để dùng link tạm trycloudflare.com.`nCách 2: dùng VPS (xem DEPLOY.md, mục D: VPS + DuckDNS)."
+}
 
 # 4. cloudflared (tự tải nếu chưa có)
 $cf = $null

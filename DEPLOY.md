@@ -128,3 +128,17 @@ Dùng Caddy hoặc Nginx làm reverse proxy tới cổng 3000, bắt buộc chuy
 - Đường chạy dùng GPX tự vẽ trong Komoot, chưa phải GPX chính thức của ban tổ chức giải.
 - Trang quản trị có theo dõi truy cập (IP băm, mã thiết bị): nên có chính sách quyền riêng tư.
 - Một tiến trình Node, một file SQLite: phù hợp vài trăm người chơi đồng thời; muốn lớn hơn cần tách lưu trữ.
+
+## D. VPS + tên miền DuckDNS (không dùng Cloudflare Tunnel)
+**Vì sao không gắn DuckDNS vào Cloudflare Tunnel được:** tunnel có tên cố định chỉ chạy với tên miền do Cloudflare quản lý DNS, mà DuckDNS không cho chuyển DNS về Cloudflare (chỉ cho đặt IP). Với DuckDNS, bạn trỏ thẳng tên miền vào IP của máy chủ có IP công khai cố định, tức VPS.
+
+1. Có VPS Ubuntu/Debian (1 GB RAM trở lên), mở cổng 80 và 443 ở tường lửa của nhà cung cấp.
+2. Vào duckdns.org, ở dòng `chayonline` điền **IPv4 của VPS** rồi bấm update.
+3. Chép mã nguồn lên VPS (git clone, hoặc giải nén gói), rồi chạy:
+   ```bash
+   sudo DOMAIN=chayonline.duckdns.org ADMIN_USER=ten ADMIN_PASS='mat-khau-dai' bash deploy/vps/setup-ubuntu.sh
+   ```
+   Script cài Node 22, dịch vụ nền, Caddy (tự xin chứng chỉ HTTPS Let's Encrypt), tường lửa, và đặt `BASE_URL=https://chayonline.duckdns.org`.
+4. Mở https://chayonline.duckdns.org . Strava: ô Callback Domain điền `chayonline.duckdns.org`.
+- Lưu ý: tên miền DuckDNS có thể bị một số trình duyệt hoặc dịch vụ chống lừa đảo gắn cờ; nếu gặp, đổi sang tên miền mua riêng.
+- Chạy ngay trên máy cá nhân với DuckDNS là có thể (mở cổng 80/443 trên router, cài Caddy, DuckDNS cập nhật IP nhà) nhưng không khuyến nghị: nhiều nhà mạng dùng CGNAT nên không mở cổng được, và IP nhà bị lộ.
