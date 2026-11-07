@@ -1,5 +1,6 @@
 # Changelog
 ## 1.2.0
+- Về đích luôn ra được bảng kết quả: bọc lỗi âm thanh/bảng kết quả, có bảng tối giản dự phòng và đồng hồ canh chừng 2,5 giây; lỗi chạy hiện một dòng đỏ trên màn hình để người chơi chụp gửi lại.
 - Màn hình chạy gọn hơn: công tắc Tự động lên hàng trên, nút BƯỚC đổi thành CHẠY, bỏ các nút menu không dùng khi đua (mục tiêu, cửa hàng, lịch sử, xếp hạng, giải đấu) và nút đổi góc camera.
 - Túi đồ 5 món/ô, ba lô +1 ô; trang bị có tác dụng (giày +1…+10% tốc độ, mũ, phụ kiện, đồng hồ), nơ/băng rôn/hào quang chỉ trang trí; đồ dùng 24 giờ (khiên, tia sét, nam châm); chế độ tự động tự dùng đồ.
 - Sửa lỗi về đích không được ghi nhận trong giải (thiếu vài chục mét do tia sét vắt qua hai lần gửi); kết quả cuối chuyến lưu nền có thử lại + hộp thư đi, hết đơ màn hình về đích.

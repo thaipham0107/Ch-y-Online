@@ -13,7 +13,8 @@ function ensure() {
 function unlock() { const c = ensure(); if (c && c.state === 'suspended') c.resume(); }
 for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, unlock, { passive: true });
 
-function tone({ type = 'sine', f0 = 440, f1 = null, t = 0, dur = 0.15, vol = 0.3, attack = 0.005, vib = 0 }) {
+function tone(o) { try { toneRaw(o); } catch { /* âm thanh lỗi không được làm hỏng trò chơi (iOS/WebView) */ } }
+function toneRaw({ type = 'sine', f0 = 440, f1 = null, t = 0, dur = 0.15, vol = 0.3, attack = 0.005, vib = 0 }) {
   const c = ensure(); if (!c || muted || c.state !== 'running') return;
   const t0 = c.currentTime + t, o = c.createOscillator(), g = c.createGain();
   o.type = type; o.frequency.setValueAtTime(f0, t0); if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
@@ -22,7 +23,8 @@ function tone({ type = 'sine', f0 = 440, f1 = null, t = 0, dur = 0.15, vol = 0.3
   o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.05);
 }
 let noiseBuf = null;
-function noise({ t = 0, dur = 0.06, vol = 0.25, freq = 1200, q = 0.8, type = 'lowpass' }) {
+function noise(o) { try { noiseRaw(o); } catch { /* bỏ qua */ } }
+function noiseRaw({ t = 0, dur = 0.06, vol = 0.25, freq = 1200, q = 0.8, type = 'lowpass' }) {
   const c = ensure(); if (!c || muted || c.state !== 'running') return;
   if (!noiseBuf) { noiseBuf = c.createBuffer(1, c.sampleRate * 0.5, c.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
   const t0 = c.currentTime + t, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();

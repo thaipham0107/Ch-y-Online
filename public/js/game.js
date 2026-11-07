@@ -619,7 +619,7 @@ export class Game {
     for (const q of this.squads) if (!q.pass && st.s >= q.s) { q.pass = true; this.emote(q.n); }
     this.bikeLogic(dt, prev);
     this.dogLogic(dt);
-    if (st.target >= this.total && st.s >= this.total - 0.05) { st.finished = true; st.s = st.target = this.total; sfx.finish(); this.hold.clear(); this.hooks.onFinish && this.hooks.onFinish(this.summary()); }
+    if (st.target >= this.total && st.s >= this.total - 0.05) { st.finished = true; st.s = st.target = this.total; try { sfx.finish(); } catch { /* bỏ */ } this.hold.clear(); try { this.hooks.onFinish && this.hooks.onFinish(this.summary()); } catch (e) { console.error(e); this.hooks.onError && this.hooks.onError(e, 'finish'); } }
   }
   // ----- tương tác giữa người chơi: trêu / đấm / đá -----
   updateTarget() {                                           // chọn người gần nhất (trong 30 m, ưu tiên cùng làn) làm mục tiêu

@@ -129,6 +129,31 @@ const getMode = () => sel.mode; const setMode = (m) => { sel.mode = m; };
 
 // ----- chạy -----
 let invPending = null, invRaf = 0, tickT = 0;
+// Về đích luôn phải ra được bảng kết quả: nếu bảng chính lỗi thì hiện bảng tối giản, và có đồng hồ canh chừng
+let finishSum = null, finishSaved = false;
+function safeFinish(sum) {
+  finishSum = sum; finishSaved = false;
+  try { Promise.resolve(finishRun(sum)).catch((e) => { reportError(e, 'finishRun'); fallbackFinish(sum); }); } catch (e) { reportError(e, 'finishRun'); fallbackFinish(sum); }
+  setTimeout(() => { if (finishSum === sum && $('#modal').hidden && game && game.st && game.st.finished) fallbackFinish(sum); }, 2500);
+}
+function fallbackFinish(sum) {
+  const snap = store.snapshotRun();
+  openModal(`<h2>🎉 Về đích!</h2><p class="sub">${esc((sum.map && sum.map.name) || '')} · ${(sum.dist / 1000).toFixed(1)} km</p>
+    <div class="sumgrid"><div>Thời gian<b>${fmtTime(sum.time)}</b></div><div>Số bước<b>${sum.steps}</b></div></div>
+    <p id="fin-st" class="finst">⏳ Đang lưu kết quả…</p>
+    <div class="seg"><button id="again" class="on">Chạy lại</button><button id="tolobby">Về sảnh</button></div>`);
+  $('#again').onclick = async () => { closeModal(); stopRun(); try { await startFree(); } catch { enterLobby(); } };
+  $('#tolobby').onclick = () => { closeModal(); stopRun(); enterLobby(); };
+  if (!finishSaved) { finishSaved = true; try { store.record(game.takeDelta()); } catch { /* bỏ */ } store.flushFinal(snap, true).then((r) => { const st = $('#fin-st'); if (st) st.textContent = r && r.error ? '⚠️ Chưa gửi được, máy sẽ tự gửi lại khi có mạng' : '✅ Đã lưu'; }).catch(() => {}); }
+}
+// báo lỗi chạy ra màn hình (một lần) để người chơi chụp gửi lại cho người làm game
+let errShown = false;
+function reportError(e, where) {
+  console.error(where, e); if (errShown) return; errShown = true;
+  const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:99;background:#7f1d1d;color:#fff;border-radius:10px;padding:8px 12px;font:12px/1.4 system-ui,sans-serif';
+  d.textContent = `Lỗi (${where}): ${(e && e.message) || e}`; d.onclick = () => d.remove(); document.body.appendChild(d); setTimeout(() => d.remove(), 12000);
+}
+addEventListener('error', (e) => { if (window.__booted) reportError(e.error || { message: e.message }, 'runtime'); });
 function ensureGame() {
   if (game) return game;
   game = new Game($('#c'), {
@@ -139,7 +164,8 @@ function ensureGame() {
     onTarget: (t) => showTarget(t),
     onAct: (k, to) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'act', k, to })); },
     onTicker: (txt) => { $('#ticker').textContent = txt; clearTimeout(tickT); tickT = setTimeout(() => { $('#ticker').textContent = ''; }, 3500); },
-    onFinish: (sum) => finishRun(sum)
+    onFinish: (sum) => safeFinish(sum),
+    onError: (e, where) => reportError(e, where)
   }, cfg);
   if (window.__chayDebug) window.__game = game;      // chỉ để kiểm thử tự động
   return game;
