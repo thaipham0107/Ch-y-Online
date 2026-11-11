@@ -1,5 +1,6 @@
 # Changelog
 ## 1.2.0
+- Triển khai Cloudflare + Git: BASE_URL tự lấy từ địa chỉ truy cập, bật observability, `.nvmrc`, hướng dẫn nối repo với Workers Builds; bỏ luồng VPS/GitHub Actions deploy (giữ CI kiểm thử).
 - Về đích luôn ra được bảng kết quả: bọc lỗi âm thanh/bảng kết quả, có bảng tối giản dự phòng và đồng hồ canh chừng 2,5 giây; lỗi chạy hiện một dòng đỏ trên màn hình để người chơi chụp gửi lại.
 - Màn hình chạy gọn hơn: công tắc Tự động lên hàng trên, nút BƯỚC đổi thành CHẠY, bỏ các nút menu không dùng khi đua (mục tiêu, cửa hàng, lịch sử, xếp hạng, giải đấu) và nút đổi góc camera.
 - Túi đồ 5 món/ô, ba lô +1 ô; trang bị có tác dụng (giày +1…+10% tốc độ, mũ, phụ kiện, đồng hồ), nơ/băng rôn/hào quang chỉ trang trí; đồ dùng 24 giờ (khiên, tia sét, nam châm); chế độ tự động tự dùng đồ.

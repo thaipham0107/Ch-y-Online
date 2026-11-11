@@ -1,6 +1,27 @@
 # Triển khai Chạy Online
 
-Có ba cách: **C. chạy trên máy cá nhân + Cloudflare Tunnel (không Docker, để thử nghiệm)**, **A. Cloudflare Workers (không container)** và **B. VPS Node/Docker**. Cả ba dùng chung mã nguồn và `core.js`.
+## Cloudflare + Git (cách chính)
+Cloudflare tự lấy mã từ nhánh Git của bạn, build và triển khai mỗi lần bạn đẩy mã. Không cần VPS, Docker hay container. Phần cấu hình trong repo đã sẵn (`wrangler.jsonc`, `worker/`, `scripts/build-assets.mjs`, `.nvmrc`); bạn chỉ cần cấu hình phía Cloudflare:
+
+1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Import a repository** (Workers Builds) → kết nối GitHub, chọn repo `Ch-y-Online` và **nhánh** muốn triển khai.
+2. Tên Worker phải là **`chay-online`** (khớp `name` trong `wrangler.jsonc`; nếu muốn tên khác, sửa `name` rồi đẩy mã).
+3. **Build command**: để trống (Wrangler tự chạy `node scripts/build-assets.mjs`). **Deploy command**: `npx wrangler deploy`. **Root directory**: để trống. Nếu có ô biến môi trường lúc build, đặt `NODE_VERSION=22`.
+4. Lưu và đẩy một commit lên nhánh đó (hoặc bấm Retry build). Lần đầu Cloudflare tạo Durable Object cho dữ liệu.
+5. Worker → **Settings → Variables and Secrets** → thêm **Secret**: `ADMIN_USER`, `ADMIN_PASS` (bắt buộc nếu muốn dùng `/admin/`), và nếu dùng Strava: `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`. (Secret không bị ghi đè khi triển khai lại.)
+6. Mở địa chỉ `https://chay-online.<tài-khoản>.workers.dev`. Kiểm tra `/healthz`, chơi thử, mở `/admin/`.
+7. Tên miền riêng: Worker → **Settings → Domains & Routes → Add → Custom domain** (tên miền phải do Cloudflare quản lý DNS; DuckDNS không dùng được). Địa chỉ công khai (`BASE_URL`, dùng cho Strava) tự lấy từ địa chỉ người dùng truy cập, không phải cấu hình.
+
+Lưu ý:
+- Mọi thay đổi trong `wrangler.jsonc` (biến `vars`, R2...) là nguồn sự thật; biến thường đặt trên dashboard sẽ bị ghi đè khi triển khai lại, nên chỉ đặt **Secret** trên dashboard.
+- Ảnh bản đồ: trên `*.workers.dev` Cache API không hoạt động; dùng tên miền riêng hoặc bật R2 (bỏ chú thích `r2_buckets` trong `wrangler.jsonc` sau khi tạo bucket `chay-tiles`) để server lưu ảnh một lần.
+- Dữ liệu nằm trong Durable Object (SQLite) của Cloudflare; chưa có công cụ xuất/sao lưu trong dự án.
+- Một Durable Object phục vụ toàn bộ API và WebSocket, phù hợp từ vài trăm người chơi đồng thời; WebSocket đang mở được tính phí thời gian chạy, hãy xem hạn mức/giá hiện hành của Cloudflare.
+- Chạy thử tại chỗ bản Cloudflare: `printf 'ADMIN_USER=admin\nADMIN_PASS=matkhau123\nSTRAVA_MOCK=1\n' > .dev.vars && npm run dev:worker` rồi mở http://localhost:8787.
+
+---
+Các cách dưới đây là phương án khác (chạy trên máy cá nhân/Docker), không cần cho luồng Cloudflare + Git.
+
+Hai phương án phụ: **C. chạy trên máy cá nhân + Cloudflare Tunnel (không Docker, để thử nghiệm)** và **B. máy chủ Node/Docker**. Cả hai dùng chung mã nguồn và `core.js` với bản Cloudflare.
 
 ## C. Máy cá nhân + Cloudflare Tunnel, chạy như dịch vụ nền (không Docker)
 Game chạy trên máy của bạn bằng Node; **cloudflared** mở một đường hầm ra ngoài tới Cloudflare nên **không phải mở cổng router**, IP nhà không lộ, có HTTPS miễn phí. Dữ liệu nằm ở thư mục `data/` trên máy bạn.
@@ -54,48 +75,6 @@ Lệnh in địa chỉ dạng `https://xxxx.trycloudflare.com`: gửi địa ch�
 
 
 
-## A. Cloudflare Workers + Durable Object (không container)
-Kiến trúc: file tĩnh (`public/`) do Cloudflare phục vụ; `/api`, `/auth`, `/ws` chạy trong một **Durable Object** có SQLite riêng (lưu tài khoản, lịch sử, giải đấu, thống kê); `/tiles` là Worker lưu ảnh bản đồ một lần (R2 nếu bật, nếu không thì cache biên). Không cần server, Docker hay CSDL ngoài.
-
-### Các bước
-1. Tạo tài khoản Cloudflare (dash.cloudflare.com). Trên máy của bạn cần Node 22+ và Git.
-2. Lấy mã nguồn, cài thư viện, đăng nhập:
-   ```bash
-   npm install
-   npx wrangler login
-   ```
-3. Mở `wrangler.jsonc`, sửa `BASE_URL` thành địa chỉ thật. Chưa có tên miền riêng thì tạm dùng `https://chay-online.<tên-tài-khoản>.workers.dev` (tên chính xác hiện ra sau lần deploy đầu; deploy lại sau khi sửa).
-4. Đặt bí mật (không ghi vào file):
-   ```bash
-   npx wrangler secret put ADMIN_USER
-   npx wrangler secret put ADMIN_PASS
-   # nếu dùng Strava:
-   npx wrangler secret put STRAVA_CLIENT_ID
-   npx wrangler secret put STRAVA_CLIENT_SECRET
-   ```
-   (Lệnh `secret put` hỏi bạn tạo Worker mới nếu chưa có: chọn Yes, hoặc chạy bước 5 trước rồi đặt bí mật sau.)
-5. Triển khai:
-   ```bash
-   npm run deploy:worker
-   ```
-   Wrangler dựng `dist/assets`, tải mã và file tĩnh lên, tạo Durable Object và in địa chỉ Worker.
-6. Kiểm tra: `curl https://<địa-chỉ>/healthz`, mở trang chủ, chơi thử, mở `/admin/`. Có thể chạy `node tools/smoke.mjs https://<địa-chỉ> <ADMIN_USER> <ADMIN_PASS>` (lưu ý: bài kiểm tra tạo rồi xóa một tài khoản và một giải thử).
-7. Tên miền riêng: Workers & Pages → chọn `chay-online` → Settings → Domains & Routes → Add → Custom domain (tên miền phải nằm trong Cloudflare). Sau đó sửa `BASE_URL` và deploy lại.
-8. Strava: ô **Authorization Callback Domain** điền tên miền (không có `https://`).
-
-### Triển khai tự động từ GitHub
-Workers & Pages → Create → Import a repository → chọn repo/nhánh. Build command để trống (Wrangler tự chạy `node scripts/build-assets.mjs`), Deploy command `npx wrangler deploy`. Mỗi lần push là một lần triển khai.
-
-### Chạy thử trên máy
-`printf 'ADMIN_USER=admin\nADMIN_PASS=matkhau123\nSTRAVA_MOCK=1\n' > .dev.vars && npm run dev:worker` rồi mở http://localhost:8787 (dữ liệu giả lập nằm trong `.wrangler/`).
-
-### Lưu ý
-- **Một Durable Object phục vụ toàn bộ API và WebSocket**: nhất quán và đơn giản, phù hợp từ vài trăm người chơi đồng thời. Muốn lớn hơn cần chia (ví dụ mỗi phòng một Durable Object, bảng xếp hạng vào D1).
-- WebSocket đang mở giữ Durable Object hoạt động nên tính phí thời gian chạy (Duration). Hãy theo dõi mức dùng trong dashboard; hạn mức và giá của gói Free/Paid do Cloudflare quy định và có thể đổi, bạn xem ở trang Pricing của họ.
-- Cache API **không hoạt động trên miền `*.workers.dev`**: ở đó ảnh bản đồ chỉ được trình duyệt giữ lại (Service Worker). Dùng tên miền riêng hoặc bật R2: `npx wrangler r2 bucket create chay-tiles` rồi bỏ chú thích `r2_buckets` trong `wrangler.jsonc`.
-- Dữ liệu nằm trong SQLite của Durable Object, **chưa có công cụ xuất/sao lưu** trong dự án (Cloudflare có khôi phục theo thời điểm cho SQLite Durable Object). Dữ liệu từ bản Node cũ không tự chuyển sang.
-- Đổi `TILES_VERSION` trong `wrangler.jsonc` để buộc tải lại ảnh bản đồ.
-
 ## B. Máy chủ Node / Docker
 Yêu cầu: máy chủ có **Node 22.5+** (hoặc Docker), tên miền có HTTPS (Strava, định vị GPS và cookie an toàn đều cần HTTPS).
 
@@ -129,24 +108,5 @@ Dùng Caddy hoặc Nginx làm reverse proxy tới cổng 3000, bắt buộc chuy
 - Trang quản trị có theo dõi truy cập (IP băm, mã thiết bị): nên có chính sách quyền riêng tư.
 - Một tiến trình Node, một file SQLite: phù hợp vài trăm người chơi đồng thời; muốn lớn hơn cần tách lưu trữ.
 
-## D. VPS + tên miền DuckDNS (không dùng Cloudflare Tunnel)
-**Vì sao không gắn DuckDNS vào Cloudflare Tunnel được:** tunnel có tên cố định chỉ chạy với tên miền do Cloudflare quản lý DNS, mà DuckDNS không cho chuyển DNS về Cloudflare (chỉ cho đặt IP). Với DuckDNS, bạn trỏ thẳng tên miền vào IP của máy chủ có IP công khai cố định, tức VPS.
-
-1. Có VPS Ubuntu/Debian (1 GB RAM trở lên), mở cổng 80 và 443 ở tường lửa của nhà cung cấp.
-2. Vào duckdns.org, ở dòng `chayonline` điền **IPv4 của VPS** rồi bấm update.
-3. Chép mã nguồn lên VPS (git clone, hoặc giải nén gói), rồi chạy:
-   ```bash
-   sudo DOMAIN=chayonline.duckdns.org ADMIN_USER=ten ADMIN_PASS='mat-khau-dai' bash deploy/vps/setup-ubuntu.sh
-   ```
-   Script cài Node 22, dịch vụ nền, Caddy (tự xin chứng chỉ HTTPS Let's Encrypt), tường lửa, và đặt `BASE_URL=https://chayonline.duckdns.org`.
-4. Mở https://chayonline.duckdns.org . Strava: ô Callback Domain điền `chayonline.duckdns.org`.
-- Lưu ý: tên miền DuckDNS có thể bị một số trình duyệt hoặc dịch vụ chống lừa đảo gắn cờ; nếu gặp, đổi sang tên miền mua riêng.
-- Chạy ngay trên máy cá nhân với DuckDNS là có thể (mở cổng 80/443 trên router, cài Caddy, DuckDNS cập nhật IP nhà) nhưng không khuyến nghị: nhiều nhà mạng dùng CGNAT nên không mở cổng được, và IP nhà bị lộ.
-
-## E. Tự build và triển khai từ GitHub (CI/CD)
-Có hai cách, chọn một:
-1. **Cloudflare tự lấy mã từ GitHub (dễ nhất, không cần khóa trong GitHub):** Cloudflare dashboard → Workers & Pages → Create → Import a repository → chọn repo và nhánh. Build command để trống (Wrangler tự chạy `node scripts/build-assets.mjs`), Deploy command `npx wrangler deploy`. Đặt bí mật (ADMIN_USER, ADMIN_PASS...) trong Settings → Variables and Secrets của Worker. Mỗi lần đẩy mã lên nhánh đó là tự triển khai.
-2. **GitHub Actions** (`.github/workflows/`):
-   - `ci.yml`: chạy trên mọi lần đẩy mã và pull request: kiểm cú pháp, chạy server Node thật rồi kiểm thử đầu-cuối (`tools/smoke.mjs`, `tools/test-flush.mjs`), và dựng thử bản Cloudflare (`wrangler deploy --dry-run`). Không cần khóa.
-   - `deploy-cloudflare.yml`: triển khai lên Cloudflare Workers khi đẩy lên nhánh `main`, hoặc bấm tay ở tab Actions (chọn nhánh). Cần khai trong GitHub → Settings → Secrets and variables → Actions: `CLOUDFLARE_API_TOKEN` (tạo ở Cloudflare → My Profile → API Tokens, mẫu "Edit Cloudflare Workers") và `CLOUDFLARE_ACCOUNT_ID`; tùy chọn `ADMIN_USER`, `ADMIN_PASS`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` để workflow tự đặt bí mật cho Worker.
-- Lưu ý: hiện repo chỉ có nhánh `claude/chay-online-game`, chưa có `main`; hãy tạo `main` (hoặc bấm chạy tay và chọn nhánh hiện có). Bản Cloudflare dùng địa chỉ `*.workers.dev` hoặc tên miền do Cloudflare quản lý (không dùng được DuckDNS). Dữ liệu nằm trong Durable Object của Cloudflare, tách biệt với dữ liệu trên máy/VPS của bạn.
+## Kiểm tra tự động (CI)
+`.github/workflows/ci.yml` chạy trên mọi lần đẩy mã và pull request: kiểm cú pháp, chạy server Node thật rồi kiểm thử đầu-cuối (`tools/smoke.mjs`, `tools/test-flush.mjs`), dựng thử bản Cloudflare (`wrangler deploy --dry-run`). Không cần khóa. Việc triển khai do Cloudflare đảm nhiệm (mục "Cloudflare + Git" ở đầu tài liệu).

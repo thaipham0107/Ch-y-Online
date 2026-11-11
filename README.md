@@ -64,7 +64,7 @@ Hình học và độ cao của 10 bản đồ nằm trong `public/courses/` (`<
 - Theo dõi truy cập: `public/js/track.js` gửi mở trang + nhịp 30 giây (chỉ tính lúc tab hiện) theo mã thiết bị ngẫu nhiên; IP lưu dạng băm có muối ngẫu nhiên (đổi mỗi lần khởi động), dữ liệu giữ 400 ngày. Nên nêu việc này trong chính sách quyền riêng tư của bạn.
 
 ## Triển khai
-- **Cloudflare Workers (không container)**: `npm run deploy:worker` (xem `DEPLOY.md`, mục A). Kiểm thử tại chỗ: `npm run dev:worker`, rồi `node tools/smoke.mjs http://localhost:8787 <admin> <mật khẩu>`.
+- **Cloudflare + Git (khuyến nghị)**: nối repo với Cloudflare (Workers Builds), mỗi lần đẩy mã là tự triển khai; xem `DEPLOY.md` (mục đầu). Thủ công: `npm run deploy:worker`. Kiểm thử tại chỗ: `npm run dev:worker`, rồi `node tools/smoke.mjs http://localhost:8787 <admin> <mật khẩu>`.
 - **Máy cá nhân + Cloudflare Tunnel, chạy dịch vụ nền, không Docker** (`DEPLOY.md`, mục C): `npm run doctor`, rồi `deploy/windows|linux|macos/install-service.*`.
 - Node/Docker: `npm start` hoặc `docker compose up -d` (mục B). Hai bản dùng chung `core.js`.
 

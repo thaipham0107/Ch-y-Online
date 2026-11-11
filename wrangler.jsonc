@@ -4,6 +4,7 @@
   "main": "worker/index.js",
   "compatibility_date": "2025-10-01",
   "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
   "build": { "command": "node scripts/build-assets.mjs" },
   "assets": {
     "directory": "./dist/assets",
@@ -12,8 +13,8 @@
   "durable_objects": { "bindings": [{ "name": "HUB", "class_name": "Hub" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Hub"] }],
   "vars": {
-    // Đổi thành địa chỉ thật của bạn (dùng cho đăng nhập Strava và cookie an toàn)
-    "BASE_URL": "https://chay-online.example.workers.dev",
+    // BASE_URL (địa chỉ công khai, dùng cho đăng nhập Strava) tự lấy từ địa chỉ truy cập đầu tiên.
+    // Chỉ khi cần cố định (ví dụ dùng nhiều tên miền) mới thêm dòng: "BASE_URL": "https://ten-mien-cua-ban",
     "TILES_VERSION": "1",
     // Vùng đặt dữ liệu: apac gần Việt Nam nhất. Bỏ dòng này nếu muốn Cloudflare tự chọn.
     "HUB_LOCATION": "apac"

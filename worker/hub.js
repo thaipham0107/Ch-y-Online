@@ -7,18 +7,24 @@ import pkg from '../package.json';
 export class Hub extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
+    this.env = env; this.core = null; this.app = null; this.socks = 0; this.timer = null; this.lastSweep = 0;
+  }
+
+  // Khởi tạo ở yêu cầu đầu tiên để biết địa chỉ công khai thật (workers.dev hoặc tên miền riêng): BASE_URL tự lấy từ đó nếu chưa đặt biến BASE_URL.
+  init(request) {
     const strEnv = {};
-    for (const [k, v] of Object.entries(env)) if (typeof v === 'string') strEnv[k] = v;
+    for (const [k, v] of Object.entries(this.env)) if (typeof v === 'string') strEnv[k] = v;
+    if (!strEnv.BASE_URL) strEnv.BASE_URL = new URL(request.url).origin;
     try { Object.assign(process.env, strEnv); } catch { /* môi trường không cho ghi */ }
     // nạp muộn để strava.js / admin.js thấy đủ biến môi trường
     const createCore = require('../core.js'), createApp = require('../lite-express.js');
     this.app = createApp();
     this.app.use((req, res, next) => { res.set('X-Content-Type-Options', 'nosniff'); next(); });
-    this.core = createCore({ db: makeDb(ctx), app: this.app, env: strEnv, platform: { version: pkg.version, meta, tileStats: () => ({ store: env.TILES ? 'r2' : 'edge-cache' }) } });
-    this.socks = 0; this.timer = null; this.lastSweep = 0;
+    this.core = createCore({ db: makeDb(this.ctx), app: this.app, env: strEnv, platform: { version: pkg.version, meta, tileStats: () => ({ store: this.env.TILES ? 'r2' : 'edge-cache' }) } });
   }
 
   async fetch(request) {
+    if (!this.core) this.init(request);
     const now = Date.now();
     if (now - this.lastSweep > 30000) { this.lastSweep = now; try { this.core.sweep(); } catch (e) { console.error('sweep', e.message); } }
     if (request.headers.get('Upgrade') === 'websocket') return this.socket(request);
