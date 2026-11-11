@@ -142,3 +142,11 @@ Dùng Caddy hoặc Nginx làm reverse proxy tới cổng 3000, bắt buộc chuy
 4. Mở https://chayonline.duckdns.org . Strava: ô Callback Domain điền `chayonline.duckdns.org`.
 - Lưu ý: tên miền DuckDNS có thể bị một số trình duyệt hoặc dịch vụ chống lừa đảo gắn cờ; nếu gặp, đổi sang tên miền mua riêng.
 - Chạy ngay trên máy cá nhân với DuckDNS là có thể (mở cổng 80/443 trên router, cài Caddy, DuckDNS cập nhật IP nhà) nhưng không khuyến nghị: nhiều nhà mạng dùng CGNAT nên không mở cổng được, và IP nhà bị lộ.
+
+## E. Tự build và triển khai từ GitHub (CI/CD)
+Có hai cách, chọn một:
+1. **Cloudflare tự lấy mã từ GitHub (dễ nhất, không cần khóa trong GitHub):** Cloudflare dashboard → Workers & Pages → Create → Import a repository → chọn repo và nhánh. Build command để trống (Wrangler tự chạy `node scripts/build-assets.mjs`), Deploy command `npx wrangler deploy`. Đặt bí mật (ADMIN_USER, ADMIN_PASS...) trong Settings → Variables and Secrets của Worker. Mỗi lần đẩy mã lên nhánh đó là tự triển khai.
+2. **GitHub Actions** (`.github/workflows/`):
+   - `ci.yml`: chạy trên mọi lần đẩy mã và pull request: kiểm cú pháp, chạy server Node thật rồi kiểm thử đầu-cuối (`tools/smoke.mjs`, `tools/test-flush.mjs`), và dựng thử bản Cloudflare (`wrangler deploy --dry-run`). Không cần khóa.
+   - `deploy-cloudflare.yml`: triển khai lên Cloudflare Workers khi đẩy lên nhánh `main`, hoặc bấm tay ở tab Actions (chọn nhánh). Cần khai trong GitHub → Settings → Secrets and variables → Actions: `CLOUDFLARE_API_TOKEN` (tạo ở Cloudflare → My Profile → API Tokens, mẫu "Edit Cloudflare Workers") và `CLOUDFLARE_ACCOUNT_ID`; tùy chọn `ADMIN_USER`, `ADMIN_PASS`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` để workflow tự đặt bí mật cho Worker.
+- Lưu ý: hiện repo chỉ có nhánh `claude/chay-online-game`, chưa có `main`; hãy tạo `main` (hoặc bấm chạy tay và chọn nhánh hiện có). Bản Cloudflare dùng địa chỉ `*.workers.dev` hoặc tên miền do Cloudflare quản lý (không dùng được DuckDNS). Dữ liệu nằm trong Durable Object của Cloudflare, tách biệt với dữ liệu trên máy/VPS của bạn.

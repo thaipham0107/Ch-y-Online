@@ -1,0 +1,36 @@
+name: Deploy Cloudflare
+# Tự triển khai bản Cloudflare Workers khi đẩy lên nhánh main, hoặc bấm tay (Actions -> Deploy Cloudflare -> Run workflow) và chọn nhánh.
+# Cần đặt trong GitHub: Settings -> Secrets and variables -> Actions:
+#   CLOUDFLARE_API_TOKEN (quyền "Edit Cloudflare Workers"), CLOUDFLARE_ACCOUNT_ID
+#   (tùy chọn, để đặt bí mật cho game) ADMIN_USER, ADMIN_PASS, STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency: deploy-cloudflare
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Triển khai
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Đặt bí mật cho game (nếu đã khai trong GitHub)
+        run: |
+          for k in ADMIN_USER ADMIN_PASS STRAVA_CLIENT_ID STRAVA_CLIENT_SECRET; do
+            v="${!k:-}"; if [ -n "$v" ]; then printf '%s' "$v" | npx wrangler secret put "$k"; fi
+          done
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ADMIN_USER: ${{ secrets.ADMIN_USER }}
+          ADMIN_PASS: ${{ secrets.ADMIN_PASS }}
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}

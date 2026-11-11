@@ -1,0 +1,27 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Kiểm tra cú pháp
+        run: |
+          for f in server.js core.js admin.js maps.js strava.js lite-express.js node-tiles.js worker/*.js; do node --check "$f" 2>/dev/null || node --input-type=module --check < "$f"; done
+          for f in public/js/*.js public/admin/admin.js; do node --input-type=module --check < "$f" 2>/dev/null || node --check "$f"; done
+      - name: Chạy server Node và kiểm thử đầu-cuối
+        run: |
+          mkdir -p "$RUNNER_TEMP/data"
+          PORT=3900 DATA_DIR="$RUNNER_TEMP/data" ADMIN_USER=ci ADMIN_PASS=ci-password-123 STRAVA_MOCK=1 node server.js > "$RUNNER_TEMP/server.log" 2>&1 &
+          sleep 4
+          node tools/smoke.mjs http://localhost:3900 ci ci-password-123
+          node tools/test-flush.mjs http://localhost:3900 "$RUNNER_TEMP/data"
+      - name: Dựng bản Cloudflare (không triển khai)
+        run: |
+          npm run build:worker
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker-out"
