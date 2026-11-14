@@ -1,4 +1,7 @@
 # Changelog
+## Chưa phát hành
+- Bản thử mô hình 3D GLB: `/viewer.html` (xem/đánh giá file .glb), `public/js/props.js` đặt địa danh dọc đường theo `public/props/<bản đồ>.json`, check-in địa danh, `?perf=1` đo FPS; 5 mô hình mẫu; hướng dẫn `docs/mo-hinh-3d.md`.
+
 ## 1.2.0
 - Triển khai Cloudflare + Git: BASE_URL tự lấy từ địa chỉ truy cập, bật observability, `.nvmrc`, hướng dẫn nối repo với Workers Builds; bỏ luồng VPS/GitHub Actions deploy (giữ CI kiểm thử).
 - Về đích luôn ra được bảng kết quả: bọc lỗi âm thanh/bảng kết quả, có bảng tối giản dự phòng và đồng hồ canh chừng 2,5 giây; lỗi chạy hiện một dòng đỏ trên màn hình để người chơi chụp gửi lại.

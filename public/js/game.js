@@ -4,6 +4,7 @@ import * as THREE from '/vendor/three.module.js';   // đường dẫn thẳng, 
 import { buildWorld, textSprite } from './world.js';
 import { buildGpsWorld } from './gpsworld.js';
 import { sfx } from './sound.js';
+import { Props, perfOverlay } from './props.js';
 const S = window.Shared, R = S.RULES, LX = S.LANES.X;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const C = (h) => new THREE.Color(h);
@@ -417,6 +418,8 @@ export class Game {
     this.camera.near = bb ? 2 : 0.5; this.camera.far = bb ? 40000 : 2500; this.camera.updateProjectionMatrix();
     this.scene.background = C(this.world.theme.bg); this.scene.fog = new THREE.Fog(this.world.theme.bg, 70, 190);
     this.world.setFinish(this.total);
+    if (this.props) this.props.dispose(); this.props = null;
+    if (this.view === '3d' && course.kind !== 'gps') { try { this.props = new Props(this); this.props.load(course.id).catch(() => {}); } catch (e) { this.props = null; } }   // địa danh GLB: tải nền, lỗi thì bỏ qua
     this.profile = profile; this.mode = mode; this.seed = seed;
     const rng = mulberry(seed);
     this.st = { s: 0, target: 0, rate: 0, v: 0, slideT: 0, slideCd: 0, slides: 0, magT: 0, shieldT: 0, rampMsg: 0, lane: 1, lat: LX[1], stam: R.STAM_MAX, exhausted: false, slowT: 0, boltT: 0, jumpT: 0, jumpCd: 0, auto: 0, stepTimes: [], lastStep: -9,
@@ -474,7 +477,7 @@ export class Game {
     cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.loop);
   }
   dispose() {
-    this.running = false; cancelAnimationFrame(this.raf); this.emo = null; this.squads = [];
+    this.running = false; cancelAnimationFrame(this.raf); this.emo = null; this.squads = []; if (this.props) { this.props.dispose(); this.props = null; }
     if (this.world) { this.scene.remove(this.world.group); if (this.world.dispose) this.world.dispose(); }
     if (this.me) this.scene.remove(this.me.group);
     while (this.dyn.children.length) this.dyn.remove(this.dyn.children[0]);
@@ -812,6 +815,8 @@ export class Game {
     this.camera.position.set(tx - Math.cos(H) * back + sx, ty + up, tz - Math.sin(H) * back); this.camera.lookAt(tx, ty, tz);
     if (this.scene.fog) { this.scene.fog.near = this.camD * 1.6; this.scene.fog.far = this.camD * 7 + 160; }
     w.update(P.x, P.z, this.camD * 1.5); this.renderer.render(this.scene, this.camera);
+    if (this.props) this.props.tick(st.s, t);
+    if (this.perf === undefined) this.perf = perfOverlay(this.renderer); if (this.perf) this.perf();
     this.hudT += dt; if (this.hudT > 0.1) { this.hudT = 0; this.hud(); }
   }
   hud() {

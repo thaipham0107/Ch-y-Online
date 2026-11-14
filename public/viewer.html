@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Xem mô hình 3D · Chạy Online</title>
+<style>
+html,body{margin:0;height:100%;background:#cfe3ef;font:14px/1.4 system-ui,sans-serif;color:#1b1b1b}#c{position:fixed;inset:0;width:100%;height:100%}
+.bar{position:fixed;left:10px;top:10px;right:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:2}
+.bar>*{background:#fffd;border:1px solid #0002;border-radius:10px;padding:6px 10px;font:inherit}.bar button,.bar select,.bar label{cursor:pointer}
+#info{position:fixed;left:10px;bottom:10px;background:#fffe;border-radius:10px;padding:8px 12px;z-index:2;max-width:calc(100vw - 20px);white-space:pre-line}
+</style></head><body>
+<canvas id="c"></canvas>
+<div class="bar"><label>Chọn file .glb/.gltf <input id="f" type="file" accept=".glb,.gltf" hidden></label>
+<select id="s"></select><button id="grid">Lưới/nền</button><button id="wire">Khung dây</button><b>Kéo chuột xoay · cuộn zoom · thả file vào trang</b></div>
+<div id="info">Chưa có mô hình.</div>
+<script type="module">
+import * as THREE from '/vendor/three.module.js';
+import { GLTFLoader } from '/vendor/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from '/vendor/jsm/libs/meshopt_decoder.module.js';
+import { OrbitControls } from '/vendor/jsm/controls/OrbitControls.js';
+const $ = (s) => document.querySelector(s), r = new THREE.WebGLRenderer({ canvas: $('#c'), antialias: true }); r.setPixelRatio(Math.min(2, devicePixelRatio));
+const sc = new THREE.Scene(); sc.background = new THREE.Color('#cfe3ef'); sc.add(new THREE.HemisphereLight('#fff', '#8899aa', 1.6)); const dl = new THREE.DirectionalLight('#fff', 1.6); dl.position.set(6, 12, 8); sc.add(dl);
+const cam = new THREE.PerspectiveCamera(40, 1, 0.1, 5000), ctl = new OrbitControls(cam, r.domElement); ctl.enableDamping = true;
+const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#7aa6bf', roughness: 1 })); sc.add(ground);
+const grid = new THREE.GridHelper(60, 30, '#00000055', '#00000022'); sc.add(grid);
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder); let cur = null, wire = false;
+function show(gltf, label, bytes) {
+  if (cur) sc.remove(cur); cur = gltf.scene; sc.add(cur);
+  let tri = 0, mesh = 0, mats = new Set(), tex = 0, texPx = 0; cur.traverse((o) => { if (o.isMesh) { mesh++; const g = o.geometry; tri += (g.index ? g.index.count : g.attributes.position.count) / 3; [].concat(o.material).forEach((m) => { mats.add(m); for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']) if (m[k] && m[k].image) { tex++; texPx += (m[k].image.width || 0) * (m[k].image.height || 0); } }); } });
+  const box = new THREE.Box3().setFromObject(cur), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  cur.position.sub(new THREE.Vector3(c.x, box.min.y, c.z)); const d = Math.max(size.x, size.y, size.z) * 1.9; cam.position.set(d, d * 0.7, d); ctl.target.set(0, size.y / 2, 0); ctl.update();
+  const verdict = tri > 150000 ? 'RẤT NẶNG cho điện thoại, cần giảm mặt' : tri > 50000 ? 'nặng, chỉ nên dùng cho địa danh chính' : tri > 15000 ? 'vừa phải cho địa danh' : 'nhẹ';
+  $('#info').textContent = `${label}\nDung lượng: ${(bytes / 1048576).toFixed(2)} MB · Mặt tam giác: ${Math.round(tri).toLocaleString('vi-VN')} (${verdict})\nMesh: ${mesh} · Vật liệu: ${mats.size} · Ảnh texture: ${tex} (${(texPx / 1e6).toFixed(1)} triệu điểm ảnh)\nKích thước (đơn vị mô hình): ${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)}\nNhắc: kiểm tra giấy phép/điều khoản của công cụ tạo ra mô hình trước khi đưa vào game.`;
+}
+async function loadUrl(u) { const res = await fetch(u); const buf = await res.arrayBuffer(); loader.parse(buf, u.replace(/[^/]*$/, ''), (g) => show(g, u.split('/').pop(), buf.byteLength), (e) => { $('#info').textContent = 'Lỗi đọc mô hình: ' + e.message; }); }
+async function loadFile(f) { const buf = await f.arrayBuffer(); loader.parse(buf, '', (g) => show(g, f.name, buf.byteLength), (e) => { $('#info').textContent = 'Lỗi đọc mô hình: ' + (e.message || e); }); }
+$('#f').onchange = (e) => e.target.files[0] && loadFile(e.target.files[0]);
+addEventListener('dragover', (e) => e.preventDefault()); addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+$('#grid').onclick = () => { grid.visible = !grid.visible; ground.visible = grid.visible; };
+$('#wire').onclick = () => { wire = !wire; cur && cur.traverse((o) => { if (o.isMesh) [].concat(o.material).forEach((m) => { m.wireframe = wire; }); }); };
+fetch('/models/index.json').then((x) => x.json()).then((list) => { $('#s').innerHTML = '<option value="">Mô hình mẫu…</option>' + list.map((m) => `<option value="/models/${m}">${m}</option>`).join(''); const q = new URLSearchParams(location.search).get('m'); if (q) { $('#s').value = '/models/' + q; loadUrl('/models/' + q); } }).catch(() => {});
+$('#s').onchange = (e) => e.target.value && loadUrl(e.target.value);
+function size() { r.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); } addEventListener('resize', size); size();
+(function loop() { requestAnimationFrame(loop); ctl.update(); r.render(sc, cam); })();
+</script></body></html>

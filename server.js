@@ -30,6 +30,13 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: '300kb' }));
 app.use('/maps.js', (req, res) => res.sendFile(path.join(__dirname, 'maps.js')));
+// các bộ nạp/điều khiển của three.js (nạp mô hình .glb, xem mô hình...), viết lại 'three' thành đường dẫn thẳng để chạy không cần import map
+const JSM = ['loaders/GLTFLoader.js', 'utils/BufferGeometryUtils.js', 'libs/meshopt_decoder.module.js', 'controls/OrbitControls.js', 'exporters/GLTFExporter.js'], jsmCache = new Map();
+app.get('/vendor/jsm/*', (req, res) => {
+  const rel = String(req.params[0]); if (!JSM.includes(rel)) return res.status(404).end();
+  if (!jsmCache.has(rel)) jsmCache.set(rel, fs.readFileSync(path.join(__dirname, 'node_modules/three/examples/jsm', rel), 'utf8').replace(/from\s+'three'/g, "from '/vendor/three.module.js'"));
+  res.type('text/javascript').set('Cache-Control', 'public, max-age=86400').send(jsmCache.get(rel));
+});
 app.use('/vendor', express.static(path.join(__dirname, 'node_modules/three/build')));
 app.use('/leaflet', express.static(path.join(__dirname, 'node_modules/leaflet/dist')));
 app.use(express.static(path.join(__dirname, 'public')));

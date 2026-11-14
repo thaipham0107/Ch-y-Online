@@ -1,0 +1,8 @@
+[
+  { "model": "karst.glb", "name": "Hòn đá vôi", "s": 700, "lat": 120, "scale": 2.2, "sea": true },
+  { "model": "karst.glb", "name": "Hòn đá vôi", "s": 1500, "lat": 170, "scale": 3, "rotY": 90, "sea": true },
+  { "model": "junk-boat.glb", "name": "Thuyền buồm Hạ Long", "s": 1100, "lat": 45, "scale": 2.4, "sea": true, "checkin": true },
+  { "model": "tour-boat.glb", "name": "Tàu du lịch vịnh", "s": 2200, "lat": 70, "scale": 2, "rotY": 20, "sea": true, "checkin": true },
+  { "model": "junk-boat.glb", "name": "Thuyền buồm", "s": 3200, "lat": 90, "scale": 2.4, "rotY": 180, "sea": true },
+  { "model": "karst.glb", "name": "Hòn đá vôi", "s": 4200, "lat": 140, "scale": 2.6, "sea": true }
+]
